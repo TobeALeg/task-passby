@@ -26,6 +26,14 @@ export interface WorkStateItem {
   sourceMessageIds: string[];
 }
 
+export type ExtractedWorkStateItem = Omit<WorkStateItem, "origin"> & {
+  origin: Exclude<WorkStateOrigin, "USER_EDITED">;
+};
+
+export type WorkStatePatch = Partial<
+  Record<WorkStateField, ExtractedWorkStateItem[]>
+>;
+
 export type WorkState = Record<WorkStateField, WorkStateItem[]>;
 
 export interface Executor {
@@ -154,5 +162,12 @@ export interface WorkCore {
     workInstanceId: string,
     events: SourceEventInput[],
   ): { appendedCount: number; duplicateCount: number; work: WorkSnapshot };
+  applyExtractorPatch(workInstanceId: string, patch: WorkStatePatch): WorkSnapshot;
+  editWorkStateItem(
+    workInstanceId: string,
+    field: WorkStateField,
+    itemId: string,
+    text: string,
+  ): WorkSnapshot;
   close(): void;
 }

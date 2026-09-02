@@ -96,3 +96,55 @@ test("追加来源事件时按 externalId 去重并按 sequence 保持原始顺�
 
   core.close();
 });
+
+test("Extractor 可更新八字段但不能覆盖 USER_EDITED 内容", () => {
+  const core = createWorkCore({ databasePath: ":memory:" });
+  const created = core.createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    executor: { type: "AGENT", name: "Codex" },
+    environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
+    source: { adapter: "codex", conversationId: "thread-state" },
+  });
+
+  const extracted = core.applyExtractorPatch(created.instance.id, {
+    objective: [stateItem("objective-1", "实现 MVP", "USER_STATED")],
+    successCriteria: [stateItem("criteria-1", "真实完成接力")],
+    constraints: [stateItem("constraint-1", "数据只存本机")],
+    facts: [stateItem("fact-1", "WorkBuddy 支持 MCP")],
+    decisions: [stateItem("decision-1", "使用 SQLite")],
+    completedActions: [stateItem("done-1", "完成领域建模")],
+    pendingActions: [stateItem("pending-1", "接入 WorkBuddy")],
+    artifacts: [stateItem("artifact-1", "需求说明")],
+  });
+  const edited = core.editWorkStateItem(
+    created.instance.id,
+    "facts",
+    "fact-1",
+    "WorkBuddy 通过本地 Connector 提供 MCP",
+  );
+  const patchedAgain = core.applyExtractorPatch(created.instance.id, {
+    facts: [stateItem("fact-1", "模型试图覆盖的旧事实")],
+  });
+
+  assert.deepEqual(
+    Object.values(extracted.state).map((items) => items.length),
+    [1, 1, 1, 1, 1, 1, 1, 1],
+  );
+  assert.equal(edited.state.facts[0]?.origin, "USER_EDITED");
+  assert.equal(
+    patchedAgain.state.facts[0]?.text,
+    "WorkBuddy 通过本地 Connector 提供 MCP",
+  );
+  assert.equal(patchedAgain.state.facts[0]?.origin, "USER_EDITED");
+  assert.deepEqual(patchedAgain.state.facts[0]?.sourceMessageIds, ["message-1"]);
+
+  core.close();
+});
+
+function stateItem(
+  id: string,
+  text: string,
+  origin: "USER_STATED" | "AGENT_PROPOSED" | "SYSTEM_INFERRED" = "SYSTEM_INFERRED",
+) {
+  return { id, text, origin, sourceMessageIds: ["message-1"] };
+}

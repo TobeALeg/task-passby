@@ -16,6 +16,8 @@ import {
   type WorkState,
   type SourceEvent,
   type SourceEventInput,
+  type WorkStateField,
+  type WorkStatePatch,
 } from "./types.ts";
 
 type Row = Record<string, unknown>;
@@ -286,6 +288,62 @@ export class SqliteWorkCore implements WorkCore {
       duplicateCount: events.length - appendedCount,
       work: this.#requireWork(workInstanceId),
     };
+  }
+
+  applyExtractorPatch(workInstanceId: string, patch: WorkStatePatch): WorkSnapshot {
+    const work = this.#requireWork(workInstanceId);
+    const nextState = structuredClone(work.state);
+
+    for (const field of WORK_STATE_FIELDS) {
+      const incomingItems = patch[field];
+      if (!incomingItems) continue;
+
+      for (const incomingItem of incomingItems) {
+        const existingIndex = nextState[field].findIndex(
+          (existing) => existing.id === incomingItem.id,
+        );
+        const existing = nextState[field][existingIndex];
+        if (existing?.origin === "USER_EDITED") continue;
+
+        if (existingIndex === -1) {
+          nextState[field].push(structuredClone(incomingItem));
+        } else {
+          nextState[field][existingIndex] = structuredClone(incomingItem);
+        }
+      }
+    }
+
+    this.#saveState(workInstanceId, nextState);
+    return this.#requireWork(workInstanceId);
+  }
+
+  editWorkStateItem(
+    workInstanceId: string,
+    field: WorkStateField,
+    itemId: string,
+    text: string,
+  ): WorkSnapshot {
+    const work = this.#requireWork(workInstanceId);
+    const nextState = structuredClone(work.state);
+    const item = nextState[field].find((candidate) => candidate.id === itemId);
+    if (!item) throw new Error("WORK_STATE_ITEM_NOT_FOUND");
+
+    item.text = text;
+    item.origin = "USER_EDITED";
+    this.#saveState(workInstanceId, nextState);
+    return this.#requireWork(workInstanceId);
+  }
+
+  #saveState(workInstanceId: string, state: WorkState): void {
+    const result = this.#database
+      .prepare(
+        `UPDATE work_records SET state_json = ? WHERE work_instance_id = ?`,
+      )
+      .run(JSON.stringify(state), workInstanceId);
+    if (result.changes === 0) throw new Error("WORK_NOT_FOUND");
+    this.#database
+      .prepare("UPDATE work_instances SET updated_at = ? WHERE id = ?")
+      .run(this.#now(), workInstanceId);
   }
 
   #requireWork(workInstanceId: string): WorkSnapshot {

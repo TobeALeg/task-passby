@@ -1,0 +1,53 @@
+{
+  "description": "WorkPet 只记录被明确交接的 WorkBuddy 会话",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CODEBUDDY_PLUGIN_ROOT}/bridge/hook-proxy.mjs\"",
+            "description": "恢复已绑定 WorkInstance 的记录",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CODEBUDDY_PLUGIN_ROOT}/bridge/hook-proxy.mjs\"",
+            "description": "归档用户提交的 Prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CODEBUDDY_PLUGIN_ROOT}/bridge/hook-proxy.mjs\"",
+            "description": "归档本轮可见回复与资料",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CODEBUDDY_PLUGIN_ROOT}/bridge/hook-proxy.mjs\"",
+            "description": "保存同步位置但不结束 WorkInstance",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "workpet",
+  "version": "0.1.0",
+  "description": "让 WorkBuddy 接手并继续记录 WorkPet 中的工作",
+  "author": {
+    "name": "WorkPet"
+  },
+  "category": "productivity",
+  "keywords": ["work-record", "handoff", "mcp"]
+}

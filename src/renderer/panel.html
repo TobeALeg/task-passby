@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WorkPet</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div><span class="eyebrow">WORKPET</span><h1>我的工作</h1></div>
+      <button id="close-panel" class="icon-button" aria-label="关闭">×</button>
+    </header>
+
+    <main>
+      <section class="toolbar">
+        <div class="filters" role="tablist">
+          <button class="filter active" data-filter="OPEN">进行中</button>
+          <button class="filter" data-filter="COMPLETED">已完成</button>
+          <button class="filter" data-filter="ARCHIVED">已归档</button>
+        </div>
+        <div class="toolbar-actions"><button id="setup-integrations" class="secondary">设置接入</button><button id="record-codex" class="primary">记录 Codex</button></div>
+      </section>
+
+      <div id="notice" class="notice" hidden></div>
+      <section id="work-list" class="work-list"></section>
+      <section id="work-detail" class="work-detail" hidden></section>
+    </main>
+
+    <dialog id="import-dialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-heading"><span class="eyebrow">从 Codex 创建</span><h2>选择要记录的任务</h2></div>
+        <label class="field">Codex 任务<select id="codex-thread"></select></label>
+        <div id="import-preview" class="import-preview"></div>
+        <label class="consent"><input id="cloud-consent" type="checkbox" />允许将必要对话发送给已配置的云端模型提炼 Work State</label>
+        <div class="dialog-actions">
+          <button value="cancel" class="secondary">取消</button>
+          <button id="confirm-import" value="default" class="primary">确认记录</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="delete-dialog">
+      <form method="dialog" class="dialog-card danger-card">
+        <div class="dialog-heading"><span class="eyebrow">永久删除</span><h2>这份本地记录将无法恢复</h2></div>
+        <p>原始文件、Codex 与 WorkBuddy 对话不会被删除。请输入“永久删除”继续。</p>
+        <label class="field">确认文字<input id="delete-confirmation" autocomplete="off" /></label>
+        <div class="dialog-actions"><button value="cancel" class="secondary">取消</button><button id="confirm-delete" value="default" class="danger">永久删除</button></div>
+      </form>
+    </dialog>
+
+    <script type="module" src="panel.js"></script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "workpet-local",
+  "interface": {
+    "displayName": "WorkPet Local"
+  },
+  "plugins": [
+    {
+      "name": "workpet-capture",
+      "source": {
+        "source": "local",
+        "path": "./plugins/workpet-capture"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

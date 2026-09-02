@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { createWorkCore } from "../../dist/src/core/index.js";
+import { createWorkCore } from "../../dist/core/index.js";
 
 test("创建工作时一次建立定义、实例、记录、执行片段和来源绑定", () => {
   const core = createWorkCore({ databasePath: ":memory:" });

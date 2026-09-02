@@ -1,0 +1,38 @@
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+body { display: grid; place-items: center; -webkit-app-region: drag; }
+.pet {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border: 0;
+  border-radius: 31px 31px 36px 36px;
+  background: #f4c867;
+  box-shadow: 0 12px 30px rgba(56, 39, 18, .22), inset 0 -7px 0 rgba(112, 71, 24, .11);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition: transform .18s ease, background .2s ease;
+}
+.pet:hover { transform: translateY(-3px) scale(1.03); }
+.pet:active { transform: translateY(0) scale(.98); }
+.face { position: absolute; left: 0; right: 0; bottom: 18px; height: 24px; }
+.eye { position: absolute; top: 2px; width: 8px; height: 11px; border-radius: 8px; background: #31271d; transition: height .18s ease; }
+.eye.left { left: 25px; }
+.eye.right { right: 25px; }
+.mouth { position: absolute; left: 39px; top: 15px; width: 10px; height: 5px; border-bottom: 2px solid #31271d; border-radius: 0 0 10px 10px; }
+.paper { position: absolute; left: 28px; top: -5px; width: 34px; height: 35px; padding: 8px 7px; border-radius: 5px; background: #fffaf0; box-shadow: 0 4px 10px rgba(53, 40, 20, .15); transform: rotate(-3deg); }
+.paper i { display: block; height: 2px; margin: 4px 0; background: #d7c7a6; border-radius: 2px; }
+.paper i:last-child { width: 65%; }
+.status-dot { position: absolute; right: 1px; bottom: 5px; width: 16px; height: 16px; border: 3px solid #fff9e9; border-radius: 50%; background: #a6a093; }
+.pet.sleeping .eye { top: 8px; height: 2px; border-radius: 2px; }
+.pet.sleeping .mouth { border-bottom: 0; border-top: 2px solid #31271d; border-radius: 10px 10px 0 0; }
+.pet.awake { background: #f2be4f; animation: breathe 2.4s ease-in-out infinite; }
+.pet.awake .status-dot { background: #3f9d70; }
+.pet.carrying { background: #e99252; animation: carry .7s ease-in-out infinite alternate; }
+.pet.carrying .status-dot { background: #377fd2; }
+.pet.alert { background: #e8735d; animation: nudge .35s ease-in-out 3; }
+.pet.alert .status-dot { background: #b6262e; }
+@keyframes breathe { 50% { transform: translateY(-2px); } }
+@keyframes carry { to { transform: translateY(-5px) rotate(2deg); } }
+@keyframes nudge { 33% { transform: rotate(-5deg); } 66% { transform: rotate(5deg); } }

@@ -1,0 +1,16 @@
+{
+  "name": "workpet-local",
+  "description": "WorkPet 本地工作记录与接力插件市场",
+  "owner": {
+    "name": "WorkPet"
+  },
+  "plugins": [
+    {
+      "name": "workpet",
+      "description": "通过 MCP 读取 WorkRecord，并通过 Hook 把 WorkBuddy 可见对话写回同一个 WorkInstance",
+      "source": "./plugins/workpet",
+      "version": "0.1.0",
+      "category": "productivity"
+    }
+  ]
+}

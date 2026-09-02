@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "workpet": {
+      "command": "node",
+      "args": ["${CODEBUDDY_PLUGIN_ROOT}/bridge/mcp-proxy.mjs"]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "workpet-capture",
+  "version": "0.1.0",
+  "description": "只在用户已绑定 WorkInstance 时通知本地 WorkPet 同步 Codex 任务。",
+  "author": {
+    "name": "WorkPet"
+  },
+  "interface": {
+    "displayName": "WorkPet Capture",
+    "shortDescription": "同步用户主动绑定的 Codex 工作",
+    "longDescription": "Hook 只向本机 WorkPet 发出任务变化信号；未绑定任务不会被持久化。",
+    "developerName": "WorkPet",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "defaultPrompt": "查看当前 Codex 任务是否已绑定 WorkPet。"
+  }
+}

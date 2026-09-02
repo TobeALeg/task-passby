@@ -43,9 +43,12 @@ export function createSchema(database: DatabaseSync): void {
       episode_id TEXT NOT NULL REFERENCES execution_episodes(id) ON DELETE CASCADE,
       adapter TEXT NOT NULL,
       conversation_id TEXT NOT NULL,
-      status TEXT NOT NULL CHECK(status IN ('ACTIVE', 'INACTIVE')),
-      UNIQUE(adapter, conversation_id, status)
+      status TEXT NOT NULL CHECK(status IN ('ACTIVE', 'INACTIVE'))
     ) STRICT;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS one_active_capture_per_conversation
+      ON capture_bindings(adapter, conversation_id)
+      WHERE status = 'ACTIVE';
 
     CREATE TABLE IF NOT EXISTS source_events (
       row_id INTEGER PRIMARY KEY,

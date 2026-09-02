@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { createWorkCore } from "../../src/core/index.ts";
+import { createWorkCore } from "../../dist/src/core/index.js";
 
 test("创建工作时一次建立定义、实例、记录、执行片段和来源绑定", () => {
   const core = createWorkCore({ databasePath: ":memory:" });
@@ -164,6 +164,60 @@ test("删除的 Work State 条目留下 tombstone 并阻止 Extractor 重建", (
 
   assert.deepEqual(deleted.state.pendingActions, []);
   assert.deepEqual(patchedAgain.state.pendingActions, []);
+
+  core.close();
+});
+
+test("完成后停止绑定，继续原工作时在同一实例中新建 Episode", () => {
+  const core = createWorkCore({ databasePath: ":memory:" });
+  const created = core.createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    executor: { type: "AGENT", name: "Codex" },
+    environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
+    source: { adapter: "codex", conversationId: "thread-lifecycle" },
+  });
+  assert.ok(created.activeEpisode);
+  assert.ok(created.activeBinding);
+
+  const completed = core.completeWork(created.instance.id);
+
+  assert.equal(completed.instance.status, "COMPLETED");
+  assert.equal(completed.activeEpisode, null);
+  assert.equal(completed.activeBinding, null);
+  assert.equal(completed.episodes[0]?.status, "ENDED");
+  assert.equal(completed.bindings[0]?.status, "INACTIVE");
+  assert.throws(
+    () =>
+      core.appendSourceEvents(created.instance.id, [
+        {
+          externalId: "after-complete",
+          sequence: 1,
+          kind: "user.prompt",
+          content: "完成后不应自动记录",
+          timestamp: "2026-09-02T10:00:00.000Z",
+          executorType: "HUMAN",
+          environmentType: "CODEX_DESKTOP",
+          metadata: {},
+          artifactRefs: [],
+        },
+      ]),
+    /WORK_NOT_CAPTURING/,
+  );
+
+  const resumed = core.resumeWork(created.instance.id, {
+    executor: { type: "AGENT", name: "Codex" },
+    environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
+    source: { adapter: "codex", conversationId: "thread-lifecycle" },
+  });
+
+  assert.equal(resumed.instance.id, created.instance.id);
+  assert.equal(resumed.instance.status, "OPEN");
+  assert.equal(resumed.episodes.length, 2);
+  assert.equal(resumed.bindings.length, 2);
+  assert.ok(resumed.activeEpisode);
+  assert.notEqual(resumed.activeEpisode.id, created.activeEpisode.id);
+  assert.ok(resumed.activeBinding);
+  assert.notEqual(resumed.activeBinding.id, created.activeBinding.id);
 
   core.close();
 });

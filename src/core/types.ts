@@ -149,6 +149,12 @@ export interface CreateWorkInput {
   source: Pick<CaptureBinding, "adapter" | "conversationId">;
 }
 
+export interface ResumeWorkInput {
+  executor: Executor;
+  environment: ExecutionEnvironment;
+  source: Pick<CaptureBinding, "adapter" | "conversationId">;
+}
+
 export interface WorkCoreOptions {
   databasePath: string;
   now?: () => string;
@@ -174,5 +180,7 @@ export interface WorkCore {
     field: WorkStateField,
     itemId: string,
   ): WorkSnapshot;
+  completeWork(workInstanceId: string): WorkSnapshot;
+  resumeWork(workInstanceId: string, input: ResumeWorkInput): WorkSnapshot;
   close(): void;
 }

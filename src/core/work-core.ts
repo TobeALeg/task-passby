@@ -18,6 +18,7 @@ import {
   type SourceEventInput,
   type WorkStateField,
   type WorkStatePatch,
+  type ResumeWorkInput,
 } from "./types.js";
 
 type Row = Record<string, unknown>;
@@ -385,6 +386,95 @@ export class SqliteWorkCore implements WorkCore {
       this.#database
         .prepare("UPDATE work_instances SET updated_at = ? WHERE id = ?")
         .run(this.#now(), workInstanceId);
+      this.#database.exec("COMMIT");
+    } catch (error) {
+      this.#database.exec("ROLLBACK");
+      throw error;
+    }
+
+    return this.#requireWork(workInstanceId);
+  }
+
+  completeWork(workInstanceId: string): WorkSnapshot {
+    const work = this.#requireWork(workInstanceId);
+    if (work.instance.status !== "OPEN") throw new Error("WORK_NOT_OPEN");
+    const endedAt = this.#now();
+
+    this.#database.exec("BEGIN IMMEDIATE");
+    try {
+      this.#database
+        .prepare(
+          `UPDATE execution_episodes
+           SET status = 'ENDED', ended_at = ?
+           WHERE work_instance_id = ? AND status = 'ACTIVE'`,
+        )
+        .run(endedAt, workInstanceId);
+      this.#database
+        .prepare(
+          `UPDATE capture_bindings
+           SET status = 'INACTIVE'
+           WHERE work_instance_id = ? AND status = 'ACTIVE'`,
+        )
+        .run(workInstanceId);
+      this.#database
+        .prepare(
+          `UPDATE work_instances
+           SET status = 'COMPLETED', updated_at = ?
+           WHERE id = ?`,
+        )
+        .run(endedAt, workInstanceId);
+      this.#database.exec("COMMIT");
+    } catch (error) {
+      this.#database.exec("ROLLBACK");
+      throw error;
+    }
+
+    return this.#requireWork(workInstanceId);
+  }
+
+  resumeWork(workInstanceId: string, input: ResumeWorkInput): WorkSnapshot {
+    const work = this.#requireWork(workInstanceId);
+    if (work.instance.status !== "COMPLETED") {
+      throw new Error("WORK_NOT_COMPLETED");
+    }
+
+    const episodeId = this.#id();
+    const bindingId = this.#id();
+    const startedAt = this.#now();
+
+    this.#database.exec("BEGIN IMMEDIATE");
+    try {
+      this.#database
+        .prepare(
+          `INSERT INTO execution_episodes
+           (id, work_instance_id, executor_json, environment_json, status, started_at)
+           VALUES (?, ?, ?, ?, 'ACTIVE', ?)`,
+        )
+        .run(
+          episodeId,
+          workInstanceId,
+          JSON.stringify(input.executor),
+          JSON.stringify(input.environment),
+          startedAt,
+        );
+      this.#database
+        .prepare(
+          `INSERT INTO capture_bindings
+           (id, work_instance_id, episode_id, adapter, conversation_id, status)
+           VALUES (?, ?, ?, ?, ?, 'ACTIVE')`,
+        )
+        .run(
+          bindingId,
+          workInstanceId,
+          episodeId,
+          input.source.adapter,
+          input.source.conversationId,
+        );
+      this.#database
+        .prepare(
+          `UPDATE work_instances SET status = 'OPEN', updated_at = ? WHERE id = ?`,
+        )
+        .run(startedAt, workInstanceId);
       this.#database.exec("COMMIT");
     } catch (error) {
       this.#database.exec("ROLLBACK");

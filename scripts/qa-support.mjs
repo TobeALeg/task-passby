@@ -22,27 +22,55 @@ export function parseArchiveEvents(response) {
   return parsed.events;
 }
 
-export function desktopRoundtripIssues({ work, archiveEvents, beforeEventCount }) {
+export function desktopRoundtripIssues({ work, archiveEvents, beforeEventCount, proofToken }) {
   const issues = [];
   const binding = work?.bindings?.find(
     (candidate) => candidate.adapter === "workbuddy" && candidate.status === "ACTIVE" && !candidate.conversationId.startsWith("pending:")
   );
   if (!binding) issues.push("WorkBuddy Hook 尚未绑定真实桌面会话");
   if (!work || work.eventCount <= beforeEventCount) issues.push("WorkBuddy 桌面对话尚未写回 WorkRecord");
-  if (!work?.episodes?.some((episode) => episode.environment === "WorkBuddy Desktop")) {
+  const episode = binding
+    ? work?.episodes?.find((candidate) => candidate.id === binding.episodeId && candidate.environment === "WorkBuddy Desktop")
+    : null;
+  if (!episode) {
     issues.push("同一 WorkInstance 下没有 WorkBuddy ExecutionEpisode");
   }
-  if (!archiveEvents.some(
+  const sameEpisodeEvents = binding
+    ? archiveEvents.filter((event) => event.episodeId === binding.episodeId)
+    : [];
+  const successfulCall = sameEpisodeEvents.find(
     (event) => event.kind === "tool.call"
       && event.environmentType === "WORKBUDDY_DESKTOP"
       && event.metadata?.toolName === "get_work_context"
-  )) {
+      && event.metadata?.outcome === "success"
+      && event.metadata?.bindingId === binding?.id
+      && event.metadata?.conversationId === binding?.conversationId
+  );
+  const successfulResult = successfulCall
+    ? sameEpisodeEvents.find(
+      (event) => event.kind === "tool.result"
+        && event.metadata?.auditId === successfulCall.metadata?.auditId
+        && event.metadata?.outcome === "success"
+    )
+    : null;
+  if (!successfulCall || !successfulResult) {
     issues.push("没有观察到 WorkBuddy 调用 get_work_context");
   }
-  if (!archiveEvents.some((event) => event.kind === "agent.response" && event.environmentType === "WORKBUDDY_DESKTOP")) {
+  const visibleResponses = sameEpisodeEvents.filter(
+    (event) => event.kind === "agent.response"
+      && event.environmentType === "WORKBUDDY_DESKTOP"
+      && event.metadata?.sessionId === binding?.conversationId
+  );
+  if (!visibleResponses.length) {
     issues.push("没有观察到 WorkBuddy 可见回复写回");
+  } else if (proofToken && !visibleResponses.some((event) => event.content?.includes(proofToken))) {
+    issues.push("WorkBuddy 可见回复没有包含 MCP 返回的本次验收 proof token");
   }
-  if (!archiveEvents.some((event) => event.kind === "user.prompt" && event.environmentType === "WORKBUDDY_DESKTOP")) {
+  if (!sameEpisodeEvents.some(
+    (event) => event.kind === "user.prompt"
+      && event.environmentType === "WORKBUDDY_DESKTOP"
+      && event.metadata?.sessionId === binding?.conversationId
+  )) {
     issues.push("没有观察到 WorkBuddy 用户 Prompt 写回");
   }
   return issues;

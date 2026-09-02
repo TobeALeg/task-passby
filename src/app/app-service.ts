@@ -297,13 +297,16 @@ export class AppService {
       source: { adapter: "workbuddy", conversationId: pendingConversationId },
       endCurrentEpisode: true
     });
-    const prompt = buildWorkBuddyBootstrap({
+    let prompt = buildWorkBuddyBootstrap({
       workId,
       title: handoff.currentTask ?? "未命名工作",
       currentTask: handoff.currentTask ?? "",
       nextStep: handoff.nextStep ?? "",
       artifactPaths: handoff.neededArtifacts.filter((artifact) => artifact.availability !== "MISSING").map((artifact) => artifact.path)
     });
+    if (process.env.WORKPET_QA_PROOF_TOKEN) {
+      prompt += "\n\n本次为桌面闭环验收：请在成功调用 get_work_context 后，把返回字段 qaProofToken 的值原样放进可见回复；不要猜测该值。";
+    }
     this.#petState = "carrying";
     let launchResult: "sent" | "draft";
     try {
@@ -418,6 +421,7 @@ export class AppService {
       })),
       bindings: work.bindings.map((binding) => ({
         id: binding.id,
+        episodeId: binding.episodeId,
         adapter: binding.adapter,
         conversationId: binding.conversationId,
         status: binding.status

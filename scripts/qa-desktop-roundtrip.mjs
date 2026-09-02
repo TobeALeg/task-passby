@@ -1,4 +1,5 @@
-import { access, chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import { access, chmod, mkdtemp, readFile, unlink, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -60,7 +61,7 @@ async function isLiveBridge(path) {
   }
 }
 
-async function launchWorkPet({ bridgePath, dataDirectory }) {
+async function launchWorkPet({ bridgePath, dataDirectory, proofToken }) {
   const app = await electron.launch({
     executablePath: packagedExecutable,
     args: [],
@@ -69,7 +70,8 @@ async function launchWorkPet({ bridgePath, dataDirectory }) {
       ...process.env,
       WORKPET_AUTO_SEND: "0",
       WORKPET_BRIDGE_CONFIG: bridgePath,
-      WORKPET_DATA_DIR: dataDirectory
+      WORKPET_DATA_DIR: dataDirectory,
+      ...(proofToken ? { WORKPET_QA_PROOF_TOKEN: proofToken } : {})
     }
   });
   await delay(1_000);
@@ -125,10 +127,14 @@ if (await isLiveBridge(defaultBridgePath)) {
 
 const originalBridge = await readFile(defaultBridgePath).catch(() => null);
 const testDirectory = await mkdtemp(join(tmpdir(), "workpet-desktop-roundtrip-"));
+const proofToken = randomBytes(16).toString("hex");
 const terminal = createInterface({ input: process.stdin, output: process.stdout });
-const { app, panel } = await launchWorkPet({ bridgePath: defaultBridgePath, dataDirectory: testDirectory });
+let app = null;
 
 try {
+  const launched = await launchWorkPet({ bridgePath: defaultBridgePath, dataDirectory: testDirectory, proofToken });
+  app = launched.app;
+  const panel = launched.panel;
   const preview = await panel.evaluate((threadId) => window.workpet.previewCodexThread(threadId), selectedThreadId);
   const qualification = qualificationIssues(preview);
   if (qualification.length) throw new Error(`所选 Codex 任务不满足严格验收：${qualification.join("；")}`);
@@ -172,7 +178,8 @@ try {
     const issues = desktopRoundtripIssues({
       work: dashboard.selectedWork,
       archiveEvents,
-      beforeEventCount: beforeWorkBuddy
+      beforeEventCount: beforeWorkBuddy,
+      proofToken
     });
     if (!issues.length) {
       finalEvidence = { dashboard, archiveEvents };
@@ -198,13 +205,21 @@ try {
     workBuddyConversationId: realBinding?.conversationId,
     finalEventCount: finalEvidence.dashboard.selectedWork.eventCount,
     workBuddyEpisodeCount: finalEvidence.dashboard.selectedWork.episodes.filter((episode) => episode.environment === "WorkBuddy Desktop").length,
+    proofTokenVerified: true,
     persistedLocallyAt: join(testDirectory, "workpet.sqlite")
   }, null, 2));
 } finally {
   terminal.close();
-  await app.close();
-  if (originalBridge) {
-    await writeFile(defaultBridgePath, originalBridge, { mode: 0o600 });
-    await chmod(defaultBridgePath, 0o600);
+  try {
+    if (app) await app.close();
+  } finally {
+    if (originalBridge) {
+      await writeFile(defaultBridgePath, originalBridge, { mode: 0o600 });
+      await chmod(defaultBridgePath, 0o600);
+    } else {
+      await unlink(defaultBridgePath).catch((error) => {
+        if (error?.code !== "ENOENT") throw error;
+      });
+    }
   }
 }

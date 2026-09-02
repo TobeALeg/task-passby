@@ -22,18 +22,46 @@ test("拒绝回复即使复述口令也不能冒充闭环成功", () => {
 });
 
 test("桌面闭环必须同时具有真实 binding、MCP 调用和可见回复", () => {
+  const binding = {
+    id: "binding-1",
+    episodeId: "episode-1",
+    adapter: "workbuddy",
+    status: "ACTIVE",
+    conversationId: "desktop-session-1"
+  };
   const work = {
     eventCount: 12,
-    bindings: [{ adapter: "workbuddy", status: "ACTIVE", conversationId: "desktop-session-1" }],
-    episodes: [{ environment: "WorkBuddy Desktop" }]
+    bindings: [binding],
+    episodes: [{ id: "episode-1", environment: "WorkBuddy Desktop" }]
   };
   const archiveEvents = [
-    { kind: "tool.call", environmentType: "WORKBUDDY_DESKTOP", metadata: { toolName: "get_work_context" } },
-    { kind: "user.prompt", environmentType: "WORKBUDDY_DESKTOP", metadata: {} },
-    { kind: "agent.response", environmentType: "WORKBUDDY_DESKTOP", metadata: {} }
+    {
+      kind: "tool.call", episodeId: "episode-1", environmentType: "WORKBUDDY_DESKTOP",
+      metadata: {
+        toolName: "get_work_context", outcome: "success", auditId: "audit-1",
+        bindingId: "binding-1", conversationId: "desktop-session-1"
+      }
+    },
+    {
+      kind: "tool.result", episodeId: "episode-1", environmentType: "WORKBUDDY_DESKTOP",
+      metadata: { outcome: "success", auditId: "audit-1" }
+    },
+    {
+      kind: "user.prompt", episodeId: "episode-1", environmentType: "WORKBUDDY_DESKTOP",
+      metadata: { sessionId: "desktop-session-1" }
+    },
+    {
+      kind: "agent.response", episodeId: "episode-1", environmentType: "WORKBUDDY_DESKTOP",
+      content: "已读取 proof-123",
+      metadata: { sessionId: "desktop-session-1" }
+    }
   ];
-  assert.deepEqual(desktopRoundtripIssues({ work, archiveEvents, beforeEventCount: 10 }), []);
-  assert.ok(desktopRoundtripIssues({ work, archiveEvents: archiveEvents.slice(1), beforeEventCount: 10 }).length > 0);
+  assert.deepEqual(desktopRoundtripIssues({ work, archiveEvents, beforeEventCount: 10, proofToken: "proof-123" }), []);
+  assert.ok(desktopRoundtripIssues({ work, archiveEvents: archiveEvents.slice(1), beforeEventCount: 10, proofToken: "proof-123" }).length > 0);
+  const wrongEpisode = archiveEvents.map((event) => ({ ...event, episodeId: "episode-old" }));
+  assert.ok(desktopRoundtripIssues({ work, archiveEvents: wrongEpisode, beforeEventCount: 10, proofToken: "proof-123" }).length > 0);
+  const missingProof = archiveEvents.map((event) => event.kind === "agent.response" ? { ...event, content: "无法读取" } : event);
+  assert.ok(desktopRoundtripIssues({ work, archiveEvents: missingProof, beforeEventCount: 10, proofToken: "proof-123" }).length > 0);
 });
 
 test("archive MCP 响应能提取事件", () => {

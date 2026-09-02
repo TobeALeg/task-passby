@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,15 +20,18 @@ const bridgePath = join(testDirectory, "bridge.json");
 const executablePath = join(root, "node_modules", "electron", "dist", "Electron.app", "Contents", "MacOS", "Electron");
 const workBuddyCli = "/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin/codebuddy";
 const mcpProxy = join(root, "integrations", "workbuddy-marketplace", "plugins", "workpet", "bridge", "mcp-proxy.mjs");
-const environment = {
+const proofToken = randomBytes(16).toString("hex");
+const expectedReply = `${ROUNDTRIP_SENTINEL}:${proofToken}`;
+const sharedEnvironment = {
   ...process.env,
   CODEBUDDY_CONFIG_DIR: "/Users/dandi/.workbuddy",
   WORKPET_AUTO_SEND: "0",
   WORKPET_BRIDGE_CONFIG: bridgePath,
   WORKPET_DATA_DIR: testDirectory
 };
+const electronEnvironment = { ...sharedEnvironment, WORKPET_QA_PROOF_TOKEN: proofToken };
 
-const electronApp = await electron.launch({ executablePath, args: ["."], cwd: root, env: environment });
+const electronApp = await electron.launch({ executablePath, args: ["."], cwd: root, env: electronEnvironment });
 try {
   await new Promise((resolve) => setTimeout(resolve, 900));
   const panel = electronApp.windows().find((page) => page.url().endsWith("/panel.html"));
@@ -45,7 +49,7 @@ try {
   const prompt = [
     `[WORKPET:${workId}]`,
     `这是 WorkPet 桌面闭环验收。请调用 get_work_context，参数 work_id=${workId}。`,
-    `确认你读到了同一项工作的结构化上下文后，只回复 ${ROUNDTRIP_SENTINEL}。`
+    `读取返回字段 qaProofToken 后，只回复 ${ROUNDTRIP_SENTINEL}:<qaProofToken>；不要猜测 token。`
   ].join("\n");
   const { stdout, stderr } = await execFileAsync(workBuddyCli, [
     "-p",
@@ -56,9 +60,9 @@ try {
     "--max-turns", "3",
     "--effort", "minimal",
     prompt
-  ], { cwd: root, env: environment, timeout: 180_000, maxBuffer: 4 * 1024 * 1024 });
+  ], { cwd: root, env: sharedEnvironment, timeout: 180_000, maxBuffer: 4 * 1024 * 1024 });
   const cliOutput = JSON.parse(stdout);
-  if (!containsExactString(cliOutput, ROUNDTRIP_SENTINEL)) {
+  if (!containsExactString(cliOutput, expectedReply)) {
     throw new Error("WorkBuddy 没有在成功读取 MCP 后返回精确验收口令");
   }
 
@@ -77,7 +81,7 @@ try {
   });
   const archive = await archiveResponse.json();
   const archiveEvents = parseArchiveEvents(archive);
-  const issues = desktopRoundtripIssues({ work, archiveEvents, beforeEventCount });
+  const issues = desktopRoundtripIssues({ work, archiveEvents, beforeEventCount, proofToken });
   if (issues.length) throw new Error(issues.join("；"));
   const workBuddyBinding = work.bindings.find(
     (binding) => binding.adapter === "workbuddy" && binding.status === "ACTIVE" && !binding.conversationId.startsWith("pending:")

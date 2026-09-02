@@ -209,6 +209,6 @@ WorkPattern 不修改 WorkDefinition，不反向修改历史 WorkRecord，也不
 - WorkBuddy 5.4.7 支持 `SessionStart`、`UserPromptSubmit`、`Stop`、`SessionEnd` Hook，Hook 输入包含真实 `session_id` 与 `transcript_path`；
 - `workbuddy://task` Deep Link 能创建全新 WorkBuddy 草稿并注入不超过 8000 字的 marker；macOS 辅助功能授权后可完成一键发送；
 - WorkBuddy 用户级 MCP 能连接 WorkPet localhost Bridge；`get_work_context` 不含完整 Source Archive，`get_work_archive` 必须显式调用；
-- 早期 CLI 验收曾因拒绝回复复述了验收口令而产生假阳性；复核真实 transcript 后已撤销该证据。当前验证器必须同时观察到精确成功结果、真实 Conversation Binding、本地 `get_work_context` 审计事件和可见回复 Hook 回写，缺一即失败；
+- 早期 CLI 验收曾因拒绝回复复述了验收口令而产生假阳性；复核真实 transcript 后已撤销该证据。当前验证器必须同时观察到精确成功结果、真实 Conversation Binding、同一 Binding/ExecutionEpisode 内成对的 `get_work_context` 成功审计、MCP 随机 proof token 和可见回复 Hook 回写，缺一即失败；
 - `qa:desktop-roundtrip` 使用临时 WorkPet 数据库，强制检查二十轮用户输入、两份不同附件、人工编辑保护、Codex 增量、全新 WorkBuddy 桌面对话、MCP 审计、Hook 回写和完成后停止捕获；脚本只打开草稿，发送动作必须由用户本人完成；
 - 自动测试覆盖领域生命周期、去重、人工编辑保护、tombstone、ArtifactRef 复核、隐藏思维过滤、持久化接力投影、失败恢复、从指定消息新建工作、MCP 调用审计、WorkBuddy marker 绑定与回写、接入配置幂等性，以及拒绝回复不能冒充验收成功。

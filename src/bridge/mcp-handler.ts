@@ -15,9 +15,11 @@ function toolResult(value: unknown): Record<string, unknown> {
 
 export class WorkPetMcpHandler {
   readonly #core: WorkCore;
+  readonly #proofToken: string | null;
 
-  constructor(core: WorkCore) {
+  constructor(core: WorkCore, options: { proofToken?: string } = {}) {
     this.#core = core;
+    this.#proofToken = options.proofToken ?? null;
   }
 
   handle(request: JsonRpcRequest): JsonRpcResponse {
@@ -41,13 +43,15 @@ export class WorkPetMcpHandler {
         const work = this.#core.getWork(workId);
         if (!work) throw new Error("WORK_NOT_FOUND");
         if (name === "get_work_context") {
-          this.#recordToolRead(workId, name, request.id);
           const handoff = this.#core.getLatestHandoffPackage(workId) ?? this.#core.createHandoffPackage(workId);
-          return { jsonrpc: "2.0", id, result: toolResult({
+          const result = toolResult({
             ...handoff,
             executionEpisodes: work.episodes,
-            captureBindings: work.bindings
-          }) };
+            captureBindings: work.bindings,
+            ...(this.#proofToken ? { qaProofToken: this.#proofToken } : {})
+          });
+          this.#recordToolReadSuccess(workId, name, request.id);
+          return { jsonrpc: "2.0", id, result };
         }
         if (name === "get_work_archive") {
           const after = typeof args.after_sequence === "number" ? args.after_sequence : 0;
@@ -57,8 +61,9 @@ export class WorkPetMcpHandler {
           }) };
         }
         if (name === "get_artifact_refs") {
-          this.#recordToolRead(workId, name, request.id);
-          return { jsonrpc: "2.0", id, result: toolResult({ workInstanceId: workId, artifacts: work.artifactRefs }) };
+          const result = toolResult({ workInstanceId: workId, artifacts: work.artifactRefs });
+          this.#recordToolReadSuccess(workId, name, request.id);
+          return { jsonrpc: "2.0", id, result };
         }
         throw new Error("UNKNOWN_TOOL");
       }
@@ -68,20 +73,49 @@ export class WorkPetMcpHandler {
     }
   }
 
-  #recordToolRead(workId: string, toolName: string, requestId: string | number | null): void {
+  #recordToolReadSuccess(workId: string, toolName: string, requestId: string | number | null): void {
     const work = this.#core.getWork(workId);
-    if (work?.instance.status !== "OPEN" || work.activeBinding?.adapter !== "workbuddy") return;
+    if (
+      work?.instance.status !== "OPEN"
+      || work.activeBinding?.adapter !== "workbuddy"
+      || !work.activeEpisode
+    ) return;
     const sequence = Math.max(0, ...work.sourceArchive.map((event) => event.sequence)) + 1;
-    this.#core.appendSourceEvents(workId, [{
-      externalId: `workpet:mcp:${work.activeBinding.id}:${toolName}:${String(requestId)}`,
-      sequence,
-      kind: "tool.call",
-      content: `WorkBuddy MCP 调用 ${toolName}`,
-      timestamp: new Date().toISOString(),
-      executorType: "TOOL",
-      environmentType: "WORKBUDDY_DESKTOP",
-      metadata: { toolName, access: "read" },
-      artifactRefs: []
-    }]);
+    const auditId = `workpet:mcp:${work.activeBinding.id}:${toolName}:${String(requestId)}`;
+    const timestamp = new Date().toISOString();
+    const metadata = {
+      toolName,
+      access: "read",
+      outcome: "success",
+      auditId,
+      bindingId: work.activeBinding.id,
+      conversationId: work.activeBinding.conversationId
+    };
+    this.#core.appendSourceEvents(workId, [
+      {
+        externalId: `${auditId}:call`,
+        sequence,
+        kind: "tool.call",
+        content: `WorkBuddy MCP 调用 ${toolName}`,
+        timestamp,
+        executorType: "TOOL",
+        environmentType: "WORKBUDDY_DESKTOP",
+        metadata,
+        artifactRefs: [],
+        episodeId: work.activeEpisode.id
+      },
+      {
+        externalId: `${auditId}:result`,
+        sequence: sequence + 1,
+        kind: "tool.result",
+        content: `WorkBuddy MCP 已成功读取 ${toolName}`,
+        timestamp,
+        executorType: "TOOL",
+        environmentType: "WORKBUDDY_DESKTOP",
+        metadata,
+        artifactRefs: [],
+        episodeId: work.activeEpisode.id
+      }
+    ]);
   }
 }

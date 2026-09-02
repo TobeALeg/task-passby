@@ -56,7 +56,7 @@ Work Core ─────────────── Local Persistence
 
 本机 WorkBuddy 5.4.7 的目录型 marketplace 会误报安装成功但不生成桌面主进程要求的版本化 cache record。为避免伪安装，MVP 不手工篡改其插件 registry，而是原子合并 `~/.workbuddy/.mcp.json` 与 `~/.workbuddy/settings.json` 中的官方用户级 MCP/Hook 配置。Hook 对所有会话可见，但 Bridge 只接受带有 WorkInstance marker 且存在 OPEN pending binding 的会话；其他会话立即忽略。整个 Adapter 不读取 WorkBuddy 私有数据库。
 
-每次 WorkBuddy 通过 MCP 读取 `get_work_context` 或 `get_artifact_refs`，Bridge 都在当前 WorkBuddy ExecutionEpisode 中追加一个不含返回正文的 `tool.call` 审计事件。这样“Agent 真的读取了工作上下文”由本地 WorkRecord 证明，而不是依赖 Agent 在回复中声称自己读过。
+每次 WorkBuddy 成功读取 `get_work_context` 或 `get_artifact_refs` 后，Bridge 才在当前 WorkBuddy Binding 和 ExecutionEpisode 中原子追加一对不含返回正文的 `tool.call + tool.result` 审计事件，并记录 conversationId、bindingId 与同一 auditId。桌面验收还会在 MCP 返回中加入仅本次运行可见的随机 proof token，并要求同一会话的可见回复带回该值；因此工具失败、旧 Episode 或 Agent 自称“读过”都不能冒充成功。
 
 ### WorkStateExtractor
 

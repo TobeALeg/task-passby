@@ -47,7 +47,7 @@ test("WorkBuddy 通过 marker 绑定同一工作、读取接力状态并把可�
   assert.equal(bound.accepted, true);
   assert.equal(core.getWork(created.instance.id)?.activeBinding?.conversationId, "workbuddy-session");
 
-  const mcp = new WorkPetMcpHandler(core);
+  const mcp = new WorkPetMcpHandler(core, { proofToken: "proof-token-1" });
   const context = mcp.handle({
     jsonrpc: "2.0",
     id: 1,
@@ -55,12 +55,19 @@ test("WorkBuddy 通过 marker 绑定同一工作、读取接力状态并把可�
     params: { name: "get_work_context", arguments: { work_id: created.instance.id } }
   });
   assert.match(JSON.stringify(context), /完成跨应用接力/u);
+  assert.match(JSON.stringify(context), /proof-token-1/u);
   assert.doesNotMatch(JSON.stringify(context), /完整历史不得/u);
   const auditedToolCall = core.getWork(created.instance.id)?.sourceArchive.find(
     (event) => event.kind === "tool.call" && event.metadata.toolName === "get_work_context"
   );
+  const auditedToolResult = core.getWork(created.instance.id)?.sourceArchive.find(
+    (event) => event.kind === "tool.result" && event.metadata.auditId === auditedToolCall?.metadata.auditId
+  );
   assert.equal(auditedToolCall?.environmentType, "WORKBUDDY_DESKTOP");
   assert.equal(auditedToolCall?.episodeId, core.getWork(created.instance.id)?.activeEpisode?.id);
+  assert.equal(auditedToolCall?.metadata.bindingId, core.getWork(created.instance.id)?.activeBinding?.id);
+  assert.equal(auditedToolCall?.metadata.conversationId, "workbuddy-session");
+  assert.equal(auditedToolResult?.metadata.outcome, "success");
 
   const directory = await mkdtemp(join(tmpdir(), "workpet-roundtrip-"));
   const transcriptPath = join(directory, "session.jsonl");

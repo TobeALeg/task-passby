@@ -131,7 +131,12 @@ app.whenReady().then(async () => {
   });
   bridge = new WorkPetHttpBridge({
     configPath: process.env.WORKPET_BRIDGE_CONFIG ?? join(homedir(), ".workpet", "bridge.json"),
-    mcp: new WorkPetMcpHandler(service.core()),
+    mcp: new WorkPetMcpHandler(
+      service.core(),
+      process.env.WORKPET_QA_PROOF_TOKEN
+        ? { proofToken: process.env.WORKPET_QA_PROOF_TOKEN }
+        : {}
+    ),
     hooks: new WorkBuddyHookIngestor(service.core()),
     onCodexHook: (payload) => requireService().syncCodexHook(payload)
   });

@@ -44,6 +44,7 @@ export interface WorkDetailView extends WorkSummaryView {
   }>;
   bindings: Array<{
     id: string;
+    episodeId: string;
     adapter: string;
     conversationId: string;
     status: "ACTIVE" | "INACTIVE";

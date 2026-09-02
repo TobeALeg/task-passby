@@ -42,7 +42,7 @@ WORKPET_QA_CONFIRM=SEND_TO_CURRENT_WORKBUDDY_ACCOUNT \
 npm run qa:desktop-roundtrip
 ```
 
-脚本会使用临时 WorkPet 数据库，验证人工编辑保护，并等待用户在 Codex 新增一轮对话。随后它只打开 WorkBuddy 全新草稿，由用户检查后亲自按回车；成功条件同时要求真实桌面 Conversation ID、`get_work_context` MCP 审计事件、WorkBuddy 用户 Prompt 和可见回复经 Hook 写回同一 WorkInstance。`qa:roundtrip` 是额外的 CLI 接入检查，会主动调用当前 WorkBuddy 账号，不能替代桌面同会话验收，也不应在没有具体数据发送授权时运行。
+脚本会使用临时 WorkPet 数据库，验证人工编辑保护，并等待用户在 Codex 新增一轮对话。随后它只打开 WorkBuddy 全新草稿，由用户检查后亲自按回车；成功条件同时要求真实桌面 Conversation ID、同一 Binding/ExecutionEpisode 内成对的 `get_work_context` 成功审计、MCP 返回的随机 proof token 出现在可见回复中，以及 WorkBuddy 用户 Prompt 和回复经 Hook 写回同一 WorkInstance。`qa:roundtrip` 是额外的 CLI 接入检查，会主动调用当前 WorkBuddy 账号，不能替代桌面同会话验收，也不应在没有具体数据发送授权时运行。
 
 ## 数据边界
 

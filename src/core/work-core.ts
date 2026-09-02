@@ -20,6 +20,8 @@ import {
   type WorkStatePatch,
   type ResumeWorkInput,
   type HandoffPackage,
+  type ArtifactRef,
+  type ArtifactRefInput,
 } from "./types.js";
 
 type Row = Record<string, unknown>;
@@ -217,6 +219,16 @@ export class SqliteWorkCore implements WorkCore {
       )
       .all(workInstanceId)
       .map((row) => this.#sourceEventFromRow(row as Row));
+    const artifactRefs = this.#database
+      .prepare(
+        `SELECT id, work_instance_id, episode_id, path, role, filename, mime_type,
+                size, sha256, last_modified_at, availability
+         FROM artifact_refs
+         WHERE work_instance_id = ?
+         ORDER BY rowid`,
+      )
+      .all(workInstanceId)
+      .map((row) => this.#artifactRefFromRow(row as Row));
 
     const definition: WorkDefinition = {
       id: instanceRow.d_id as string,
@@ -244,7 +256,7 @@ export class SqliteWorkCore implements WorkCore {
       activeBinding,
       state: JSON.parse(instanceRow.state_json as string) as WorkState,
       sourceArchive,
-      artifactRefs: [],
+      artifactRefs,
     };
   }
 
@@ -506,6 +518,54 @@ export class SqliteWorkCore implements WorkCore {
     };
   }
 
+  addArtifactRef(workInstanceId: string, artifact: ArtifactRefInput): WorkSnapshot {
+    const work = this.#requireWork(workInstanceId);
+    const episodeId = artifact.episodeId ?? work.activeEpisode?.id ?? null;
+    if (episodeId) {
+      const belongsToWork = work.episodes.some((episode) => episode.id === episodeId);
+      if (!belongsToWork) throw new Error("EPISODE_NOT_IN_WORK");
+    }
+
+    this.#database
+      .prepare(
+        `INSERT INTO artifact_refs
+         (id, work_instance_id, episode_id, path, role, filename, mime_type, size,
+          sha256, last_modified_at, availability)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        this.#id(),
+        workInstanceId,
+        episodeId,
+        artifact.path,
+        artifact.role,
+        artifact.filename,
+        artifact.mimeType,
+        artifact.size,
+        artifact.sha256,
+        artifact.lastModifiedAt,
+        artifact.availability,
+      );
+    this.#database
+      .prepare("UPDATE work_instances SET updated_at = ? WHERE id = ?")
+      .run(this.#now(), workInstanceId);
+    return this.#requireWork(workInstanceId);
+  }
+
+  deleteWorkPermanently(
+    workInstanceId: string,
+    input: { confirmation: string },
+  ): void {
+    this.#requireWork(workInstanceId);
+    if (input.confirmation !== workInstanceId) {
+      throw new Error("PERMANENT_DELETE_CONFIRMATION_MISMATCH");
+    }
+
+    this.#database
+      .prepare("DELETE FROM work_instances WHERE id = ?")
+      .run(workInstanceId);
+  }
+
   #loadTombstones(workInstanceId: string): WorkStateTombstone[] {
     const row = this.#database
       .prepare(
@@ -571,6 +631,22 @@ export class SqliteWorkCore implements WorkCore {
       environmentType: row.environment_type as string,
       metadata: JSON.parse(row.metadata_json as string),
       artifactRefs: JSON.parse(row.artifact_refs_json as string),
+    };
+  }
+
+  #artifactRefFromRow(row: Row): ArtifactRef {
+    return {
+      id: row.id as string,
+      workInstanceId: row.work_instance_id as string,
+      episodeId: (row.episode_id as string | null) ?? null,
+      path: row.path as string,
+      role: row.role as string,
+      filename: row.filename as string,
+      mimeType: (row.mime_type as string | null) ?? null,
+      size: Number(row.size),
+      sha256: row.sha256 as string,
+      lastModifiedAt: row.last_modified_at as string,
+      availability: row.availability as ArtifactRef["availability"],
     };
   }
 

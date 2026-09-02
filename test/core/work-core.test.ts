@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 
 import { createWorkCore } from "../../dist/src/core/index.js";
@@ -258,6 +261,40 @@ test("Handoff Package 投影结构化状态但不包含完整 Source Archive", (
   assert.equal(handoff.state.pendingActions[0]?.text, "接入 WorkBuddy");
   assert.equal("sourceArchive" in handoff, false);
   assert.equal(serialized.includes("只应存在于本地完整归档的敏感对话原文"), false);
+
+  core.close();
+});
+
+test("永久删除只删除 Work 数据，不触碰 ArtifactRef 指向的原文件", () => {
+  const directory = mkdtempSync(join(tmpdir(), "workpet-core-"));
+  const originalPath = join(directory, "用户资料.txt");
+  writeFileSync(originalPath, "这是用户自己的原始文件", "utf8");
+  const core = createWorkCore({ databasePath: ":memory:" });
+  const created = core.createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    executor: { type: "AGENT", name: "Codex" },
+    environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
+    source: { adapter: "codex", conversationId: "thread-delete" },
+  });
+
+  const withArtifact = core.addArtifactRef(created.instance.id, {
+    path: originalPath,
+    role: "SOURCE",
+    filename: "用户资料.txt",
+    mimeType: "text/plain",
+    size: 36,
+    sha256: "known-sha256",
+    lastModifiedAt: "2026-09-02T12:00:00.000Z",
+    availability: "AVAILABLE",
+  });
+  assert.equal(withArtifact.artifactRefs[0]?.path, originalPath);
+
+  core.deleteWorkPermanently(created.instance.id, {
+    confirmation: created.instance.id,
+  });
+
+  assert.equal(core.getWork(created.instance.id), null);
+  assert.equal(readFileSync(originalPath, "utf8"), "这是用户自己的原始文件");
 
   core.close();
 });

@@ -99,6 +99,11 @@ export interface ArtifactRef {
   availability: "AVAILABLE" | "CHANGED" | "MISSING";
 }
 
+export type ArtifactRefInput = Omit<
+  ArtifactRef,
+  "id" | "workInstanceId" | "episodeId"
+> & { episodeId?: string | null };
+
 export type SourceEventKind =
   | "user.prompt"
   | "agent.response"
@@ -198,5 +203,10 @@ export interface WorkCore {
   completeWork(workInstanceId: string): WorkSnapshot;
   resumeWork(workInstanceId: string, input: ResumeWorkInput): WorkSnapshot;
   createHandoffPackage(workInstanceId: string): HandoffPackage;
+  addArtifactRef(workInstanceId: string, artifact: ArtifactRefInput): WorkSnapshot;
+  deleteWorkPermanently(
+    workInstanceId: string,
+    input: { confirmation: string },
+  ): void;
   close(): void;
 }

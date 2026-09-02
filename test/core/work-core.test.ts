@@ -141,6 +141,33 @@ test("Extractor 可更新八字段但不能覆盖 USER_EDITED 内容", () => {
   core.close();
 });
 
+test("删除的 Work State 条目留下 tombstone 并阻止 Extractor 重建", () => {
+  const core = createWorkCore({ databasePath: ":memory:" });
+  const created = core.createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    executor: { type: "AGENT", name: "Codex" },
+    environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
+    source: { adapter: "codex", conversationId: "thread-tombstone" },
+  });
+  core.applyExtractorPatch(created.instance.id, {
+    pendingActions: [stateItem("pending-deleted", "读取 WorkBuddy 私有数据库")],
+  });
+
+  const deleted = core.deleteWorkStateItem(
+    created.instance.id,
+    "pendingActions",
+    "pending-deleted",
+  );
+  const patchedAgain = core.applyExtractorPatch(created.instance.id, {
+    pendingActions: [stateItem("pending-deleted", "读取 WorkBuddy 私有数据库")],
+  });
+
+  assert.deepEqual(deleted.state.pendingActions, []);
+  assert.deepEqual(patchedAgain.state.pendingActions, []);
+
+  core.close();
+});
+
 function stateItem(
   id: string,
   text: string,

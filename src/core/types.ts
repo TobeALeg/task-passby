@@ -169,5 +169,10 @@ export interface WorkCore {
     itemId: string,
     text: string,
   ): WorkSnapshot;
+  deleteWorkStateItem(
+    workInstanceId: string,
+    field: WorkStateField,
+    itemId: string,
+  ): WorkSnapshot;
   close(): void;
 }

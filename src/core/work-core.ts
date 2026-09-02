@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
-import { createSchema } from "./schema.ts";
+import { createSchema } from "./schema.js";
 import {
   WORK_STATE_FIELDS,
   type CaptureBinding,
@@ -18,12 +18,22 @@ import {
   type SourceEventInput,
   type WorkStateField,
   type WorkStatePatch,
-} from "./types.ts";
+} from "./types.js";
 
 type Row = Record<string, unknown>;
+type WorkStateTombstone = { field: WorkStateField; itemId: string };
 
 function emptyWorkState(): WorkState {
-  return Object.fromEntries(WORK_STATE_FIELDS.map((field) => [field, []])) as WorkState;
+  return {
+    objective: [],
+    successCriteria: [],
+    constraints: [],
+    facts: [],
+    decisions: [],
+    completedActions: [],
+    pendingActions: [],
+    artifacts: [],
+  };
 }
 
 export class SqliteWorkCore implements WorkCore {
@@ -293,12 +303,21 @@ export class SqliteWorkCore implements WorkCore {
   applyExtractorPatch(workInstanceId: string, patch: WorkStatePatch): WorkSnapshot {
     const work = this.#requireWork(workInstanceId);
     const nextState = structuredClone(work.state);
+    const tombstones = this.#loadTombstones(workInstanceId);
 
     for (const field of WORK_STATE_FIELDS) {
       const incomingItems = patch[field];
       if (!incomingItems) continue;
 
       for (const incomingItem of incomingItems) {
+        if (
+          tombstones.some(
+            (tombstone) =>
+              tombstone.field === field && tombstone.itemId === incomingItem.id,
+          )
+        ) {
+          continue;
+        }
         const existingIndex = nextState[field].findIndex(
           (existing) => existing.id === incomingItem.id,
         );
@@ -332,6 +351,57 @@ export class SqliteWorkCore implements WorkCore {
     item.origin = "USER_EDITED";
     this.#saveState(workInstanceId, nextState);
     return this.#requireWork(workInstanceId);
+  }
+
+  deleteWorkStateItem(
+    workInstanceId: string,
+    field: WorkStateField,
+    itemId: string,
+  ): WorkSnapshot {
+    const work = this.#requireWork(workInstanceId);
+    const nextState = structuredClone(work.state);
+    const existingIndex = nextState[field].findIndex((item) => item.id === itemId);
+    if (existingIndex === -1) throw new Error("WORK_STATE_ITEM_NOT_FOUND");
+
+    nextState[field].splice(existingIndex, 1);
+    const tombstones = this.#loadTombstones(workInstanceId);
+    if (
+      !tombstones.some(
+        (tombstone) => tombstone.field === field && tombstone.itemId === itemId,
+      )
+    ) {
+      tombstones.push({ field, itemId });
+    }
+
+    this.#database.exec("BEGIN IMMEDIATE");
+    try {
+      this.#database
+        .prepare(
+          `UPDATE work_records
+           SET state_json = ?, tombstones_json = ?
+           WHERE work_instance_id = ?`,
+        )
+        .run(JSON.stringify(nextState), JSON.stringify(tombstones), workInstanceId);
+      this.#database
+        .prepare("UPDATE work_instances SET updated_at = ? WHERE id = ?")
+        .run(this.#now(), workInstanceId);
+      this.#database.exec("COMMIT");
+    } catch (error) {
+      this.#database.exec("ROLLBACK");
+      throw error;
+    }
+
+    return this.#requireWork(workInstanceId);
+  }
+
+  #loadTombstones(workInstanceId: string): WorkStateTombstone[] {
+    const row = this.#database
+      .prepare(
+        "SELECT tombstones_json FROM work_records WHERE work_instance_id = ?",
+      )
+      .get(workInstanceId) as Row | undefined;
+    if (!row) throw new Error("WORK_NOT_FOUND");
+    return JSON.parse(row.tombstones_json as string) as WorkStateTombstone[];
   }
 
   #saveState(workInstanceId: string, state: WorkState): void {

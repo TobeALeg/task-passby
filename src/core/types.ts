@@ -175,6 +175,10 @@ export interface ResumeWorkInput {
   source: Pick<CaptureBinding, "adapter" | "conversationId">;
 }
 
+export interface StartExecutionEpisodeInput extends ResumeWorkInput {
+  endCurrentEpisode?: boolean;
+}
+
 export interface WorkCoreOptions {
   databasePath: string;
   now?: () => string;
@@ -184,6 +188,8 @@ export interface WorkCoreOptions {
 export interface WorkCore {
   createWork(input: CreateWorkInput): WorkSnapshot;
   getWork(workInstanceId: string): WorkSnapshot | null;
+  listWorks(status?: WorkStatus): WorkSnapshot[];
+  findWorkByBinding(adapter: string, conversationId: string): WorkSnapshot | null;
   appendSourceEvents(
     workInstanceId: string,
     events: SourceEventInput[],
@@ -201,7 +207,18 @@ export interface WorkCore {
     itemId: string,
   ): WorkSnapshot;
   completeWork(workInstanceId: string): WorkSnapshot;
+  archiveWork(workInstanceId: string): WorkSnapshot;
   resumeWork(workInstanceId: string, input: ResumeWorkInput): WorkSnapshot;
+  startExecutionEpisode(
+    workInstanceId: string,
+    input: StartExecutionEpisodeInput,
+  ): WorkSnapshot;
+  bindConversation(
+    workInstanceId: string,
+    adapter: string,
+    previousConversationId: string,
+    conversationId: string,
+  ): WorkSnapshot;
   createHandoffPackage(workInstanceId: string): HandoffPackage;
   addArtifactRef(workInstanceId: string, artifact: ArtifactRefInput): WorkSnapshot;
   deleteWorkPermanently(

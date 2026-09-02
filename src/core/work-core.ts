@@ -16,6 +16,7 @@ import {
   type WorkState,
   type SourceEvent,
   type SourceEventInput,
+  type StartExecutionEpisodeInput,
   type WorkStateField,
   type WorkStatePatch,
   type ResumeWorkInput,
@@ -260,6 +261,31 @@ export class SqliteWorkCore implements WorkCore {
     };
   }
 
+  listWorks(status?: WorkInstance["status"]): WorkSnapshot[] {
+    const rows = status
+      ? this.#database
+          .prepare("SELECT id FROM work_instances WHERE status = ? ORDER BY updated_at DESC, rowid DESC")
+          .all(status)
+      : this.#database
+          .prepare("SELECT id FROM work_instances ORDER BY updated_at DESC, rowid DESC")
+          .all();
+    return rows
+      .map((row) => this.getWork((row as Row).id as string))
+      .filter((work): work is WorkSnapshot => work !== null);
+  }
+
+  findWorkByBinding(adapter: string, conversationId: string): WorkSnapshot | null {
+    const row = this.#database
+      .prepare(
+        `SELECT work_instance_id
+         FROM capture_bindings
+         WHERE adapter = ? AND conversation_id = ?
+         ORDER BY rowid DESC LIMIT 1`,
+      )
+      .get(adapter, conversationId) as Row | undefined;
+    return row ? this.getWork(row.work_instance_id as string) : null;
+  }
+
   appendSourceEvents(
     workInstanceId: string,
     events: SourceEventInput[],
@@ -445,10 +471,28 @@ export class SqliteWorkCore implements WorkCore {
     return this.#requireWork(workInstanceId);
   }
 
+  archiveWork(workInstanceId: string): WorkSnapshot {
+    const work = this.#requireWork(workInstanceId);
+    if (work.instance.status === "ARCHIVED") throw new Error("WORK_ALREADY_ARCHIVED");
+    const endedAt = this.#now();
+    this.#database.exec("BEGIN IMMEDIATE");
+    try {
+      this.#endActiveCapture(workInstanceId, endedAt);
+      this.#database
+        .prepare("UPDATE work_instances SET status = 'ARCHIVED', updated_at = ? WHERE id = ?")
+        .run(endedAt, workInstanceId);
+      this.#database.exec("COMMIT");
+    } catch (error) {
+      this.#database.exec("ROLLBACK");
+      throw error;
+    }
+    return this.#requireWork(workInstanceId);
+  }
+
   resumeWork(workInstanceId: string, input: ResumeWorkInput): WorkSnapshot {
     const work = this.#requireWork(workInstanceId);
-    if (work.instance.status !== "COMPLETED") {
-      throw new Error("WORK_NOT_COMPLETED");
+    if (work.instance.status !== "COMPLETED" && work.instance.status !== "ARCHIVED") {
+      throw new Error("WORK_NOT_RESUMABLE");
     }
 
     const episodeId = this.#id();
@@ -494,6 +538,60 @@ export class SqliteWorkCore implements WorkCore {
       throw error;
     }
 
+    return this.#requireWork(workInstanceId);
+  }
+
+  startExecutionEpisode(
+    workInstanceId: string,
+    input: StartExecutionEpisodeInput,
+  ): WorkSnapshot {
+    const work = this.#requireWork(workInstanceId);
+    if (work.instance.status !== "OPEN") throw new Error("WORK_NOT_OPEN");
+    const episodeId = this.#id();
+    const bindingId = this.#id();
+    const startedAt = this.#now();
+    this.#database.exec("BEGIN IMMEDIATE");
+    try {
+      if (input.endCurrentEpisode) this.#endActiveCapture(workInstanceId, startedAt);
+      this.#database
+        .prepare(
+          `INSERT INTO execution_episodes
+           (id, work_instance_id, executor_json, environment_json, status, started_at)
+           VALUES (?, ?, ?, ?, 'ACTIVE', ?)`,
+        )
+        .run(episodeId, workInstanceId, JSON.stringify(input.executor), JSON.stringify(input.environment), startedAt);
+      this.#database
+        .prepare(
+          `INSERT INTO capture_bindings
+           (id, work_instance_id, episode_id, adapter, conversation_id, status)
+           VALUES (?, ?, ?, ?, ?, 'ACTIVE')`,
+        )
+        .run(bindingId, workInstanceId, episodeId, input.source.adapter, input.source.conversationId);
+      this.#database
+        .prepare("UPDATE work_instances SET updated_at = ? WHERE id = ?")
+        .run(startedAt, workInstanceId);
+      this.#database.exec("COMMIT");
+    } catch (error) {
+      this.#database.exec("ROLLBACK");
+      throw error;
+    }
+    return this.#requireWork(workInstanceId);
+  }
+
+  bindConversation(
+    workInstanceId: string,
+    adapter: string,
+    previousConversationId: string,
+    conversationId: string,
+  ): WorkSnapshot {
+    const result = this.#database
+      .prepare(
+        `UPDATE capture_bindings
+         SET conversation_id = ?
+         WHERE work_instance_id = ? AND adapter = ? AND conversation_id = ? AND status = 'ACTIVE'`,
+      )
+      .run(conversationId, workInstanceId, adapter, previousConversationId);
+    if (result.changes !== 1) throw new Error("ACTIVE_BINDING_NOT_FOUND");
     return this.#requireWork(workInstanceId);
   }
 
@@ -586,6 +684,21 @@ export class SqliteWorkCore implements WorkCore {
     this.#database
       .prepare("UPDATE work_instances SET updated_at = ? WHERE id = ?")
       .run(this.#now(), workInstanceId);
+  }
+
+  #endActiveCapture(workInstanceId: string, endedAt: string): void {
+    this.#database
+      .prepare(
+        `UPDATE execution_episodes SET status = 'ENDED', ended_at = ?
+         WHERE work_instance_id = ? AND status = 'ACTIVE'`,
+      )
+      .run(endedAt, workInstanceId);
+    this.#database
+      .prepare(
+        `UPDATE capture_bindings SET status = 'INACTIVE'
+         WHERE work_instance_id = ? AND status = 'ACTIVE'`,
+      )
+      .run(workInstanceId);
   }
 
   #requireWork(workInstanceId: string): WorkSnapshot {

@@ -265,6 +265,64 @@ test("Handoff Package 投影结构化状态但不包含完整 Source Archive", (
   core.close();
 });
 
+test("交接结束来源绑定并在同一 WorkInstance 创建待绑定的 WorkBuddy Episode", () => {
+  const core = createWorkCore({ databasePath: ":memory:" });
+  const created = core.createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    objective: "继续同一项工作",
+    executor: { type: "AGENT", name: "Codex" },
+    environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
+    source: { adapter: "codex", conversationId: "thread-before-handoff" },
+  });
+
+  const handedOff = core.startExecutionEpisode(created.instance.id, {
+    executor: { type: "AGENT", name: "WorkBuddy" },
+    environment: { type: "WORKBUDDY_DESKTOP", name: "WorkBuddy Desktop" },
+    source: { adapter: "workbuddy", conversationId: "pending:handoff-1" },
+    endCurrentEpisode: true,
+  });
+  const bound = core.bindConversation(
+    created.instance.id,
+    "workbuddy",
+    "pending:handoff-1",
+    "workbuddy-session-1",
+  );
+
+  assert.equal(handedOff.instance.id, created.instance.id);
+  assert.equal(handedOff.episodes.length, 2);
+  assert.equal(handedOff.episodes[0]?.status, "ENDED");
+  assert.equal(handedOff.activeEpisode?.environment.type, "WORKBUDDY_DESKTOP");
+  assert.equal(bound.activeBinding?.conversationId, "workbuddy-session-1");
+  assert.equal(core.findWorkByBinding("workbuddy", "workbuddy-session-1")?.instance.id, created.instance.id);
+
+  core.close();
+});
+
+test("工作列表和归档状态由 Work Core 统一管理", () => {
+  const core = createWorkCore({ databasePath: ":memory:" });
+  const first = core.createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    objective: "第一项工作",
+    executor: { type: "AGENT", name: "Codex" },
+    environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
+    source: { adapter: "codex", conversationId: "thread-list-1" },
+  });
+  const second = core.createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    objective: "第二项工作",
+    executor: { type: "AGENT", name: "Codex" },
+    environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
+    source: { adapter: "codex", conversationId: "thread-list-2" },
+  });
+
+  core.archiveWork(first.instance.id);
+
+  assert.deepEqual(core.listWorks("OPEN").map((work) => work.instance.id), [second.instance.id]);
+  assert.deepEqual(core.listWorks("ARCHIVED").map((work) => work.instance.id), [first.instance.id]);
+
+  core.close();
+});
+
 test("永久删除只删除 Work 数据，不触碰 ArtifactRef 指向的原文件", () => {
   const directory = mkdtempSync(join(tmpdir(), "workpet-core-"));
   const originalPath = join(directory, "用户资料.txt");

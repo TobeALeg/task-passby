@@ -16,6 +16,7 @@ test("创建工作时一次建立定义、实例、记录、执行片段和来�
       version: 1,
     },
     objective: "完成跨应用接力 MVP",
+    objectiveSourceMessageIds: ["user-objective"],
     executor: { type: "AGENT", name: "Codex" },
     environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
     source: { adapter: "codex", conversationId: "thread-20-turns" },
@@ -45,7 +46,7 @@ test("创建工作时一次建立定义、实例、记录、执行片段和来�
       id: work.state.objective[0]?.id,
       text: "完成跨应用接力 MVP",
       origin: "USER_STATED",
-      sourceMessageIds: [],
+      sourceMessageIds: ["user-objective"],
     },
   ]);
 
@@ -134,6 +135,7 @@ test("Extractor 可更新八字段但不能覆盖 USER_EDITED 内容", () => {
     [1, 1, 1, 1, 1, 1, 1, 1],
   );
   assert.equal(edited.state.facts[0]?.origin, "USER_EDITED");
+  assert.ok(edited.state.facts[0]?.editedAt);
   assert.equal(
     patchedAgain.state.facts[0]?.text,
     "WorkBuddy 通过本地 Connector 提供 MCP",
@@ -162,7 +164,7 @@ test("删除的 Work State 条目留下 tombstone 并阻止 Extractor 重建", (
     "pending-deleted",
   );
   const patchedAgain = core.applyExtractorPatch(created.instance.id, {
-    pendingActions: [stateItem("pending-deleted", "读取 WorkBuddy 私有数据库")],
+    pendingActions: [stateItem("new-id-for-deleted-content", "读取 WorkBuddy 私有数据库。")],
   });
 
   assert.deepEqual(deleted.state.pendingActions, []);
@@ -225,11 +227,31 @@ test("完成后停止绑定，继续原工作时在同一实例中新建 Episode
   core.close();
 });
 
+test("停止捕获只结束当前 Binding 和 Episode，不结束 WorkInstance", () => {
+  const core = createWorkCore({ databasePath: ":memory:" });
+  const created = core.createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    executor: { type: "AGENT", name: "Codex" },
+    environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
+    source: { adapter: "codex", conversationId: "thread-stop-capture" },
+  });
+
+  const stopped = core.stopCapture(created.instance.id);
+
+  assert.equal(stopped.instance.status, "OPEN");
+  assert.equal(stopped.activeBinding, null);
+  assert.equal(stopped.activeEpisode, null);
+  assert.equal(stopped.bindings[0]?.status, "INACTIVE");
+  assert.equal(stopped.episodes[0]?.status, "ENDED");
+  core.close();
+});
+
 test("Handoff Package 投影结构化状态但不包含完整 Source Archive", () => {
   const core = createWorkCore({ databasePath: ":memory:" });
   const created = core.createWork({
     definition: { key: "general-work", name: "通用工作", version: 1 },
     objective: "做出可用的 MVP",
+    objectiveSourceMessageIds: ["user-handoff-objective"],
     executor: { type: "AGENT", name: "Codex" },
     environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
     source: { adapter: "codex", conversationId: "thread-handoff" },
@@ -261,6 +283,8 @@ test("Handoff Package 投影结构化状态但不包含完整 Source Archive", (
   assert.equal(handoff.state.pendingActions[0]?.text, "接入 WorkBuddy");
   assert.equal("sourceArchive" in handoff, false);
   assert.equal(serialized.includes("只应存在于本地完整归档的敏感对话原文"), false);
+  assert.equal(core.getWork(created.instance.id)?.handoffPackages.length, 1);
+  assert.deepEqual(core.getLatestHandoffPackage(created.instance.id), handoff);
 
   core.close();
 });
@@ -270,6 +294,7 @@ test("交接结束来源绑定并在同一 WorkInstance 创建待绑定的 WorkB
   const created = core.createWork({
     definition: { key: "general-work", name: "通用工作", version: 1 },
     objective: "继续同一项工作",
+    objectiveSourceMessageIds: ["user-continue-objective"],
     executor: { type: "AGENT", name: "Codex" },
     environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
     source: { adapter: "codex", conversationId: "thread-before-handoff" },
@@ -303,6 +328,7 @@ test("工作列表和归档状态由 Work Core 统一管理", () => {
   const first = core.createWork({
     definition: { key: "general-work", name: "通用工作", version: 1 },
     objective: "第一项工作",
+    objectiveSourceMessageIds: ["user-first-objective"],
     executor: { type: "AGENT", name: "Codex" },
     environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
     source: { adapter: "codex", conversationId: "thread-list-1" },
@@ -310,6 +336,7 @@ test("工作列表和归档状态由 Work Core 统一管理", () => {
   const second = core.createWork({
     definition: { key: "general-work", name: "通用工作", version: 1 },
     objective: "第二项工作",
+    objectiveSourceMessageIds: ["user-second-objective"],
     executor: { type: "AGENT", name: "Codex" },
     environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
     source: { adapter: "codex", conversationId: "thread-list-2" },

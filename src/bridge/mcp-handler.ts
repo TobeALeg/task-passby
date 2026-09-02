@@ -41,7 +41,7 @@ export class WorkPetMcpHandler {
         const work = this.#core.getWork(workId);
         if (!work) throw new Error("WORK_NOT_FOUND");
         if (name === "get_work_context") {
-          const handoff = this.#core.createHandoffPackage(workId);
+          const handoff = this.#core.getLatestHandoffPackage(workId) ?? this.#core.createHandoffPackage(workId);
           return { jsonrpc: "2.0", id, result: toolResult({
             ...handoff,
             executionEpisodes: work.episodes,

@@ -78,12 +78,25 @@ export interface CreateWorkRequest {
   allowCloudExtraction: boolean;
 }
 
+export interface CodexSplitPointView {
+  externalId: string;
+  label: string;
+  timestamp: string;
+}
+
+export interface CreateWorkFromCodexMessageRequest {
+  sourceWorkId: string;
+  startExternalId: string;
+}
+
 export interface WorkPetApi {
   togglePanel(): Promise<void>;
   getDashboard(workId?: string): Promise<DashboardView>;
   listCodexThreads(): Promise<CodexThreadView[]>;
   previewCodexThread(threadId: string): Promise<CodexImportPreview>;
   createWorkFromCodex(request: CreateWorkRequest): Promise<DashboardView>;
+  listCodexSplitPoints(workId: string): Promise<CodexSplitPointView[]>;
+  createWorkFromCodexMessage(request: CreateWorkFromCodexMessageRequest): Promise<DashboardView>;
   refreshWork(workId: string): Promise<DashboardView>;
   editStateItem(workId: string, field: WorkStateField, itemId: string, text: string): Promise<DashboardView>;
   deleteStateItem(workId: string, field: WorkStateField, itemId: string): Promise<DashboardView>;

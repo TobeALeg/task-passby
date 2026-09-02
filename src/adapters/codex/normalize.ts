@@ -70,7 +70,7 @@ function event(
 ): NormalizedSourceEvent {
   return {
     id: `codex:${thread.id}:${item.id}:${suffix}`,
-    externalId: item.id,
+    externalId: `${item.id}:${suffix}`,
     sequence,
     timestamp: isoTime(turn.startedAt, thread.createdAt),
     environmentType: "CODEX_DESKTOP",

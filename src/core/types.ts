@@ -24,9 +24,10 @@ export interface WorkStateItem {
   text: string;
   origin: WorkStateOrigin;
   sourceMessageIds: string[];
+  editedAt?: string;
 }
 
-export type ExtractedWorkStateItem = Omit<WorkStateItem, "origin"> & {
+export type ExtractedWorkStateItem = Omit<WorkStateItem, "origin" | "editedAt"> & {
   origin: Exclude<WorkStateOrigin, "USER_EDITED">;
 };
 
@@ -144,6 +145,7 @@ export interface WorkSnapshot {
   state: WorkState;
   sourceArchive: SourceEvent[];
   artifactRefs: ArtifactRef[];
+  handoffPackages: HandoffPackage[];
 }
 
 export interface HandoffPackage {
@@ -164,6 +166,7 @@ export interface HandoffPackage {
 export interface CreateWorkInput {
   definition: Pick<WorkDefinition, "key" | "name" | "version">;
   objective?: string;
+  objectiveSourceMessageIds?: string[];
   executor: Executor;
   environment: ExecutionEnvironment;
   source: Pick<CaptureBinding, "adapter" | "conversationId">;
@@ -208,6 +211,7 @@ export interface WorkCore {
   ): WorkSnapshot;
   completeWork(workInstanceId: string): WorkSnapshot;
   archiveWork(workInstanceId: string): WorkSnapshot;
+  stopCapture(workInstanceId: string): WorkSnapshot;
   resumeWork(workInstanceId: string, input: ResumeWorkInput): WorkSnapshot;
   startExecutionEpisode(
     workInstanceId: string,
@@ -220,6 +224,7 @@ export interface WorkCore {
     conversationId: string,
   ): WorkSnapshot;
   createHandoffPackage(workInstanceId: string): HandoffPackage;
+  getLatestHandoffPackage(workInstanceId: string): HandoffPackage | null;
   addArtifactRef(workInstanceId: string, artifact: ArtifactRefInput): WorkSnapshot;
   deleteWorkPermanently(
     workInstanceId: string,

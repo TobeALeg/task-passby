@@ -57,7 +57,7 @@ export class LocalRuleExtractor implements WorkStateExtractor {
       artifacts: []
     };
     const firstPrompt = input.events.find((event) => event.kind === "user.prompt" && event.content?.trim() && !isAcknowledgement(event.content));
-    if (!input.previousState && firstPrompt?.content) {
+    if (!(input.previousState?.objective.length) && firstPrompt?.content) {
       patch.objective?.push(item("objective", firstPrompt.externalId, firstSentence(firstPrompt.content), "USER_STATED"));
     }
 

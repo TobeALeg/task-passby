@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { resolveArtifact } from "../../artifacts/resolver.js";
+import { ArtifactTracker } from "../../artifacts/tracker.js";
 import type { SourceEventInput, WorkCore, WorkSnapshot } from "../../core/index.js";
 import { parseWorkBuddyTranscript } from "./transcript.js";
 
@@ -23,9 +23,11 @@ function stringField(payload: HookPayload, key: string): string | null {
 
 export class WorkBuddyHookIngestor {
   readonly #core: WorkCore;
+  readonly #artifacts: ArtifactTracker;
 
   constructor(core: WorkCore) {
     this.#core = core;
+    this.#artifacts = new ArtifactTracker(core);
   }
 
   async ingest(payload: HookPayload): Promise<HookIngestResult> {
@@ -83,7 +85,8 @@ export class WorkBuddyHookIngestor {
         .filter((event) => event.kind !== "user.prompt" || !knownUserContent.has(event.content))
         .map((event) => ({ ...event, sequence: ++offset, metadata: { ...event.metadata, sessionId, transcriptPath } }));
       const appended = fresh.length ? this.#core.appendSourceEvents(work.instance.id, fresh).appendedCount : 0;
-      await this.#attachArtifacts(work.instance.id, fresh);
+      const latest = this.#core.getWork(work.instance.id);
+      if (latest) await this.#artifacts.attach(latest, fresh);
       return { accepted: true, workInstanceId: work.instance.id, appendedCount: appended };
     }
 
@@ -92,19 +95,5 @@ export class WorkBuddyHookIngestor {
 
   #nextSequence(work: WorkSnapshot): number {
     return Math.max(0, ...work.sourceArchive.map((event) => event.sequence)) + 1;
-  }
-
-  async #attachArtifacts(workId: string, events: SourceEventInput[]): Promise<void> {
-    const work = this.#core.getWork(workId);
-    const known = new Set(work?.artifactRefs.map((artifact) => `${artifact.path}:${artifact.sha256}`) ?? []);
-    for (const event of events) {
-      if (event.kind !== "artifact.added") continue;
-      const path = typeof event.metadata.path === "string" ? event.metadata.path : event.content;
-      if (!path) continue;
-      const artifact = await resolveArtifact(path, typeof event.metadata.role === "string" ? event.metadata.role : "INPUT");
-      if (known.has(`${artifact.path}:${artifact.sha256}`)) continue;
-      this.#core.addArtifactRef(workId, artifact);
-      known.add(`${artifact.path}:${artifact.sha256}`);
-    }
   }
 }

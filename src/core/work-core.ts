@@ -26,7 +26,19 @@ import {
 } from "./types.js";
 
 type Row = Record<string, unknown>;
-type WorkStateTombstone = { field: WorkStateField; itemId: string };
+type WorkStateTombstone = {
+  field: WorkStateField;
+  itemId: string;
+  normalizedText?: string;
+  sourceMessageIds?: string[];
+};
+
+function normalizedStateText(text: string): string {
+  return text
+    .trim()
+    .replace(/[\s。.!！?,，；;：“”"'《》…]+/gu, "")
+    .toLocaleLowerCase("zh-CN");
+}
 
 function emptyWorkState(): WorkState {
   return {
@@ -63,11 +75,12 @@ export class SqliteWorkCore implements WorkCore {
     const state = emptyWorkState();
 
     if (input.objective) {
+      if (!input.objectiveSourceMessageIds?.length) throw new Error("OBJECTIVE_SOURCE_REQUIRED");
       state.objective.push({
         id: this.#id(),
         text: input.objective,
         origin: "USER_STATED",
-        sourceMessageIds: [],
+        sourceMessageIds: [...input.objectiveSourceMessageIds],
       });
     }
 
@@ -168,6 +181,7 @@ export class SqliteWorkCore implements WorkCore {
         state,
         sourceArchive: [],
         artifactRefs: [],
+        handoffPackages: [],
       };
     } catch (error) {
       this.#database.exec("ROLLBACK");
@@ -230,6 +244,15 @@ export class SqliteWorkCore implements WorkCore {
       )
       .all(workInstanceId)
       .map((row) => this.#artifactRefFromRow(row as Row));
+    const handoffPackages = this.#database
+      .prepare(
+        `SELECT payload_json
+         FROM handoff_packages
+         WHERE work_instance_id = ?
+         ORDER BY row_id`,
+      )
+      .all(workInstanceId)
+      .map((row) => JSON.parse((row as Row).payload_json as string) as HandoffPackage);
 
     const definition: WorkDefinition = {
       id: instanceRow.d_id as string,
@@ -258,6 +281,7 @@ export class SqliteWorkCore implements WorkCore {
       state: JSON.parse(instanceRow.state_json as string) as WorkState,
       sourceArchive,
       artifactRefs,
+      handoffPackages,
     };
   }
 
@@ -291,7 +315,10 @@ export class SqliteWorkCore implements WorkCore {
     events: SourceEventInput[],
   ): { appendedCount: number; duplicateCount: number; work: WorkSnapshot } {
     const work = this.#requireWork(workInstanceId);
-    if (work.instance.status !== "OPEN" || !work.activeBinding) {
+    const artifactAudit = events.length > 0 && events.every(
+      (event) => event.kind === "artifact.changed" && event.environmentType === "WORKPET_LOCAL"
+    );
+    if ((work.instance.status !== "OPEN" || !work.activeBinding) && !artifactAudit) {
       throw new Error("WORK_NOT_CAPTURING");
     }
 
@@ -353,7 +380,11 @@ export class SqliteWorkCore implements WorkCore {
         if (
           tombstones.some(
             (tombstone) =>
-              tombstone.field === field && tombstone.itemId === incomingItem.id,
+              tombstone.field === field && (
+                tombstone.itemId === incomingItem.id
+                || tombstone.normalizedText === normalizedStateText(incomingItem.text)
+                || tombstone.sourceMessageIds?.some((sourceId) => incomingItem.sourceMessageIds.includes(sourceId))
+              ),
           )
         ) {
           continue;
@@ -389,6 +420,7 @@ export class SqliteWorkCore implements WorkCore {
 
     item.text = text;
     item.origin = "USER_EDITED";
+    item.editedAt = this.#now();
     this.#saveState(workInstanceId, nextState);
     return this.#requireWork(workInstanceId);
   }
@@ -403,14 +435,19 @@ export class SqliteWorkCore implements WorkCore {
     const existingIndex = nextState[field].findIndex((item) => item.id === itemId);
     if (existingIndex === -1) throw new Error("WORK_STATE_ITEM_NOT_FOUND");
 
-    nextState[field].splice(existingIndex, 1);
+    const [deletedItem] = nextState[field].splice(existingIndex, 1);
     const tombstones = this.#loadTombstones(workInstanceId);
     if (
       !tombstones.some(
         (tombstone) => tombstone.field === field && tombstone.itemId === itemId,
       )
     ) {
-      tombstones.push({ field, itemId });
+      tombstones.push({
+        field,
+        itemId,
+        normalizedText: normalizedStateText(deletedItem?.text ?? ""),
+        sourceMessageIds: [...(deletedItem?.sourceMessageIds ?? [])]
+      });
     }
 
     this.#database.exec("BEGIN IMMEDIATE");
@@ -480,6 +517,25 @@ export class SqliteWorkCore implements WorkCore {
       this.#endActiveCapture(workInstanceId, endedAt);
       this.#database
         .prepare("UPDATE work_instances SET status = 'ARCHIVED', updated_at = ? WHERE id = ?")
+        .run(endedAt, workInstanceId);
+      this.#database.exec("COMMIT");
+    } catch (error) {
+      this.#database.exec("ROLLBACK");
+      throw error;
+    }
+    return this.#requireWork(workInstanceId);
+  }
+
+  stopCapture(workInstanceId: string): WorkSnapshot {
+    const work = this.#requireWork(workInstanceId);
+    if (work.instance.status !== "OPEN") throw new Error("WORK_NOT_OPEN");
+    if (!work.activeBinding || !work.activeEpisode) throw new Error("ACTIVE_CAPTURE_NOT_FOUND");
+    const endedAt = this.#now();
+    this.#database.exec("BEGIN IMMEDIATE");
+    try {
+      this.#endActiveCapture(workInstanceId, endedAt);
+      this.#database
+        .prepare("UPDATE work_instances SET updated_at = ? WHERE id = ?")
         .run(endedAt, workInstanceId);
       this.#database.exec("COMMIT");
     } catch (error) {
@@ -597,7 +653,9 @@ export class SqliteWorkCore implements WorkCore {
 
   createHandoffPackage(workInstanceId: string): HandoffPackage {
     const work = this.#requireWork(workInstanceId);
-    return {
+    const latestArtifacts = new Map<string, ArtifactRef>();
+    for (const artifact of work.artifactRefs) latestArtifacts.set(artifact.path, artifact);
+    const handoff: HandoffPackage = {
       id: this.#id(),
       workInstanceId,
       workDefinition: {
@@ -608,12 +666,43 @@ export class SqliteWorkCore implements WorkCore {
       currentTask: work.state.objective[0]?.text ?? null,
       nextStep: work.state.pendingActions[0]?.text ?? null,
       state: structuredClone(work.state),
-      neededArtifacts: structuredClone(work.artifactRefs),
+      neededArtifacts: structuredClone([...latestArtifacts.values()]),
       sourceArchiveSummary: {
         eventCount: work.sourceArchive.length,
-        artifactCount: work.artifactRefs.length,
+        artifactCount: latestArtifacts.size,
       },
     };
+    this.#database.exec("BEGIN IMMEDIATE");
+    try {
+      this.#database
+        .prepare(
+          `INSERT INTO handoff_packages (id, work_instance_id, generated_at, payload_json)
+           VALUES (?, ?, ?, ?)`,
+        )
+        .run(handoff.id, workInstanceId, handoff.generatedAt, JSON.stringify(handoff));
+      this.#database
+        .prepare("UPDATE work_instances SET updated_at = ? WHERE id = ?")
+        .run(handoff.generatedAt, workInstanceId);
+      this.#database.exec("COMMIT");
+    } catch (error) {
+      this.#database.exec("ROLLBACK");
+      throw error;
+    }
+    return handoff;
+  }
+
+  getLatestHandoffPackage(workInstanceId: string): HandoffPackage | null {
+    this.#requireWork(workInstanceId);
+    const row = this.#database
+      .prepare(
+        `SELECT payload_json
+         FROM handoff_packages
+         WHERE work_instance_id = ?
+         ORDER BY row_id DESC
+         LIMIT 1`,
+      )
+      .get(workInstanceId) as Row | undefined;
+    return row ? JSON.parse(row.payload_json as string) as HandoffPackage : null;
   }
 
   addArtifactRef(workInstanceId: string, artifact: ArtifactRefInput): WorkSnapshot {

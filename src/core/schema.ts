@@ -80,5 +80,13 @@ export function createSchema(database: DatabaseSync): void {
       last_modified_at TEXT NOT NULL,
       availability TEXT NOT NULL CHECK(availability IN ('AVAILABLE', 'CHANGED', 'MISSING'))
     ) STRICT;
+
+    CREATE TABLE IF NOT EXISTS handoff_packages (
+      row_id INTEGER PRIMARY KEY,
+      id TEXT NOT NULL UNIQUE,
+      work_instance_id TEXT NOT NULL REFERENCES work_instances(id) ON DELETE CASCADE,
+      generated_at TEXT NOT NULL,
+      payload_json TEXT NOT NULL
+    ) STRICT;
   `);
 }

@@ -1,13 +1,5 @@
-export type SourceEventKind =
-  | "user.prompt"
-  | "agent.response"
-  | "reasoning.summary"
-  | "tool.call"
-  | "tool.result"
-  | "artifact.added"
-  | "artifact.changed";
+import type { Executor, SourceEventKind } from "../core/types.js";
 
-export type ExecutorType = "HUMAN" | "AGENT" | "TOOL" | "SAAS";
 export type ExecutionEnvironmentType = "CODEX_DESKTOP" | "WORKBUDDY_DESKTOP";
 
 export interface NormalizedSourceEvent {
@@ -17,7 +9,7 @@ export interface NormalizedSourceEvent {
   kind: SourceEventKind;
   content: string;
   timestamp: string;
-  executorType: ExecutorType;
+  executorType: Executor["type"];
   environmentType: ExecutionEnvironmentType;
   metadata?: Record<string, unknown>;
 }

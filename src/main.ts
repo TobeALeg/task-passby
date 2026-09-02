@@ -88,10 +88,12 @@ function togglePanel(): void {
 function registerIpc(): void {
   ipcMain.handle("panel:toggle", () => togglePanel());
   ipcMain.handle("panel:close", () => panelWindow?.hide());
-  ipcMain.handle("dashboard:get", (_event, workId?: string) => requireService().dashboard(workId));
+  ipcMain.handle("dashboard:get", (_event, workId?: string) => requireService().dashboardWithVerification(workId));
   ipcMain.handle("codex:list", () => requireService().listCodexThreads());
   ipcMain.handle("codex:preview", (_event, threadId: string) => requireService().previewCodexThread(threadId));
   ipcMain.handle("work:create-from-codex", (_event, request) => requireService().createWorkFromCodex(request));
+  ipcMain.handle("work:split-points", (_event, workId: string) => requireService().listCodexSplitPoints(workId));
+  ipcMain.handle("work:create-from-codex-message", (_event, request) => requireService().createWorkFromCodexMessage(request));
   ipcMain.handle("work:refresh", (_event, workId: string) => requireService().refreshWork(workId));
   ipcMain.handle("work:state-edit", (_event, workId: string, field: WorkStateField, itemId: string, text: string) => requireService().editStateItem(workId, field, itemId, text));
   ipcMain.handle("work:state-delete", (_event, workId: string, field: WorkStateField, itemId: string) => requireService().deleteStateItem(workId, field, itemId));

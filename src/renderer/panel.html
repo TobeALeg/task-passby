@@ -40,6 +40,18 @@
       </form>
     </dialog>
 
+    <dialog id="split-dialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-heading"><span class="eyebrow">新工作</span><h2>从哪条消息开始？</h2></div>
+        <p>原工作记录会保留；所选消息及其后的内容将成为新的 WorkInstance。</p>
+        <label class="field">起始用户消息<select id="split-point"></select></label>
+        <div class="dialog-actions">
+          <button value="cancel" class="secondary">取消</button>
+          <button id="confirm-split" value="default" class="primary">创建新工作</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="delete-dialog">
       <form method="dialog" class="dialog-card danger-card">
         <div class="dialog-heading"><span class="eyebrow">永久删除</span><h2>这份本地记录将无法恢复</h2></div>

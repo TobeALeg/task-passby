@@ -13,6 +13,7 @@ test("WorkBuddy 通过 marker 绑定同一工作、读取接力状态并把可�
   const created = core.createWork({
     definition: { key: "general-work", name: "通用工作", version: 1 },
     objective: "完成跨应用接力",
+    objectiveSourceMessageIds: ["user-roundtrip-objective"],
     executor: { type: "AGENT", name: "Codex" },
     environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
     source: { adapter: "codex", conversationId: "codex-thread" }

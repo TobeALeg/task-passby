@@ -60,5 +60,8 @@ export async function verifyArtifact(reference: ArtifactRef): Promise<ArtifactRe
   if (current.availability === "AVAILABLE" && current.sha256 !== reference.sha256) {
     return { ...current, availability: "CHANGED" };
   }
+  if (current.availability === "AVAILABLE" && reference.availability === "CHANGED") {
+    return { ...current, availability: "CHANGED" };
+  }
   return current;
 }

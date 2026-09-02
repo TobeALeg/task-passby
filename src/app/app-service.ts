@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { resolveArtifact } from "../artifacts/resolver.js";
+import { ArtifactTracker } from "../artifacts/tracker.js";
 import { CodexAppServerClient, type CodexThreadSummary } from "../adapters/codex/app-server-client.js";
 import type { NormalizedSourceEvent, NormalizedThread } from "../adapters/types.js";
 import { buildWorkBuddyBootstrap, buildWorkBuddyDeepLink } from "../adapters/workbuddy/deep-link.js";
@@ -17,6 +17,8 @@ import { OpenAICompatibleExtractor } from "../extractor/openai-compatible-extrac
 import type { WorkStateExtractor } from "../extractor/types.js";
 import type {
   CodexImportPreview,
+  CodexSplitPointView,
+  CreateWorkFromCodexMessageRequest,
   CreateWorkRequest,
   DashboardView,
   WorkDetailView,
@@ -25,14 +27,21 @@ import type {
 
 export interface AppServiceOptions {
   databasePath: string;
-  codex?: CodexAppServerClient;
+  codex?: CodexSource;
   launcher: WorkBuddyLauncher;
+}
+
+export interface CodexSource {
+  listRecentThreads(limit?: number): Promise<CodexThreadSummary[]>;
+  readThread(threadId: string): Promise<NormalizedThread>;
+  close(): void;
 }
 
 export class AppService {
   readonly #core: WorkCore;
-  readonly #codex: CodexAppServerClient;
+  readonly #codex: CodexSource;
   readonly #launcher: WorkBuddyLauncher;
+  readonly #artifacts: ArtifactTracker;
   #selectedWorkId: string | null = null;
   #petState: DashboardView["petState"] = "sleeping";
   #notice: string | null = null;
@@ -42,6 +51,7 @@ export class AppService {
     this.#core = createWorkCore({ databasePath: options.databasePath });
     this.#codex = options.codex ?? new CodexAppServerClient();
     this.#launcher = options.launcher;
+    this.#artifacts = new ArtifactTracker(this.#core);
   }
 
   async listCodexThreads(): Promise<CodexThreadSummary[]> {
@@ -75,14 +85,13 @@ export class AppService {
     const thread = await this.#codex.readThread(request.threadId);
     let work = this.#core.createWork({
       definition: { key: "general-work", name: "通用工作", version: 1 },
-      objective: thread.title,
       executor: { type: "AGENT", name: "Codex" },
       environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
       source: { adapter: "codex", conversationId: thread.threadId }
     });
     const inputs = this.#sourceInputs(thread.events);
     work = this.#core.appendSourceEvents(work.instance.id, inputs).work;
-    work = await this.#attachArtifacts(work, thread.events);
+    work = await this.#artifacts.attach(work, thread.events);
     const extractor = this.#extractor(request.allowCloudExtraction);
     if (request.allowCloudExtraction) this.#cloudConsent.add(work.instance.id);
     const patch = await extractor.extract({ previousState: work.state, events: work.sourceArchive });
@@ -93,12 +102,79 @@ export class AppService {
     return this.dashboard(work.instance.id);
   }
 
+  async listCodexSplitPoints(workId: string): Promise<CodexSplitPointView[]> {
+    const work = this.#requireWork(workId);
+    const codexBinding = [...work.bindings].reverse().find((binding) => binding.adapter === "codex");
+    if (!codexBinding) throw new Error("没有可分割的 Codex 来源对话");
+    const thread = await this.#codex.readThread(codexBinding.conversationId);
+    return thread.events
+      .filter((event) => event.kind === "user.prompt" && event.content.trim())
+      .map((event) => ({
+        externalId: event.externalId,
+        label: event.content.replace(/\s+/gu, " ").slice(0, 100),
+        timestamp: event.timestamp
+      }))
+      .reverse();
+  }
+
+  async createWorkFromCodexMessage(request: CreateWorkFromCodexMessageRequest): Promise<DashboardView> {
+    const sourceWork = this.#requireWork(request.sourceWorkId);
+    const codexBinding = [...sourceWork.bindings].reverse().find((binding) => binding.adapter === "codex");
+    if (!codexBinding) throw new Error("没有可分割的 Codex 来源对话");
+    if (sourceWork.activeBinding && sourceWork.activeBinding.adapter !== "codex") {
+      throw new Error("当前工作正在其他执行环境中，请先完成或切回 Codex");
+    }
+    const thread = await this.#codex.readThread(codexBinding.conversationId);
+    const startIndex = thread.events.findIndex(
+      (event) => event.externalId === request.startExternalId && event.kind === "user.prompt"
+    );
+    if (startIndex === -1) throw new Error("未找到指定的用户消息");
+    const selectedEvents = thread.events.slice(startIndex);
+    const stoppedCapture = sourceWork.activeBinding?.adapter === "codex";
+    if (stoppedCapture) this.#core.stopCapture(sourceWork.instance.id);
+    let createdWorkId: string | null = null;
+
+    try {
+      let work = this.#core.createWork({
+        definition: { key: "general-work", name: "通用工作", version: 1 },
+        executor: { type: "AGENT", name: "Codex" },
+        environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
+        source: { adapter: "codex", conversationId: codexBinding.conversationId }
+      });
+      createdWorkId = work.instance.id;
+      work = this.#core.appendSourceEvents(work.instance.id, this.#sourceInputs(selectedEvents)).work;
+      work = await this.#artifacts.attach(work, selectedEvents);
+      const allowCloud = this.#cloudConsent.has(sourceWork.instance.id);
+      const patch = await this.#extractor(allowCloud).extract({ previousState: work.state, events: work.sourceArchive });
+      work = this.#core.applyExtractorPatch(work.instance.id, patch);
+      if (allowCloud) this.#cloudConsent.add(work.instance.id);
+      this.#selectedWorkId = work.instance.id;
+      this.#petState = "awake";
+      this.#notice = `已从指定消息创建新的 WorkInstance，并归档后续 ${work.sourceArchive.length} 条记录。`;
+      return this.dashboard(work.instance.id);
+    } catch (error) {
+      if (createdWorkId) this.#core.deleteWorkPermanently(createdWorkId, { confirmation: createdWorkId });
+      if (stoppedCapture && sourceWork.activeEpisode && sourceWork.activeBinding) {
+        this.#core.startExecutionEpisode(sourceWork.instance.id, {
+          executor: sourceWork.activeEpisode.executor,
+          environment: sourceWork.activeEpisode.environment,
+          source: {
+            adapter: sourceWork.activeBinding.adapter,
+            conversationId: sourceWork.activeBinding.conversationId
+          }
+        });
+      }
+      throw error;
+    }
+  }
+
   async refreshWork(workId: string): Promise<DashboardView> {
-    const current = this.#requireWork(workId);
+    let current = this.#requireWork(workId);
     if (current.instance.status !== "OPEN") {
       this.#notice = "已完成或归档的工作不会自动写入；请先明确继续原工作。";
       return this.dashboard(workId);
     }
+    current = await this.#artifacts.verify(current);
     const codexBinding = [...current.bindings].reverse().find((binding) => binding.adapter === "codex");
     if (!codexBinding || current.activeBinding?.adapter !== "codex") {
       this.#notice = "当前执行片段不在 Codex；WorkBuddy 的增量由插件 Hook 写回。";
@@ -106,10 +182,7 @@ export class AppService {
     }
     this.#petState = "carrying";
     const thread = await this.#codex.readThread(codexBinding.conversationId);
-    const known = new Set(current.sourceArchive.map((event) => event.externalId));
-    const newEvents = thread.events.filter((event) => !known.has(event.externalId));
-    let work = this.#core.appendSourceEvents(workId, this.#sourceInputs(newEvents)).work;
-    work = await this.#attachArtifacts(work, newEvents);
+    let { work, newEvents } = await this.#ingestCodexDelta(current, thread);
     if (newEvents.length) {
       const patch = await this.#extractor(this.#cloudConsent.has(workId)).extract({ previousState: current.state, events: this.#sourceInputs(newEvents) });
       work = this.#core.applyExtractorPatch(workId, patch);
@@ -127,11 +200,8 @@ export class AppService {
       return { accepted: false, appendedCount: 0 };
     }
     const thread = await this.#codex.readThread(threadId);
-    const known = new Set(current.sourceArchive.map((event) => event.externalId));
-    const newEvents = thread.events.filter((event) => !known.has(event.externalId));
+    const { work, newEvents } = await this.#ingestCodexDelta(current, thread);
     if (!newEvents.length) return { accepted: true, appendedCount: 0 };
-    let work = this.#core.appendSourceEvents(current.instance.id, this.#sourceInputs(newEvents)).work;
-    work = await this.#attachArtifacts(work, newEvents);
     this.#notice = `Codex 已增量归档 ${newEvents.length} 条记录；Work State 将在查看、刷新或交接时更新。`;
     return { accepted: true, appendedCount: newEvents.length };
   }
@@ -153,6 +223,15 @@ export class AppService {
       selectedWork: selected ? this.#detail(selected) : null,
       notice: this.#notice
     };
+  }
+
+  async dashboardWithVerification(workId?: string): Promise<DashboardView> {
+    if (workId) this.#selectedWorkId = workId;
+    if (this.#selectedWorkId) {
+      const selected = this.#core.getWork(this.#selectedWorkId);
+      if (selected?.artifactRefs.length) await this.#artifacts.verify(selected);
+    }
+    return this.dashboard();
   }
 
   editStateItem(workId: string, field: WorkStateField, itemId: string, text: string): DashboardView {
@@ -196,8 +275,11 @@ export class AppService {
   }
 
   async handoffToWorkBuddy(workId: string): Promise<DashboardView> {
-    const current = this.#requireWork(workId);
+    let current = await this.#artifacts.verify(this.#requireWork(workId));
     if (current.activeBinding?.adapter === "codex") await this.refreshWork(workId);
+    current = this.#requireWork(workId);
+    const sourceEpisode = current.activeEpisode;
+    const sourceBinding = current.activeBinding;
     const handoff = this.#core.createHandoffPackage(workId);
     const pendingConversationId = `pending:${handoff.id}`;
     this.#core.startExecutionEpisode(workId, {
@@ -214,7 +296,22 @@ export class AppService {
       artifactPaths: handoff.neededArtifacts.filter((artifact) => artifact.availability !== "MISSING").map((artifact) => artifact.path)
     });
     this.#petState = "carrying";
-    const launchResult = await this.#launcher.openNewConversation(buildWorkBuddyDeepLink(prompt));
+    let launchResult: "sent" | "draft";
+    try {
+      launchResult = await this.#launcher.openNewConversation(buildWorkBuddyDeepLink(prompt));
+    } catch (error) {
+      if (sourceEpisode && sourceBinding) {
+        this.#core.startExecutionEpisode(workId, {
+          executor: sourceEpisode.executor,
+          environment: sourceEpisode.environment,
+          source: { adapter: sourceBinding.adapter, conversationId: sourceBinding.conversationId },
+          endCurrentEpisode: true
+        });
+      }
+      this.#petState = "alert";
+      this.#notice = `WorkBuddy 未能启动，已恢复原来源记录。${error instanceof Error ? ` ${error.message}` : ""}`;
+      return this.dashboard(workId);
+    }
     this.#petState = "awake";
     this.#notice = launchResult === "sent"
       ? "已在 WorkBuddy 新建并发送接力任务；Hook 会绑定真实会话并继续记录。"
@@ -267,19 +364,12 @@ export class AppService {
     }));
   }
 
-  async #attachArtifacts(work: WorkSnapshot, events: NormalizedSourceEvent[]): Promise<WorkSnapshot> {
-    const known = new Set(work.artifactRefs.map((artifact) => `${artifact.path}:${artifact.sha256}`));
-    let current = work;
-    for (const event of events) {
-      if (event.kind !== "artifact.added" && event.kind !== "artifact.changed") continue;
-      const path = typeof event.metadata?.path === "string" ? event.metadata.path : event.content;
-      if (!path) continue;
-      const artifact = await resolveArtifact(path, typeof event.metadata?.role === "string" ? event.metadata.role : "INPUT");
-      if (known.has(`${artifact.path}:${artifact.sha256}`)) continue;
-      current = this.#core.addArtifactRef(work.instance.id, artifact);
-      known.add(`${artifact.path}:${artifact.sha256}`);
-    }
-    return current;
+  async #ingestCodexDelta(current: WorkSnapshot, thread: NormalizedThread): Promise<{ work: WorkSnapshot; newEvents: NormalizedSourceEvent[] }> {
+    const known = new Set(current.sourceArchive.map((event) => event.externalId));
+    const newEvents = thread.events.filter((event) => !known.has(event.externalId));
+    let work = this.#core.appendSourceEvents(current.instance.id, this.#sourceInputs(newEvents)).work;
+    work = await this.#artifacts.attach(work, newEvents);
+    return { work, newEvents };
   }
 
   #requireWork(workId: string): WorkSnapshot {

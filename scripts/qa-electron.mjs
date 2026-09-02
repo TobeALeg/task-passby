@@ -72,6 +72,13 @@ try {
     throw new Error("Work Detail 没有展示 Codex ExecutionEpisode");
   }
 
+  await panel.getByRole("button", { name: "从消息新建", exact: true }).click();
+  await panel.locator("#split-dialog[open]").waitFor({ state: "visible" });
+  const splitOptionCount = await panel.locator("#split-point option").count();
+  if (!splitOptionCount) throw new Error("从消息新建没有提供用户消息起点");
+  await panel.screenshot({ path: join(output, "04b-split-dialog.png") });
+  await panel.locator("#split-dialog").getByRole("button", { name: "取消", exact: true }).click();
+
   const editable = panel.locator("textarea[data-item-id]").first();
   const editedText = "QA 人工修改：后续提炼不得覆盖";
   await editable.fill(editedText);
@@ -94,9 +101,10 @@ try {
     petMetrics,
     panelMetrics,
     optionCount,
+    splitOptionCount,
     previewText,
     episodeCount,
-    screenshots: ["01-pet.png", "02-panel-empty.png", "03-import-confirmation.png", "04-work-detail.png", "05-resumed-work.png"]
+    screenshots: ["01-pet.png", "02-panel-empty.png", "03-import-confirmation.png", "04-work-detail.png", "04b-split-dialog.png", "05-resumed-work.png"]
   }, null, 2));
 } finally {
   await electronApp.close();

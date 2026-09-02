@@ -11,12 +11,15 @@ const list = required<HTMLElement>("#work-list");
 const detail = required<HTMLElement>("#work-detail");
 const notice = required<HTMLElement>("#notice");
 const importDialog = required<HTMLDialogElement>("#import-dialog");
+const splitDialog = required<HTMLDialogElement>("#split-dialog");
 const deleteDialog = required<HTMLDialogElement>("#delete-dialog");
 const threadSelect = required<HTMLSelectElement>("#codex-thread");
+const splitPointSelect = required<HTMLSelectElement>("#split-point");
 const preview = required<HTMLElement>("#import-preview");
 let dashboard: DashboardView;
 let filter: WorkStatus = "OPEN";
 let pendingDeleteWorkId: string | null = null;
+let pendingSplitWorkId: string | null = null;
 
 function required<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -54,9 +57,9 @@ function renderDetail(work: WorkDetailView | null): void {
   detail.hidden = !work;
   if (!work) { detail.innerHTML = ""; return; }
   const actions = work.status === "OPEN"
-    ? `<button data-action="refresh">刷新记录</button><button data-action="handoff" class="handoff">交给 WorkBuddy</button><button data-action="complete">完成</button><button data-action="archive">归档</button>`
+    ? `<button data-action="refresh">刷新记录</button><button data-action="split">从消息新建</button><button data-action="handoff" class="handoff">交给 WorkBuddy</button><button data-action="complete">完成</button><button data-action="archive">归档</button>`
     : work.status === "COMPLETED"
-      ? `<button data-action="resume">继续原工作</button><button data-action="archive">归档</button>`
+      ? `<button data-action="resume">继续原工作</button><button data-action="split">从消息新建</button><button data-action="archive">归档</button>`
       : `<button data-action="resume">恢复为进行中</button>`;
   detail.innerHTML = `
     <div class="detail-head"><span class="eyebrow">${work.id.slice(0, 8)}</span><h2>${escapeHtml(work.title)}</h2><p class="detail-meta">${work.eventCount} 条来源记录 · ${work.episodeCount} 个 Execution Episode</p></div>
@@ -101,6 +104,7 @@ async function removeItem(workId: string, button: HTMLButtonElement): Promise<vo
 
 async function runAction(workId: string, action: string): Promise<void> {
   if (action === "delete") { pendingDeleteWorkId = workId; deleteDialog.showModal(); return; }
+  if (action === "split") { await openSplit(workId); return; }
   const operation = {
     refresh: () => window.workpet.refreshWork(workId),
     handoff: () => window.workpet.handoffToWorkBuddy(workId),
@@ -111,6 +115,14 @@ async function runAction(workId: string, action: string): Promise<void> {
   if (!operation) return;
   dashboard = await operation();
   render();
+}
+
+async function openSplit(workId: string): Promise<void> {
+  const points = await window.workpet.listCodexSplitPoints(workId);
+  splitPointSelect.innerHTML = points.map((point) => `<option value="${escapeHtml(point.externalId)}">${escapeHtml(point.label)}</option>`).join("");
+  if (!points.length) throw new Error("没有可作为新工作起点的用户消息");
+  pendingSplitWorkId = workId;
+  splitDialog.showModal();
 }
 
 async function openImport(): Promise<void> {
@@ -139,6 +151,18 @@ required<HTMLButtonElement>("#confirm-import").addEventListener("click", async (
   event.preventDefault();
   dashboard = await window.workpet.createWorkFromCodex({ threadId: threadSelect.value, allowCloudExtraction: required<HTMLInputElement>("#cloud-consent").checked });
   importDialog.close();
+  filter = "OPEN";
+  render();
+});
+required<HTMLButtonElement>("#confirm-split").addEventListener("click", async (event) => {
+  event.preventDefault();
+  if (!pendingSplitWorkId) return;
+  dashboard = await window.workpet.createWorkFromCodexMessage({
+    sourceWorkId: pendingSplitWorkId,
+    startExternalId: splitPointSelect.value
+  });
+  pendingSplitWorkId = null;
+  splitDialog.close();
   filter = "OPEN";
   render();
 });

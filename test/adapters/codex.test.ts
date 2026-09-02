@@ -63,6 +63,7 @@ test("Codex Adapter 归档可见历史并丢弃隐藏推理正文", () => {
   assert.ok(result.events.every((event) => !event.content.includes("不可归档的隐藏推理")));
   assert.equal(result.events[3]?.metadata?.output, "报告已生成");
   assert.equal(result.events[4]?.content, "分析完成，报告在 output.md。");
+  assert.equal(new Set(result.events.map((event) => event.externalId)).size, result.events.length);
 });
 
 test("Codex Adapter 只从明确的 Files pasted 区块提取附件路径", () => {

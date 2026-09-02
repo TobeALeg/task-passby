@@ -141,6 +141,21 @@ export interface WorkSnapshot {
   artifactRefs: ArtifactRef[];
 }
 
+export interface HandoffPackage {
+  id: string;
+  workInstanceId: string;
+  workDefinition: { key: string; version: number };
+  generatedAt: string;
+  currentTask: string | null;
+  nextStep: string | null;
+  state: WorkState;
+  neededArtifacts: ArtifactRef[];
+  sourceArchiveSummary: {
+    eventCount: number;
+    artifactCount: number;
+  };
+}
+
 export interface CreateWorkInput {
   definition: Pick<WorkDefinition, "key" | "name" | "version">;
   objective?: string;
@@ -182,5 +197,6 @@ export interface WorkCore {
   ): WorkSnapshot;
   completeWork(workInstanceId: string): WorkSnapshot;
   resumeWork(workInstanceId: string, input: ResumeWorkInput): WorkSnapshot;
+  createHandoffPackage(workInstanceId: string): HandoffPackage;
   close(): void;
 }

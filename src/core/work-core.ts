@@ -19,6 +19,7 @@ import {
   type WorkStateField,
   type WorkStatePatch,
   type ResumeWorkInput,
+  type HandoffPackage,
 } from "./types.js";
 
 type Row = Record<string, unknown>;
@@ -482,6 +483,27 @@ export class SqliteWorkCore implements WorkCore {
     }
 
     return this.#requireWork(workInstanceId);
+  }
+
+  createHandoffPackage(workInstanceId: string): HandoffPackage {
+    const work = this.#requireWork(workInstanceId);
+    return {
+      id: this.#id(),
+      workInstanceId,
+      workDefinition: {
+        key: work.definition.key,
+        version: work.definition.version,
+      },
+      generatedAt: this.#now(),
+      currentTask: work.state.objective[0]?.text ?? null,
+      nextStep: work.state.pendingActions[0]?.text ?? null,
+      state: structuredClone(work.state),
+      neededArtifacts: structuredClone(work.artifactRefs),
+      sourceArchiveSummary: {
+        eventCount: work.sourceArchive.length,
+        artifactCount: work.artifactRefs.length,
+      },
+    };
   }
 
   #loadTombstones(workInstanceId: string): WorkStateTombstone[] {

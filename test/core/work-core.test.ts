@@ -222,6 +222,46 @@ test("完成后停止绑定，继续原工作时在同一实例中新建 Episode
   core.close();
 });
 
+test("Handoff Package 投影结构化状态但不包含完整 Source Archive", () => {
+  const core = createWorkCore({ databasePath: ":memory:" });
+  const created = core.createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    objective: "做出可用的 MVP",
+    executor: { type: "AGENT", name: "Codex" },
+    environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
+    source: { adapter: "codex", conversationId: "thread-handoff" },
+  });
+  core.appendSourceEvents(created.instance.id, [
+    {
+      externalId: "raw-secret-message",
+      sequence: 1,
+      kind: "agent.response",
+      content: "只应存在于本地完整归档的敏感对话原文",
+      timestamp: "2026-09-02T11:00:00.000Z",
+      executorType: "AGENT",
+      environmentType: "CODEX_DESKTOP",
+      metadata: {},
+      artifactRefs: [],
+    },
+  ]);
+  core.applyExtractorPatch(created.instance.id, {
+    pendingActions: [stateItem("next-1", "接入 WorkBuddy")],
+  });
+
+  const handoff = core.createHandoffPackage(created.instance.id);
+  const serialized = JSON.stringify(handoff);
+
+  assert.equal(handoff.workInstanceId, created.instance.id);
+  assert.equal(handoff.currentTask, "做出可用的 MVP");
+  assert.equal(handoff.nextStep, "接入 WorkBuddy");
+  assert.equal(handoff.sourceArchiveSummary.eventCount, 1);
+  assert.equal(handoff.state.pendingActions[0]?.text, "接入 WorkBuddy");
+  assert.equal("sourceArchive" in handoff, false);
+  assert.equal(serialized.includes("只应存在于本地完整归档的敏感对话原文"), false);
+
+  core.close();
+});
+
 function stateItem(
   id: string,
   text: string,

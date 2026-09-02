@@ -31,6 +31,13 @@ function isAcknowledgement(text: string): boolean {
   return /^(好(?:的)?|确认|同意|可以|行|yes|ok|okay)[。.!！\s]*$/iu.test(text.trim());
 }
 
+function objectiveCandidate(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("# Files pasted by the user:")) return isAcknowledgement(trimmed) ? null : trimmed;
+  const request = trimmed.match(/\n##\s+My request:\s*\n([\s\S]+)$/u)?.[1]?.trim();
+  return request && !isAcknowledgement(request) ? request : null;
+}
+
 function compact(patch: WorkStatePatch): WorkStatePatch {
   for (const field of Object.keys(patch) as WorkStateField[]) {
     const unique = new Map<string, ExtractedWorkStateItem>();
@@ -56,9 +63,12 @@ export class LocalRuleExtractor implements WorkStateExtractor {
       pendingActions: [],
       artifacts: []
     };
-    const firstPrompt = input.events.find((event) => event.kind === "user.prompt" && event.content?.trim() && !isAcknowledgement(event.content));
-    if (!(input.previousState?.objective.length) && firstPrompt?.content) {
-      patch.objective?.push(item("objective", firstPrompt.externalId, firstSentence(firstPrompt.content), "USER_STATED"));
+    const firstPrompt = input.events
+      .filter((event) => event.kind === "user.prompt" && event.content?.trim())
+      .map((event) => ({ event, candidate: objectiveCandidate(event.content ?? "") }))
+      .find(({ candidate }) => candidate);
+    if (!(input.previousState?.objective.length) && firstPrompt?.candidate) {
+      patch.objective?.push(item("objective", firstPrompt.event.externalId, firstSentence(firstPrompt.candidate), "USER_STATED"));
     }
 
     for (const event of input.events) {

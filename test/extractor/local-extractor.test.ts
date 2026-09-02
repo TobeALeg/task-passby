@@ -34,6 +34,20 @@ test("本地提炼器忽略确认词并限制每个字段的噪声数量", async
   assert.notEqual(patch.objective?.[0]?.text, "好");
 });
 
+test("本地提炼器不会把 Codex 附件提示当成工作目标", async () => {
+  const extractor = new LocalRuleExtractor();
+  const patch = await extractor.extract({
+    previousState: null,
+    events: [
+      source("attachment-only", "user.prompt", "# Files pasted by the user:\n\n## report.pdf: /tmp/report.pdf"),
+      source("request", "user.prompt", "请根据报告完成客户提案。")
+    ]
+  });
+
+  assert.equal(patch.objective?.[0]?.text, "请根据报告完成客户提案");
+  assert.deepEqual(patch.objective?.[0]?.sourceMessageIds, ["request"]);
+});
+
 function source(id: string, kind: string, content: string, metadata: Record<string, unknown> = {}) {
   return {
     id,

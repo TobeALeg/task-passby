@@ -34,6 +34,8 @@ npm run qa:desktop-roundtrip:list
 
 `qa:package` 验证打包后的真实 Electron 窗口、Codex 导入确认、人工编辑保护和继续原工作。`qa:desktop-roundtrip:list` 只读取本机 Codex 任务并列出哪些任务满足“至少二十轮用户输入、两份不同附件”，不向 WorkBuddy 发送内容。
 
+如果当前验收任务只有一份附件，可把无敏感信息的 [第二验收资料](test/fixtures/desktop-acceptance-second-artifact.md) 作为新附件发到该 Codex 任务，再重新运行候选扫描。
+
 严格桌面验收必须由用户亲自发送。先退出正在运行的 WorkPet，然后从上一步结果选择一个 `threadId`：
 
 ```bash

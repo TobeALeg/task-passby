@@ -56,6 +56,11 @@ test("WorkBuddy 通过 marker 绑定同一工作、读取接力状态并把可�
   });
   assert.match(JSON.stringify(context), /完成跨应用接力/u);
   assert.doesNotMatch(JSON.stringify(context), /完整历史不得/u);
+  const auditedToolCall = core.getWork(created.instance.id)?.sourceArchive.find(
+    (event) => event.kind === "tool.call" && event.metadata.toolName === "get_work_context"
+  );
+  assert.equal(auditedToolCall?.environmentType, "WORKBUDDY_DESKTOP");
+  assert.equal(auditedToolCall?.episodeId, core.getWork(created.instance.id)?.activeEpisode?.id);
 
   const directory = await mkdtemp(join(tmpdir(), "workpet-roundtrip-"));
   const transcriptPath = join(directory, "session.jsonl");

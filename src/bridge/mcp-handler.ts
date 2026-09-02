@@ -41,6 +41,7 @@ export class WorkPetMcpHandler {
         const work = this.#core.getWork(workId);
         if (!work) throw new Error("WORK_NOT_FOUND");
         if (name === "get_work_context") {
+          this.#recordToolRead(workId, name, request.id);
           const handoff = this.#core.getLatestHandoffPackage(workId) ?? this.#core.createHandoffPackage(workId);
           return { jsonrpc: "2.0", id, result: toolResult({
             ...handoff,
@@ -56,6 +57,7 @@ export class WorkPetMcpHandler {
           }) };
         }
         if (name === "get_artifact_refs") {
+          this.#recordToolRead(workId, name, request.id);
           return { jsonrpc: "2.0", id, result: toolResult({ workInstanceId: workId, artifacts: work.artifactRefs }) };
         }
         throw new Error("UNKNOWN_TOOL");
@@ -64,5 +66,22 @@ export class WorkPetMcpHandler {
     } catch (error) {
       return { jsonrpc: "2.0", id, error: { code: -32000, message: error instanceof Error ? error.message : String(error) } };
     }
+  }
+
+  #recordToolRead(workId: string, toolName: string, requestId: string | number | null): void {
+    const work = this.#core.getWork(workId);
+    if (work?.instance.status !== "OPEN" || work.activeBinding?.adapter !== "workbuddy") return;
+    const sequence = Math.max(0, ...work.sourceArchive.map((event) => event.sequence)) + 1;
+    this.#core.appendSourceEvents(workId, [{
+      externalId: `workpet:mcp:${work.activeBinding.id}:${toolName}:${String(requestId)}`,
+      sequence,
+      kind: "tool.call",
+      content: `WorkBuddy MCP 调用 ${toolName}`,
+      timestamp: new Date().toISOString(),
+      executorType: "TOOL",
+      environmentType: "WORKBUDDY_DESKTOP",
+      metadata: { toolName, access: "read" },
+      artifactRefs: []
+    }]);
   }
 }

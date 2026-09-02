@@ -29,10 +29,20 @@ npm run package:mac
 npm test
 npm run typecheck
 npm run qa:package
-npm run qa:roundtrip
+npm run qa:desktop-roundtrip:list
 ```
 
-`qa:package` 验证打包后的真实 Electron 窗口、Codex 导入确认、人工编辑保护和继续原工作。`qa:roundtrip` 会读取真实 Codex 任务、打开 WorkBuddy 桌面草稿，并通过 WorkBuddy 官方 CLI 使用当前账号发起一次最小模型调用，验证 MCP 取数、真实会话绑定和 Hook 回写。二者都使用临时 WorkPet 数据库，不污染正式 WorkRecord；严格桌面同会话发送仍需先授予 WorkPet macOS 辅助功能权限，再按十四步流程人工确认一次。
+`qa:package` 验证打包后的真实 Electron 窗口、Codex 导入确认、人工编辑保护和继续原工作。`qa:desktop-roundtrip:list` 只读取本机 Codex 任务并列出哪些任务满足“至少二十轮用户输入、两份不同附件”，不向 WorkBuddy 发送内容。
+
+严格桌面验收必须由用户亲自发送。先退出正在运行的 WorkPet，然后从上一步结果选择一个 `threadId`：
+
+```bash
+WORKPET_QA_THREAD_ID='<thread-id>' \
+WORKPET_QA_CONFIRM=SEND_TO_CURRENT_WORKBUDDY_ACCOUNT \
+npm run qa:desktop-roundtrip
+```
+
+脚本会使用临时 WorkPet 数据库，验证人工编辑保护，并等待用户在 Codex 新增一轮对话。随后它只打开 WorkBuddy 全新草稿，由用户检查后亲自按回车；成功条件同时要求真实桌面 Conversation ID、`get_work_context` MCP 审计事件、WorkBuddy 用户 Prompt 和可见回复经 Hook 写回同一 WorkInstance。`qa:roundtrip` 是额外的 CLI 接入检查，会主动调用当前 WorkBuddy 账号，不能替代桌面同会话验收，也不应在没有具体数据发送授权时运行。
 
 ## 数据边界
 

@@ -60,7 +60,9 @@ export class AppService {
 
   async previewCodexThread(threadId: string): Promise<CodexImportPreview> {
     const thread = await this.#codex.readThread(threadId);
-    const messageCount = thread.events.filter((event) => event.kind === "user.prompt" || event.kind === "agent.response").length;
+    const userPromptCount = thread.events.filter((event) => event.kind === "user.prompt").length;
+    const agentResponseCount = thread.events.filter((event) => event.kind === "agent.response").length;
+    const messageCount = userPromptCount + agentResponseCount;
     return {
       id: thread.threadId,
       title: thread.title,
@@ -69,7 +71,14 @@ export class AppService {
       updatedAt: thread.updatedAt,
       status: "available",
       messageCount,
-      artifactCount: thread.events.filter((event) => event.kind === "artifact.added").length,
+      userPromptCount,
+      agentResponseCount,
+      artifactCount: new Set(
+        thread.events
+          .filter((event) => event.kind === "artifact.added")
+          .map((event) => typeof event.metadata?.path === "string" ? event.metadata.path : event.content)
+          .filter((path): path is string => Boolean(path))
+      ).size,
       toolEventCount: thread.events.filter((event) => event.kind === "tool.call" || event.kind === "tool.result").length
     };
   }

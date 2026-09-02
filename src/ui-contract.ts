@@ -69,6 +69,8 @@ export interface CodexThreadView {
 
 export interface CodexImportPreview extends CodexThreadView {
   messageCount: number;
+  userPromptCount: number;
+  agentResponseCount: number;
   artifactCount: number;
   toolEventCount: number;
 }

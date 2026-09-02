@@ -2,7 +2,7 @@
 
 ## 状态
 
-产品规格已确认。尚未开始实现。
+可用 MVP 已实现。领域核心、SQLite 持久化、Codex App Server Adapter、WorkBuddy MCP/Hook Bridge、桌宠侧边面板、安装器与 macOS 打包均已完成；真实 Codex→WorkBuddy 回写闭环已通过。
 
 ## 目标
 
@@ -127,9 +127,9 @@ MVP 首次把 WorkInstance 交给 WorkBuddy 时必须创建全新的 WorkBuddy �
 
 完成一次性设置后，日常交接必须是一键操作。MCP 负责让 WorkBuddy 读取 Work Record；macOS 辅助功能只负责拉起 WorkBuddy、新建对话和输入首条接力指令。
 
-WorkBuddy Adapter 优先实现为包含 MCP 与 Hook 的本地插件：MCP 读取 Handoff Package，Hook 捕获用户提交、Agent 停止和会话结束等事件并增量回写 WorkRecord。实施前必须验证本机 WorkBuddy 版本支持的实际 Hook 契约。
+WorkBuddy Adapter 使用 WorkBuddy 官方支持的用户级 MCP 与 Hook 配置：MCP 读取 Handoff Package，Hook 捕获用户提交、Agent 停止和会话结束等事件并增量回写 WorkRecord。
 
-若本机兼容性验证失败，MVP 降级为用户点击桌宠时主动同步当前 WorkBuddy 对话。降级方案不得读取 WorkBuddy 私有数据库。
+本机 WorkBuddy 5.4.7 已验证支持所需 Hook 与 transcript 契约。它的本地目录型 marketplace 安装存在“CLI 报成功但桌面 cache registry 缺失”的版本问题，因此安装器直接原子合并官方用户级 MCP/Hook 配置，并在重复安装时去重。该方案不读取 WorkBuddy 私有数据库。
 
 ## 生命周期
 
@@ -203,11 +203,11 @@ WorkPattern 不修改 WorkDefinition，不反向修改历史 WorkRecord，也不
 
 验收必须使用真实安装的 Codex 与 WorkBuddy，不以 Mock、Swagger、接口返回或静态页面代替端到端桌面验证。
 
-## 实施前事实验证
+## 已验证实现事实
 
-以下是实施 Spike，不是未决产品问题：
-
-- 验证本机 WorkBuddy 5.4.7 实际支持的 Hook 事件和 transcript 数据；
-- 验证 WorkBuddy 新建对话的 Deep Link 或 macOS 辅助功能路径；
-- 验证 Codex App Server 对当前任务历史、附件和增量事件的实际覆盖范围；
-- 验证 WorkBuddy Hook 不兼容时的主动同步降级路径。
+- Codex Desktop 内置 App Server 可列出并读取真实 task 的完整可见 turns、工具记录与显式附件；隐藏 reasoning 正文在 Adapter 层丢弃；
+- WorkBuddy 5.4.7 支持 `SessionStart`、`UserPromptSubmit`、`Stop`、`SessionEnd` Hook，Hook 输入包含真实 `session_id` 与 `transcript_path`；
+- `workbuddy://task` Deep Link 能创建全新 WorkBuddy 草稿并注入不超过 8000 字的 marker；macOS 辅助功能授权后可完成一键发送；
+- WorkBuddy 用户级 MCP 能连接 WorkPet localhost Bridge；`get_work_context` 不含完整 Source Archive，`get_work_archive` 必须显式调用；
+- 真实闭环验收中，Codex 工作导入 472 条记录，WorkBuddy 绑定真实会话后写回 2 条可见事件，并在同一 WorkInstance 下生成 WorkBuddy ExecutionEpisode；
+- 自动测试覆盖领域生命周期、去重、人工编辑保护、tombstone、ArtifactRef、隐藏思维过滤、接力投影、WorkBuddy marker 绑定与回写、接入配置幂等性。

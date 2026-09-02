@@ -65,3 +65,13 @@
 ## MVP 完成定义
 
 以 [工作流规格](../workflows/record-and-handoff-work.md) 中的十四步真实桌面验收为唯一完成标准。Mock、静态页面、健康检查或接口成功不能代替真实 Codex 到 WorkBuddy 的端到端接力。
+
+## 当前交付
+
+- macOS 桌宠与轻量侧边面板；
+- 本地 SQLite Work Core 与八部分 Work State；
+- Codex Desktop 真实历史导入、增量 Hook 与 ArtifactRef；
+- WorkBuddy 新对话 Deep Link、用户级 MCP、可见事件 Hook 与同一 WorkInstance 回写；
+- `OPEN`、`COMPLETED`、`ARCHIVED` 生命周期、继续原工作、人工编辑保护、tombstone 和永久删除；
+- 默认本地规则提炼；只有用户勾选且配置 API Key 时才调用 OpenAI-compatible 云端模型；
+- arm64 macOS `.app` 打包与一次性接入安装入口。

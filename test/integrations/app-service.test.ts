@@ -163,5 +163,39 @@ test("用户可从指定 Codex 消息创建新的 WorkInstance", async () => {
   assert.deepEqual(service.core().getWork(newId)?.sourceArchive.map((event) => event.externalId), ["prompt-b", "reply-b"]);
   assert.equal(service.core().getWork(originalId)?.activeBinding, null);
   assert.equal(service.core().findWorkByBinding("codex", thread.threadId)?.instance.id, newId);
+  await service.refreshWork(newId);
+  assert.deepEqual(service.core().getWork(newId)?.sourceArchive.map((event) => event.externalId), ["prompt-b", "reply-b"]);
+  service.close();
+});
+
+test("无来源 CaptureBinding 的工作交接失败时结束 pending Episode", async () => {
+  const thread: NormalizedThread = {
+    threadId: "no-source-handoff-thread",
+    title: "无来源交接失败",
+    cwd: "/tmp",
+    createdAt: "2026-09-02T10:00:00.000Z",
+    updatedAt: "2026-09-02T10:00:00.000Z",
+    events: [{
+      id: "prompt-1", externalId: "prompt-1", sequence: 1, kind: "user.prompt",
+      content: "交给 WorkBuddy", timestamp: "2026-09-02T10:00:00.000Z",
+      executorType: "HUMAN", environmentType: "CODEX_DESKTOP"
+    }]
+  };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(thread),
+    launcher: { async openNewConversation() { throw new Error("WorkBuddy 未启动"); } }
+  });
+  const created = await service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false });
+  const workId = created.selectedWorkId;
+  assert.ok(workId);
+  service.core().stopCapture(workId);
+
+  const result = await service.handoffToWorkBuddy(workId);
+
+  assert.match(result.notice ?? "", /未保留虚假的执行片段/u);
+  assert.equal(service.core().getWork(workId)?.activeBinding, null);
+  assert.equal(service.core().getWork(workId)?.activeEpisode, null);
+  assert.ok(service.core().getWork(workId)?.episodes.every((episode) => episode.status === "ENDED"));
   service.close();
 });

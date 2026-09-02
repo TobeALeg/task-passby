@@ -25,9 +25,10 @@ export interface WorkStateItem {
   origin: WorkStateOrigin;
   sourceMessageIds: string[];
   editedAt?: string;
+  originalText?: string;
 }
 
-export type ExtractedWorkStateItem = Omit<WorkStateItem, "origin" | "editedAt"> & {
+export type ExtractedWorkStateItem = Omit<WorkStateItem, "origin" | "editedAt" | "originalText"> & {
   origin: Exclude<WorkStateOrigin, "USER_EDITED">;
 };
 

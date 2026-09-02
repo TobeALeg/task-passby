@@ -300,6 +300,7 @@ export class AppService {
     try {
       launchResult = await this.#launcher.openNewConversation(buildWorkBuddyDeepLink(prompt));
     } catch (error) {
+      this.#core.stopCapture(workId);
       if (sourceEpisode && sourceBinding) {
         this.#core.startExecutionEpisode(workId, {
           executor: sourceEpisode.executor,
@@ -309,7 +310,9 @@ export class AppService {
         });
       }
       this.#petState = "alert";
-      this.#notice = `WorkBuddy 未能启动，已恢复原来源记录。${error instanceof Error ? ` ${error.message}` : ""}`;
+      this.#notice = sourceEpisode && sourceBinding
+        ? `WorkBuddy 未能启动，已恢复原来源记录。${error instanceof Error ? ` ${error.message}` : ""}`
+        : `WorkBuddy 未能启动，未保留虚假的执行片段。${error instanceof Error ? ` ${error.message}` : ""}`;
       return this.dashboard(workId);
     }
     this.#petState = "awake";
@@ -366,7 +369,9 @@ export class AppService {
 
   async #ingestCodexDelta(current: WorkSnapshot, thread: NormalizedThread): Promise<{ work: WorkSnapshot; newEvents: NormalizedSourceEvent[] }> {
     const known = new Set(current.sourceArchive.map((event) => event.externalId));
-    const newEvents = thread.events.filter((event) => !known.has(event.externalId));
+    const captureStart = thread.events.findIndex((event) => known.has(event.externalId));
+    const captureScope = captureStart === -1 ? thread.events : thread.events.slice(captureStart);
+    const newEvents = captureScope.filter((event) => !known.has(event.externalId));
     let work = this.#core.appendSourceEvents(current.instance.id, this.#sourceInputs(newEvents)).work;
     work = await this.#artifacts.attach(work, newEvents);
     return { work, newEvents };

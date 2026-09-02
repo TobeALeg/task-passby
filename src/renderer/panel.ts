@@ -185,3 +185,7 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(".filter")) {
 
 dashboard = await window.workpet.getDashboard();
 render();
+window.workpet.onPanelShown(async () => {
+  dashboard = await window.workpet.getDashboard(dashboard.selectedWorkId ?? undefined);
+  render();
+});

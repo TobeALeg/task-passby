@@ -106,6 +106,7 @@ export interface WorkPetApi {
   handoffToWorkBuddy(workId: string): Promise<DashboardView>;
   deleteWork(workId: string, confirmation: string): Promise<DashboardView>;
   installIntegrations(): Promise<unknown>;
+  onPanelShown(callback: () => void): () => void;
   closePanel(): Promise<void>;
 }
 

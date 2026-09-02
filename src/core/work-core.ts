@@ -40,6 +40,10 @@ function normalizedStateText(text: string): string {
     .toLocaleLowerCase("zh-CN");
 }
 
+function sharesSource(left: string[], right: string[]): boolean {
+  return left.some((sourceId) => right.includes(sourceId));
+}
+
 function emptyWorkState(): WorkState {
   return {
     objective: [],
@@ -382,13 +386,23 @@ export class SqliteWorkCore implements WorkCore {
             (tombstone) =>
               tombstone.field === field && (
                 tombstone.itemId === incomingItem.id
-                || tombstone.normalizedText === normalizedStateText(incomingItem.text)
-                || tombstone.sourceMessageIds?.some((sourceId) => incomingItem.sourceMessageIds.includes(sourceId))
+                || (
+                  tombstone.normalizedText === normalizedStateText(incomingItem.text)
+                  && sharesSource(tombstone.sourceMessageIds ?? [], incomingItem.sourceMessageIds)
+                )
               ),
           )
         ) {
           continue;
         }
+        const protectedEdit = nextState[field].some(
+          (existing) =>
+            existing.origin === "USER_EDITED"
+            && existing.originalText
+            && normalizedStateText(existing.originalText) === normalizedStateText(incomingItem.text)
+            && sharesSource(existing.sourceMessageIds, incomingItem.sourceMessageIds),
+        );
+        if (protectedEdit) continue;
         const existingIndex = nextState[field].findIndex(
           (existing) => existing.id === incomingItem.id,
         );
@@ -418,6 +432,7 @@ export class SqliteWorkCore implements WorkCore {
     const item = nextState[field].find((candidate) => candidate.id === itemId);
     if (!item) throw new Error("WORK_STATE_ITEM_NOT_FOUND");
 
+    item.originalText ??= item.text;
     item.text = text;
     item.origin = "USER_EDITED";
     item.editedAt = this.#now();

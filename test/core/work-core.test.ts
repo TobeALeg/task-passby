@@ -129,6 +129,9 @@ test("Extractor 可更新八字段但不能覆盖 USER_EDITED 内容", () => {
   const patchedAgain = core.applyExtractorPatch(created.instance.id, {
     facts: [stateItem("fact-1", "模型试图覆盖的旧事实")],
   });
+  const newIdForOriginal = core.applyExtractorPatch(created.instance.id, {
+    facts: [stateItem("fact-new-id", "WorkBuddy 支持 MCP")],
+  });
 
   assert.deepEqual(
     Object.values(extracted.state).map((items) => items.length),
@@ -142,6 +145,8 @@ test("Extractor 可更新八字段但不能覆盖 USER_EDITED 内容", () => {
   );
   assert.equal(patchedAgain.state.facts[0]?.origin, "USER_EDITED");
   assert.deepEqual(patchedAgain.state.facts[0]?.sourceMessageIds, ["message-1"]);
+  assert.equal(edited.state.facts[0]?.originalText, "WorkBuddy 支持 MCP");
+  assert.equal(newIdForOriginal.state.facts.length, 1);
 
   core.close();
 });
@@ -164,11 +169,14 @@ test("删除的 Work State 条目留下 tombstone 并阻止 Extractor 重建", (
     "pending-deleted",
   );
   const patchedAgain = core.applyExtractorPatch(created.instance.id, {
-    pendingActions: [stateItem("new-id-for-deleted-content", "读取 WorkBuddy 私有数据库。")],
+    pendingActions: [
+      stateItem("new-id-for-deleted-content", "读取 WorkBuddy 私有数据库。"),
+      stateItem("same-source-other-content", "通过公开 MCP 读取工作上下文"),
+    ],
   });
 
   assert.deepEqual(deleted.state.pendingActions, []);
-  assert.deepEqual(patchedAgain.state.pendingActions, []);
+  assert.deepEqual(patchedAgain.state.pendingActions.map((item) => item.text), ["通过公开 MCP 读取工作上下文"]);
 
   core.close();
 });

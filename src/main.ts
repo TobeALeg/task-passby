@@ -83,6 +83,7 @@ function togglePanel(): void {
   panelWindow.setPosition(x, y);
   panelWindow.show();
   panelWindow.focus();
+  panelWindow.webContents.send("panel:shown");
 }
 
 function registerIpc(): void {

@@ -17,5 +17,10 @@ contextBridge.exposeInMainWorld("workpet", {
   handoffToWorkBuddy: (workId) => ipcRenderer.invoke("work:handoff", workId),
   deleteWork: (workId, confirmation) => ipcRenderer.invoke("work:delete", workId, confirmation),
   installIntegrations: () => ipcRenderer.invoke("integrations:install"),
+  onPanelShown: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on("panel:shown", listener);
+    return () => ipcRenderer.removeListener("panel:shown", listener);
+  },
   closePanel: () => ipcRenderer.invoke("panel:close")
 });

@@ -9,7 +9,7 @@ Desktop Pet Interface
 Work Core ─────────────── Local Persistence
    │  │                         │
    │  ├── WorkStateExtractor    └── WorkRecord / Source Archive
-   │  ├── ArtifactResolver
+   │  ├── ArtifactTracker ─── ArtifactResolver
    │  └── HandoffCoordinator
    │
    ├── Codex Adapter ───── Codex App Server
@@ -60,13 +60,13 @@ Work Core ─────────────── Local Persistence
 
 隐藏具体模型实现的 seam。输入为上一版 Work State 与新增 Source Event，输出八部分 Work State 变更。它不得覆盖 `USER_EDITED` 内容或重新创建已有 tombstone 的内容。
 
-### ArtifactResolver
+### ArtifactTracker 与 ArtifactResolver
 
-隐藏文件存储策略的 seam。MVP 只维护原路径与元数据，并在使用时校验 Hash 和可用性。Work Core 不依赖未来是否加入副本或版本存储。
+`ArtifactTracker` 统一负责编排 Codex 与 WorkBuddy 的资料挂接和使用前复核，避免两个 Adapter 产生不同语义；`ArtifactResolver` 隐藏具体文件存储策略。MVP 只维护原路径与元数据，并在查看、刷新或交接时校验 Hash 和可用性。发生变化时写入新的 ArtifactRef 版本与 `artifact.changed` 来源事件。Work Core 不依赖未来是否加入副本或版本存储。
 
 ### Local Persistence
 
-只在本机持久化 WorkDefinition、WorkInstance、WorkRecord、Source Archive、Work State 版本、Capture Binding、ExecutionEpisode、Handoff、ArtifactRef、同步游标和 tombstone。实现阶段优先选择单机事务数据库；MVP 不需要云数据库。
+只在本机持久化 WorkDefinition、WorkInstance、WorkRecord、Source Archive、Work State 版本、Capture Binding、ExecutionEpisode、Handoff Package、ArtifactRef、同步游标和 tombstone。实现阶段优先选择单机事务数据库；MVP 不需要云数据库。Handoff Package 是不可变快照，交接完成后 MCP 读取最近一次已提交版本；目标应用启动失败时，来源 Binding 与 Episode 在同一补偿流程中恢复。
 
 ## Data flow
 

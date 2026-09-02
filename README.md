@@ -28,10 +28,11 @@ npm run package:mac
 ```bash
 npm test
 npm run typecheck
+npm run qa:package
 npm run qa:roundtrip
 ```
 
-`qa:roundtrip` 会读取真实 Codex 任务、打开 WorkBuddy，并使用当前 WorkBuddy 账号发起一次最小模型调用，验证 MCP 取数、真实会话绑定和 Hook 回写。它使用临时 WorkPet 数据库，不污染正式 WorkRecord。
+`qa:package` 验证打包后的真实 Electron 窗口、Codex 导入确认、人工编辑保护和继续原工作。`qa:roundtrip` 会读取真实 Codex 任务、打开 WorkBuddy 桌面草稿，并通过 WorkBuddy 官方 CLI 使用当前账号发起一次最小模型调用，验证 MCP 取数、真实会话绑定和 Hook 回写。二者都使用临时 WorkPet 数据库，不污染正式 WorkRecord；严格桌面同会话发送仍需先授予 WorkPet macOS 辅助功能权限，再按十四步流程人工确认一次。
 
 ## 数据边界
 

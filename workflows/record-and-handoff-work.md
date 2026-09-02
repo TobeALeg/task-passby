@@ -2,7 +2,7 @@
 
 ## 状态
 
-可用 MVP 已实现。领域核心、SQLite 持久化、Codex App Server Adapter、WorkBuddy MCP/Hook Bridge、桌宠侧边面板、安装器与 macOS 打包均已完成；真实 Codex→WorkBuddy 回写闭环已通过。
+可用 MVP 已实现。领域核心、SQLite 持久化、Codex App Server Adapter、WorkBuddy MCP/Hook Bridge、桌宠侧边面板、安装器与 macOS 打包均已完成。真实 Codex 数据导入、WorkBuddy MCP/Hook 回写和桌面 Deep Link 已分别通过；严格十四步验收仍需用户在 WorkPet 的 macOS 辅助功能授权后，于同一个 WorkBuddy 桌面对话中完成最后一次人工确认。
 
 ## 目标
 
@@ -209,5 +209,5 @@ WorkPattern 不修改 WorkDefinition，不反向修改历史 WorkRecord，也不
 - WorkBuddy 5.4.7 支持 `SessionStart`、`UserPromptSubmit`、`Stop`、`SessionEnd` Hook，Hook 输入包含真实 `session_id` 与 `transcript_path`；
 - `workbuddy://task` Deep Link 能创建全新 WorkBuddy 草稿并注入不超过 8000 字的 marker；macOS 辅助功能授权后可完成一键发送；
 - WorkBuddy 用户级 MCP 能连接 WorkPet localhost Bridge；`get_work_context` 不含完整 Source Archive，`get_work_archive` 必须显式调用；
-- 真实闭环验收中，Codex 工作导入 472 条记录，WorkBuddy 绑定真实会话后写回 2 条可见事件，并在同一 WorkInstance 下生成 WorkBuddy ExecutionEpisode；
-- 自动测试覆盖领域生命周期、去重、人工编辑保护、tombstone、ArtifactRef、隐藏思维过滤、接力投影、WorkBuddy marker 绑定与回写、接入配置幂等性。
+- 自动桥接验收中，Codex 工作导入 472 条记录，WorkBuddy 官方 CLI 绑定真实会话后写回 2 条可见事件，并在同一 WorkInstance 下生成 WorkBuddy ExecutionEpisode；该次发送与桌面 Deep Link 打开的草稿不是同一个会话，因此不冒充严格第 9 至 11 步的桌面验收；
+- 自动测试覆盖领域生命周期、去重、人工编辑保护、tombstone、ArtifactRef 复核、隐藏思维过滤、持久化接力投影、失败恢复、从指定消息新建工作、WorkBuddy marker 绑定与回写、接入配置幂等性。

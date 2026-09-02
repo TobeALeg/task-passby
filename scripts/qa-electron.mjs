@@ -1,16 +1,24 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { _electron as electron } from "playwright";
 
 const root = process.cwd();
 const output = join(root, "output", "playwright");
 await mkdir(output, { recursive: true });
+const testDirectory = await mkdtemp(join(tmpdir(), "workpet-ui-qa-"));
+const packagedExecutable = process.env.WORKPET_EXECUTABLE_PATH;
 
 const electronApp = await electron.launch({
-  executablePath: join(root, "node_modules", "electron", "dist", "Electron.app", "Contents", "MacOS", "Electron"),
-  args: [".", "--user-data-dir=/tmp/workpet-qa-profile-v3"],
+  executablePath: packagedExecutable ?? join(root, "node_modules", "electron", "dist", "Electron.app", "Contents", "MacOS", "Electron"),
+  args: packagedExecutable ? [] : ["."],
   cwd: root,
-  env: { ...process.env, WORKPET_BRIDGE_CONFIG: "/tmp/workpet-qa-bridge.json" }
+  env: {
+    ...process.env,
+    WORKPET_AUTO_SEND: "0",
+    WORKPET_BRIDGE_CONFIG: join(testDirectory, "bridge.json"),
+    WORKPET_DATA_DIR: testDirectory
+  }
 });
 
 try {

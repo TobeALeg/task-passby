@@ -14,6 +14,7 @@
     "dev": "npm run build && electron . --dev",
     "setup:integrations": "npm run build && node scripts/install-integrations.mjs",
     "qa:roundtrip": "npm run build && node scripts/qa-roundtrip.mjs",
+    "qa:package": "WORKPET_EXECUTABLE_PATH=$PWD/release/WorkPet-darwin-arm64/WorkPet.app/Contents/MacOS/WorkPet node scripts/qa-electron.mjs",
     "package:mac": "npm run build && electron-packager . WorkPet --platform=darwin --arch=arm64 --app-bundle-id=dev.workpet.desktop --out=release --overwrite --ignore='^/research($|/)' --ignore='^/test($|/)' --ignore='^/output($|/)' --ignore='^/release($|/)'"
   },
   "devDependencies": {

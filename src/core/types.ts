@@ -91,20 +91,34 @@ export interface ArtifactRef {
   availability: "AVAILABLE" | "CHANGED" | "MISSING";
 }
 
+export type SourceEventKind =
+  | "user.prompt"
+  | "agent.response"
+  | "tool.call"
+  | "tool.result"
+  | "reasoning.summary"
+  | "artifact.added"
+  | "artifact.changed";
+
 export interface SourceEvent {
   id: string;
-  type:
-    | "USER_MESSAGE"
-    | "AGENT_MESSAGE"
-    | "TOOL_CALL"
-    | "TOOL_RESULT"
-    | "REASONING_SUMMARY"
-    | "ARTIFACT";
-  messageId?: string;
-  occurredAt: string;
-  payload: Record<string, unknown>;
-  episodeId?: string;
+  workInstanceId: string;
+  externalId: string;
+  sequence: number;
+  kind: SourceEventKind;
+  content: string | null;
+  timestamp: string;
+  executorType: Executor["type"];
+  environmentType: string;
+  metadata: Record<string, unknown>;
+  artifactRefs: string[];
+  episodeId: string | null;
 }
+
+export type SourceEventInput = Omit<
+  SourceEvent,
+  "id" | "workInstanceId" | "episodeId"
+> & { episodeId?: string };
 
 export interface WorkSnapshot {
   definition: WorkDefinition;
@@ -112,8 +126,8 @@ export interface WorkSnapshot {
   record: WorkRecord;
   episodes: ExecutionEpisode[];
   bindings: CaptureBinding[];
-  activeEpisode: ExecutionEpisode;
-  activeBinding: CaptureBinding;
+  activeEpisode: ExecutionEpisode | null;
+  activeBinding: CaptureBinding | null;
   state: WorkState;
   sourceArchive: SourceEvent[];
   artifactRefs: ArtifactRef[];
@@ -135,5 +149,10 @@ export interface WorkCoreOptions {
 
 export interface WorkCore {
   createWork(input: CreateWorkInput): WorkSnapshot;
+  getWork(workInstanceId: string): WorkSnapshot | null;
+  appendSourceEvents(
+    workInstanceId: string,
+    events: SourceEventInput[],
+  ): { appendedCount: number; duplicateCount: number; work: WorkSnapshot };
   close(): void;
 }

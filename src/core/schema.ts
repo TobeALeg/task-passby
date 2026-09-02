@@ -50,13 +50,18 @@ export function createSchema(database: DatabaseSync): void {
     CREATE TABLE IF NOT EXISTS source_events (
       row_id INTEGER PRIMARY KEY,
       work_instance_id TEXT NOT NULL REFERENCES work_instances(id) ON DELETE CASCADE,
-      source_event_id TEXT NOT NULL,
+      id TEXT NOT NULL UNIQUE,
+      external_id TEXT NOT NULL,
+      sequence INTEGER NOT NULL,
       episode_id TEXT REFERENCES execution_episodes(id),
-      event_type TEXT NOT NULL,
-      message_id TEXT,
-      occurred_at TEXT NOT NULL,
-      payload_json TEXT NOT NULL,
-      UNIQUE(work_instance_id, source_event_id)
+      kind TEXT NOT NULL,
+      content TEXT,
+      timestamp TEXT NOT NULL,
+      executor_type TEXT NOT NULL,
+      environment_type TEXT NOT NULL,
+      metadata_json TEXT NOT NULL,
+      artifact_refs_json TEXT NOT NULL,
+      UNIQUE(work_instance_id, external_id)
     ) STRICT;
 
     CREATE TABLE IF NOT EXISTS artifact_refs (

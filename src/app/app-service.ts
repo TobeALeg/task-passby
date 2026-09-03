@@ -16,6 +16,7 @@ import {
   createPendingWorkBuddyConversationId,
   createWorkBuddyWindowLocator,
   isPendingWorkBuddyConversationId,
+  isWaitingWorkBuddyConversationId,
   matchesPendingWorkBuddyWindow
 } from "../adapters/workbuddy/pending-capture.js";
 import { WorkBuddyHookIngestor, type HookIngestResult } from "../adapters/workbuddy/hook-ingestor.js";
@@ -170,7 +171,12 @@ export class AppService {
     const windowTitle = context.windowTitle?.trim() || null;
     if (!windowTitle) {
       const activeWorkBuddyWorks = this.#core.listWorks("OPEN").filter(
-        (openWork) => openWork.activeBinding?.adapter === "workbuddy"
+        (openWork) => {
+          const binding = openWork.activeBinding;
+          return binding?.adapter === "workbuddy"
+            && (!isWaitingWorkBuddyConversationId(binding.conversationId)
+              || isPendingWorkBuddyConversationId(binding.conversationId));
+        }
       );
       if (activeWorkBuddyWorks.length) {
         throw new Error("WorkBuddy 未提供聊天标题，当前仅支持一份活动记录；请先完成已有的 WorkBuddy 工作。");
@@ -178,7 +184,7 @@ export class AppService {
     }
     for (const openWork of this.#core.listWorks("OPEN")) {
       const conversationId = openWork.activeBinding?.adapter === "workbuddy" ? openWork.activeBinding.conversationId : "";
-      if (isPendingWorkBuddyConversationId(conversationId)) this.#core.stopCapture(openWork.instance.id);
+      if (isWaitingWorkBuddyConversationId(conversationId)) this.#core.stopCapture(openWork.instance.id);
     }
     const waitingConversationId = createPendingWorkBuddyConversationId(windowTitle);
     const work = this.#core.createWork({
@@ -545,7 +551,12 @@ export class AppService {
       // WorkBuddy 5.4.7 不暴露聊天标题，因此这里只表达应用级的单一活动记录，
       // 不声称已经取得当前聊天的会话级匹配证据。
       const activeWorks = this.#core.listWorks("OPEN").filter(
-        (work) => work.activeBinding?.adapter === "workbuddy"
+        (work) => {
+          const binding = work.activeBinding;
+          return binding?.adapter === "workbuddy"
+            && (!isWaitingWorkBuddyConversationId(binding.conversationId)
+              || isPendingWorkBuddyConversationId(binding.conversationId));
+        }
       );
       return activeWorks.length === 1 ? activeWorks[0]?.instance.id ?? null : null;
     }
@@ -554,10 +565,12 @@ export class AppService {
       return matchesPendingWorkBuddyWindow(conversationId, context.windowTitle);
     });
     if (pending) return pending.instance.id;
-    return this.#core.findWorkBySourceLocator(
+    const located = this.#core.findWorkBySourceLocator(
       "workbuddy",
       createWorkBuddyWindowLocator(context.windowTitle)
-    )?.instance.id ?? null;
+    );
+    if (located?.activeBinding && isWaitingWorkBuddyConversationId(located.activeBinding.conversationId)) return null;
+    return located?.instance.id ?? null;
   }
 
   #isContextActivelyRecorded(work: WorkSnapshot, context: CurrentApplicationContext): boolean {
@@ -566,7 +579,10 @@ export class AppService {
     if (context.adapter === "codex") {
       return Boolean(context.conversationId && binding.conversationId === context.conversationId);
     }
-    if (!context.windowTitle?.trim()) return true;
+    if (!context.windowTitle?.trim()) {
+      return !isWaitingWorkBuddyConversationId(binding.conversationId)
+        || isPendingWorkBuddyConversationId(binding.conversationId);
+    }
     return Boolean(
       context.windowTitle?.trim()
       && binding.sourceLocator === createWorkBuddyWindowLocator(context.windowTitle)

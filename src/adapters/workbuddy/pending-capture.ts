@@ -25,6 +25,10 @@ export function isPendingWorkBuddyConversationId(conversationId: string, now = D
   return Boolean(pending && pending.expiresAt > now);
 }
 
+export function isWaitingWorkBuddyConversationId(conversationId: string): boolean {
+  return parsePendingWorkBuddyCapture(conversationId) !== null;
+}
+
 export function matchesPendingWorkBuddyWindow(
   conversationId: string,
   windowTitle: string | null,

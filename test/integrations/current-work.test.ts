@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import type { NormalizedThread } from "../../dist/adapters/types.js";
+import { createPendingWorkBuddyConversationId } from "../../dist/adapters/workbuddy/pending-capture.js";
 import { AppService, type CodexSource } from "../../dist/app/app-service.js";
 
 class FakeCodexSource implements CodexSource {
@@ -376,6 +377,35 @@ test("WorkBuddy 无标题且已有多份活动记录时不猜测当前聊天", a
   assert.equal(before.currentConversation?.workId, null);
   assert.equal(before.currentConversation?.isRecording, false);
   await assert.rejects(service.recordCurrentContext(), /当前仅支持一份活动记录/u);
+  service.close();
+});
+
+test("WorkBuddy 无标题的短时授权过期后停止显示记录并允许重新创建", async () => {
+  const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
+  const foreground = { async detect() { return { bundleId: "com.tencent.workbuddy.mac", name: "WorkBuddy", windowTitle: "" }; } };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(emptyThread),
+    foreground,
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+  const expired = service.core().createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    executor: { type: "AGENT", name: "WorkBuddy" },
+    environment: { type: "WORKBUDDY_DESKTOP", name: "WorkBuddy Desktop" },
+    source: {
+      adapter: "workbuddy",
+      conversationId: createPendingWorkBuddyConversationId(null, Date.now() - 6 * 60_000)
+    }
+  });
+
+  const before = await service.getPetView();
+  assert.equal(before.currentConversation?.workId, null);
+  assert.equal(before.currentConversation?.isRecording, false);
+  const restarted = await service.recordCurrentContext();
+  assert.notEqual(restarted.selectedWorkId, expired.instance.id);
+  assert.equal(service.core().getWork(expired.instance.id)?.activeBinding, null);
+  assert.match(restarted.selectedWork?.bindings[0]?.conversationId ?? "", /^waiting:/u);
   service.close();
 });
 

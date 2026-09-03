@@ -185,6 +185,7 @@ export function normalizeCodexThread(thread: CodexThreadPayload): NormalizedThre
   return {
     threadId: thread.id,
     title: thread.name?.trim() || thread.preview?.trim() || "未命名 Codex 工作",
+    applicationTitle: thread.name?.trim() || null,
     cwd: thread.cwd,
     createdAt: isoTime(thread.createdAt, thread.createdAt),
     updatedAt: isoTime(thread.updatedAt, thread.createdAt),

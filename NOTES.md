@@ -35,6 +35,7 @@
 - Work 不因应用关闭或长期无活动而自动结束。
 - 交接不会结束 Work，只会新增 Work Episode、Capture Binding 和 Handoff 记录。
 - Work State 中每一条目标、约束、事实、决定和偏好都保留 `origin + sourceMessageIds`。
+- Codex 整段对话的初始目标使用 App Server 生成的 `thread.name`，以 `conversation.title` 来源事件追溯并标记为 `SYSTEM_INFERRED`；不得用首次 Prompt 或报错正文代替。
 - `origin` 至少区分 `USER_STATED`、`AGENT_PROPOSED` 和 `SYSTEM_INFERRED`。
 - MVP 自动生成 Work State，不要求用户逐条确认。
 - MVP 的通用 Work State 固定为 `objective`、`successCriteria`、`constraints`、`facts`、`decisions`、`completedActions`、`pendingActions`、`artifacts` 八部分。

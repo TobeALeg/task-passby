@@ -83,6 +83,12 @@ try {
   }
   await pet.waitForFunction(() => document.querySelector("#paper-action")?.getAttribute("data-action") === "open", undefined, { timeout: 10_000 });
   if (!conversationTitle.trim()) throw new Error("当前会话气泡没有展示应用生成的标题");
+  if (dashboard.selectedWork.title !== conversationTitle || dashboard.selectedWork.state.objective[0]?.text !== conversationTitle) {
+    throw new Error(`工作目标没有使用 Codex 总结标题：${JSON.stringify({ conversationTitle, workTitle: dashboard.selectedWork.title, objective: dashboard.selectedWork.state.objective[0] })}`);
+  }
+  if (dashboard.selectedWork.state.objective[0]?.origin !== "SYSTEM_INFERRED") {
+    throw new Error(`Codex 总结标题没有标记为系统推断：${JSON.stringify(dashboard.selectedWork.state.objective[0])}`);
+  }
   if (await panel.locator("textarea[data-item-id], [data-remove-item]").count()) {
     throw new Error("只读 Work State 中仍存在编辑或删除控件");
   }

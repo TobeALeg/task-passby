@@ -112,6 +112,7 @@ export type ArtifactRefInput = Omit<
 > & { episodeId?: string | null };
 
 export type SourceEventKind =
+  | "conversation.title"
   | "user.prompt"
   | "agent.response"
   | "tool.call"

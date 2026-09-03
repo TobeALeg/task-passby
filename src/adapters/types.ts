@@ -17,6 +17,7 @@ export interface NormalizedSourceEvent {
 export interface NormalizedThread {
   threadId: string;
   title: string;
+  applicationTitle?: string | null;
   cwd: string;
   createdAt: string;
   updatedAt: string;

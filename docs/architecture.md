@@ -46,11 +46,11 @@ Work Core ─────────────── Local Persistence
 
 ### Foreground Context Detector
 
-通过随应用构建的原生 macOS Helper 读取前台应用 bundle ID 与窗口标题，且不持久化窗口标题或内容，不依赖 `osascript` 的辅助功能授权。若桌宠点击时 WorkPet 面板本身仍是前台，Helper 只在确认前台 PID 是自己的父进程后，向后选择最近的受支持工作窗口；其他不受支持的前台应用不会被跳过。它先把应用归类为 Adapter（同时支持 Codex 的 `com.openai.codex` 与 DOVE 桌面容器），再由 Adapter 解析会话身份：Codex 有窗口标题时只接受与 App Server 应用任务标题的唯一精确匹配，匹配失败不得回退到最近任务；只有容器不提供窗口标题时，才在最近任务处于五分钟活动窗口且领先第二新任务至少五秒、并且存在应用生成标题时绑定。WorkBuddy 在用户明确发起记录后的短时等待窗口中，以该聊天下一次官方 Hook 提供的 `session_id` 加同一窗口标题校验后绑定；CaptureBinding 只持久化窗口标题的不可逆 SHA-256 短指纹作为 `sourceLocator`，用于应用重启后恢复“打开”状态，不保存标题明文。
+通过随应用构建的原生 macOS Helper 读取前台应用 bundle ID 与窗口标题，且不持久化 Helper 取得的原始窗口标题或内容，不依赖 `osascript` 的辅助功能授权。若桌宠点击时 WorkPet 面板本身仍是前台，Helper 只在确认前台 PID 是自己的父进程后，向后选择最近的受支持工作窗口；其他不受支持的前台应用不会被跳过。它先把应用归类为 Adapter（同时支持 Codex 的 `com.openai.codex` 与 DOVE 桌面容器），再由 Adapter 解析会话身份：Codex 有窗口标题时只接受与 App Server 应用任务标题的唯一精确匹配，匹配失败不得回退到最近任务；只有容器不提供窗口标题时，才在最近任务处于五分钟活动窗口且领先第二新任务至少五秒、并且存在应用生成标题时绑定。WorkBuddy 在用户明确发起记录后的短时等待窗口中，以该聊天下一次官方 Hook 提供的 `session_id` 加同一窗口标题校验后绑定；CaptureBinding 只持久化窗口标题的不可逆 SHA-256 短指纹作为 `sourceLocator`，用于应用重启后恢复“打开”状态，不保存标题明文。
 
 ### Codex Adapter
 
-位于外部应用 seam。首选通过 Codex App Server 获取任务身份、完整历史、附件和增量事件，并转换成 Work Core 接受的统一 Source Event。
+位于外部应用 seam。首选通过 Codex App Server 获取任务身份、应用生成的 `thread.name`、完整历史、附件和增量事件，并转换成 Work Core 接受的统一 Source Event。整段对话创建 Work 时，`thread.name` 作为 `conversation.title` 来源事件进入 Source Archive，并成为 `SYSTEM_INFERRED` 的唯一初始目标；首条 Prompt 仍被归档，但不再承担工作命名。旧版整段对话记录在用户再次点击当前聊天的“打开”时执行同一幂等纠正；从指定消息拆出的 Work 不继承整段会话标题。
 
 ### WorkBuddy Adapter
 
@@ -90,7 +90,8 @@ Work Core ─────────────── Local Persistence
   → Codex：唯一标题匹配当前任务并读取完整历史
   → WorkBuddy：下一次提交由 Hook 提供真实 session ID
   → Work Core 创建 WorkInstance / WorkRecord / Episode
-  → Source Archive 本地落盘
+  → Codex 的 thread.name 作为 conversation.title 与完整历史一同落盘
+  → conversation.title 生成可追溯的只读目标
   → WorkStateExtractor 生成八部分 Work State
 ```
 

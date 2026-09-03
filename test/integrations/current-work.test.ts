@@ -19,24 +19,54 @@ class FakeCodexSource implements CodexSource {
 
 test("桌宠用一次服务调用检测并记录当前工作，不依赖预先缓存的上下文", async () => {
   const thread: NormalizedThread = {
-    threadId: "current-codex-thread", title: "当前客户提案", cwd: "/tmp",
+    threadId: "current-codex-thread", title: "修复当前聊天识别失败", cwd: "/tmp",
     createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T02:00:00.000Z",
     events: [{
-      id: "prompt", externalId: "prompt", sequence: 1, kind: "user.prompt", content: "整理客户提案",
+      id: "prompt", externalId: "prompt", sequence: 1, kind: "user.prompt",
+      content: "Error occurred in handler for 'work:create-from-current-context': Error: 未识别到当前聊天",
       timestamp: "2026-09-03T01:00:00.000Z", executorType: "HUMAN", environmentType: "CODEX_DESKTOP"
     }]
   };
   const service = new AppService({
     databasePath: ":memory:",
     codex: new FakeCodexSource(thread),
-    foreground: { async detect() { return { bundleId: "com.openai.codex", name: "ChatGPT", windowTitle: "当前客户提案 — Codex" }; } },
+    foreground: { async detect() { return { bundleId: "com.openai.codex", name: "ChatGPT", windowTitle: "修复当前聊天识别失败 — Codex" }; } },
     launcher: { async openNewConversation() { return "opened"; } }
   });
 
   const result = await service.recordCurrentContext();
 
-  assert.equal(result.selectedWork?.title, "整理客户提案");
+  assert.equal(result.selectedWork?.title, "修复当前聊天识别失败");
+  assert.equal(result.selectedWork?.state.objective[0]?.text, "修复当前聊天识别失败");
+  assert.equal(result.selectedWork?.state.objective[0]?.origin, "SYSTEM_INFERRED");
+  assert.equal(result.selectedWork?.state.objective[0]?.sourceMessageIds.length, 1);
+  assert.match(result.selectedWork?.state.objective[0]?.sourceMessageIds[0] ?? "", /^codex-conversation-title:current-codex-thread:/u);
   assert.match(result.notice ?? "", /当前 Codex 对话/u);
+  service.close();
+});
+
+test("再次识别当前 Codex 聊天时用应用总结标题纠正旧记录的错误目标", async () => {
+  const thread: NormalizedThread = {
+    threadId: "legacy-codex-thread", title: "修复当前聊天识别失败", cwd: "/tmp",
+    createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T02:00:00.000Z",
+    events: [{
+      id: "legacy-prompt", externalId: "legacy-prompt", sequence: 1, kind: "user.prompt",
+      content: "Error occurred in handler for 'work:create-from-current-context'",
+      timestamp: "2026-09-03T01:00:00.000Z", executorType: "HUMAN", environmentType: "CODEX_DESKTOP"
+    }]
+  };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(thread),
+    foreground: { async detect() { return { bundleId: "com.openai.codex", name: "ChatGPT", windowTitle: "修复当前聊天识别失败 — Codex" }; } },
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+  const legacy = await service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false });
+  assert.equal(legacy.selectedWork?.title, "Error occurred in handler for 'work:create-from-current-context'");
+
+  const corrected = await service.recordCurrentContext();
+  assert.equal(corrected.selectedWork?.title, "修复当前聊天识别失败");
+  assert.equal(corrected.selectedWork?.state.objective[0]?.origin, "SYSTEM_INFERRED");
   service.close();
 });
 
@@ -157,7 +187,7 @@ test("从已识别的当前 Codex 对话创建工作时默认启用提炼，不�
     adapter: "codex", environmentName: "Codex Desktop", applicationName: "ChatGPT", windowTitle: "当前客户提案 — Codex", conversationId: thread.threadId
   });
 
-  assert.equal(result.selectedWork?.title, "整理客户提案");
+  assert.equal(result.selectedWork?.title, "当前客户提案 — Codex");
   assert.match(result.notice ?? "", /当前 Codex 对话/u);
   service.close();
 });

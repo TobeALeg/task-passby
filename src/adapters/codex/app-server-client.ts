@@ -87,7 +87,7 @@ export class CodexAppServerClient {
     });
 
     await this.#request("initialize", {
-      clientInfo: { name: "workpet", title: "WorkPet", version: "0.1.0" },
+      clientInfo: { name: "workpet", title: "Worket", version: "0.1.0" },
       capabilities: {
         experimentalApi: true,
         optOutNotificationMethods: [

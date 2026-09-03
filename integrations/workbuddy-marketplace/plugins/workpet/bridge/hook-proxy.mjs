@@ -8,6 +8,6 @@ try {
   await postToWorkPet("/hooks/workbuddy", payload);
   process.stdout.write(JSON.stringify({ continue: true }));
 } catch (error) {
-  process.stderr.write(`WorkPet hook 未写入：${error instanceof Error ? error.message : String(error)}\n`);
+  process.stderr.write(`Worket hook 未写入：${error instanceof Error ? error.message : String(error)}\n`);
   process.stdout.write(JSON.stringify({ continue: true }));
 }

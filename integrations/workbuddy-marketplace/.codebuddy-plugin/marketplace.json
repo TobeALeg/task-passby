@@ -1,8 +1,8 @@
 {
   "name": "workpet-local",
-  "description": "WorkPet 本地工作记录与接力插件市场",
+  "description": "Worket 本地工作记录与接力插件市场",
   "owner": {
-    "name": "WorkPet"
+    "name": "Worket"
   },
   "plugins": [
     {

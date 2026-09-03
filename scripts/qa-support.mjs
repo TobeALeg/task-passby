@@ -16,9 +16,9 @@ export function containsExactString(value, expected) {
 
 export function parseArchiveEvents(response) {
   const text = response?.result?.content?.find((entry) => entry?.type === "text")?.text;
-  if (typeof text !== "string") throw new Error("WorkPet archive MCP 响应缺少文本结果");
+  if (typeof text !== "string") throw new Error("Worket archive MCP 响应缺少文本结果");
   const parsed = JSON.parse(text);
-  if (!Array.isArray(parsed.events)) throw new Error("WorkPet archive MCP 响应缺少 events");
+  if (!Array.isArray(parsed.events)) throw new Error("Worket archive MCP 响应缺少 events");
   return parsed.events;
 }
 

@@ -28,16 +28,26 @@ try {
   const pet = pages.find((page) => page.url().endsWith("/pet.html"));
   const panel = pages.find((page) => page.url().endsWith("/panel.html"));
   if (!pet || !panel) throw new Error(`窗口不完整：${pages.map((page) => page.url()).join(", ")}`);
+  const appIdentity = await electronApp.evaluate(({ app }) => ({
+    name: app.getName(),
+    executable: process.execPath.split(/[\\/]/u).at(-1)
+  }));
+  if (appIdentity.name !== "Worket") {
+    throw new Error(`应用显示名称错误：期望 Worket，实际 ${appIdentity.name}`);
+  }
+  if (packagedExecutable && appIdentity.executable !== "Worket") {
+    throw new Error(`打包程序仍以 ${appIdentity.executable} 运行，macOS 会显示错误的应用名`);
+  }
   const dockVisible = await electronApp.evaluate(({ app }) =>
     process.platform !== "darwin" || Boolean(app.dock?.isVisible())
   );
-  if (!dockVisible) throw new Error("WorkPet 已启动但 Dock 图标被隐藏，用户无法确认程序正在运行");
+  if (!dockVisible) throw new Error("Worket 已启动但 Dock 图标被隐藏，用户无法确认程序正在运行");
   await electronApp.evaluate(({ app }) => app.emit("second-instance", {}, [], process.cwd()));
   await panel.waitForTimeout(100);
   const secondInstanceRestored = await electronApp.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows().some((window) => window.webContents.getURL().endsWith("/panel.html") && window.isVisible())
   );
-  if (!secondInstanceRestored) throw new Error("再次双击 WorkPet 时没有把已有窗口带回前台");
+  if (!secondInstanceRestored) throw new Error("再次双击 Worket 时没有把已有窗口带回前台");
   await electronApp.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().endsWith("/panel.html"))?.hide()
   );

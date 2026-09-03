@@ -27,7 +27,7 @@ function render(state: PetView): void {
   bubble.hidden = !currentConversation;
   paperAction.disabled = !currentConversation || busy;
   if (!currentConversation) {
-    petBody.title = "打开 WorkPet";
+    petBody.title = "打开 Worket";
     paperLabel.textContent = "记录";
     paperAction.removeAttribute("data-action");
     paperAction.setAttribute("aria-label", "当前没有可记录的对话");
@@ -50,7 +50,7 @@ function render(state: PetView): void {
   paperLabel.textContent = hasWork ? "打开" : "记录";
   paperAction.dataset.action = hasWork ? "open" : "record";
   paperAction.setAttribute("aria-label", `${hasWork ? "打开" : "记录"}当前工作：${currentConversation.title}`);
-  petBody.title = `打开 WorkPet · ${currentConversation.title}`;
+  petBody.title = `打开 Worket · ${currentConversation.title}`;
 }
 
 async function refresh(): Promise<void> {

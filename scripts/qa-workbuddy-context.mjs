@@ -43,7 +43,7 @@ try {
   const pages = electronApp.windows();
   const pet = pages.find((page) => page.url().endsWith("/pet.html"));
   const panel = pages.find((page) => page.url().endsWith("/panel.html"));
-  if (!pet || !panel) throw new Error(`WorkPet 窗口不完整：${pages.map((page) => page.url()).join(", ")}`);
+  if (!pet || !panel) throw new Error(`Worket 窗口不完整：${pages.map((page) => page.url()).join(", ")}`);
 
   await electronApp.evaluate(({ BrowserWindow }) => {
     const panelWindow = BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().endsWith("/panel.html"));

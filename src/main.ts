@@ -15,7 +15,15 @@ let bridge: WorkPetHttpBridge | null = null;
 const PET_WINDOW_WIDTH = 304;
 const PET_WINDOW_HEIGHT = 206;
 
-app.setName("WorkPet");
+const hasExplicitUserDataDirectory = process.argv.some(
+  (argument) => argument === "--user-data-dir" || argument.startsWith("--user-data-dir=")
+);
+
+// 展示名称可以更新，但日常启动沿用原目录，避免一次品牌调整让现有本地记录看似消失。
+app.setName("Worket");
+if (!hasExplicitUserDataDirectory) {
+  app.setPath("userData", join(app.getPath("appData"), "WorkPet"));
+}
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -23,7 +31,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 function requireService(): AppService {
-  if (!service) throw new Error("WorkPet 尚未准备完成");
+  if (!service) throw new Error("Worket 尚未准备完成");
   return service;
 }
 
@@ -86,7 +94,7 @@ function createWindows(): void {
   panelWindow.loadFile(join(app.getAppPath(), "dist", "renderer", "panel.html"));
 
   const menu = Menu.buildFromTemplate([
-    { label: "打开 WorkPet", click: () => togglePanel() },
+    { label: "打开 Worket", click: () => togglePanel() },
     { type: "separator" },
     { label: "退出", click: () => app.quit() }
   ]);
@@ -181,8 +189,8 @@ app.whenReady().then(async () => {
       type: "error",
       buttons: ["退出"],
       defaultId: 0,
-      title: "WorkPet 未能启动",
-      message: "本机接入安装失败，WorkPet 不会在未接入状态下运行。",
+      title: "Worket 未能启动",
+      message: "本机接入安装失败，Worket 不会在未接入状态下运行。",
       detail: error instanceof Error ? error.message : String(error)
     });
     await bridge.close();

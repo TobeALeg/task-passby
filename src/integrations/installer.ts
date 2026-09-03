@@ -88,7 +88,7 @@ export async function installWorkBuddyUserIntegration(
         hooks: [{
           type: "command",
           command,
-          description: "只把已由用户交接给 WorkPet 的会话写回本地 WorkRecord",
+          description: "只把已由用户交接给 Worket 的会话写回本地 WorkRecord",
           timeout: 10
         }]
       }

@@ -32,7 +32,7 @@ try {
   const pages = electronApp.windows();
   const pet = pages.find((page) => page.url().endsWith("/pet.html"));
   const panel = pages.find((page) => page.url().endsWith("/panel.html"));
-  if (!pet || !panel) throw new Error(`WorkPet 窗口不完整：${pages.map((page) => page.url()).join(", ")}`);
+  if (!pet || !panel) throw new Error(`Worket 窗口不完整：${pages.map((page) => page.url()).join(", ")}`);
   const rendererErrors = [];
   const panelErrors = [];
   pet.on("pageerror", (error) => rendererErrors.push(error.message));

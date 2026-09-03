@@ -9,14 +9,14 @@ import { _electron as electron } from "playwright";
 import { desktopRoundtripIssues, parseArchiveEvents, qualificationIssues } from "./qa-support.mjs";
 
 const root = process.cwd();
-const packagedExecutable = join(root, "release", "WorkPet-darwin-arm64", "WorkPet.app", "Contents", "MacOS", "WorkPet");
+const packagedExecutable = join(root, "release", "Worket-darwin-arm64", "Worket.app", "Contents", "MacOS", "Worket");
 const defaultBridgePath = join(homedir(), ".workpet", "bridge.json");
 const listOnly = process.argv.includes("--list");
 const selectedThreadId = process.env.WORKPET_QA_THREAD_ID;
 const explicitConsent = process.env.WORKPET_QA_CONFIRM === "SEND_TO_CURRENT_WORKBUDDY_ACCOUNT";
 
 await access(packagedExecutable).catch(() => {
-  throw new Error("缺少打包后的 WorkPet.app；请先运行 npm run package:mac");
+  throw new Error("缺少打包后的 Worket.app；请先运行 npm run package:mac");
 });
 
 function delay(milliseconds) {
@@ -27,7 +27,7 @@ async function readBridge(path) {
   const raw = await readFile(path, "utf8");
   const config = JSON.parse(raw);
   if (config.host !== "127.0.0.1" || !Number.isInteger(config.port) || typeof config.token !== "string") {
-    throw new Error("WorkPet bridge 配置无效");
+    throw new Error("Worket bridge 配置无效");
   }
   return config;
 }
@@ -43,7 +43,7 @@ async function bridgeRequest(config, name, workId) {
       params: { name, arguments: { work_id: workId } }
     })
   });
-  if (!response.ok) throw new Error(`WorkPet bridge 返回 HTTP ${response.status}`);
+  if (!response.ok) throw new Error(`Worket bridge 返回 HTTP ${response.status}`);
   return response.json();
 }
 
@@ -77,7 +77,7 @@ async function launchWorkPet({ bridgePath, dataDirectory, proofToken }) {
   const panel = app.windows().find((page) => page.url().endsWith("/panel.html"));
   if (!panel) {
     await app.close();
-    throw new Error("WorkPet panel 未启动");
+    throw new Error("Worket panel 未启动");
   }
   return { app, panel };
 }
@@ -121,7 +121,7 @@ if (!explicitConsent) {
   throw new Error("本验收会把所选工作的结构化上下文发送到当前登录的 WorkBuddy 账号；确认后设置 WORKPET_QA_CONFIRM=SEND_TO_CURRENT_WORKBUDDY_ACCOUNT");
 }
 if (await isLiveBridge(defaultBridgePath)) {
-  throw new Error("检测到另一个 WorkPet 正在运行；请先退出它，避免桌面 Hook 写入错误实例");
+  throw new Error("检测到另一个 Worket 正在运行；请先退出它，避免桌面 Hook 写入错误实例");
 }
 
 const originalBridge = await readFile(defaultBridgePath).catch(() => null);

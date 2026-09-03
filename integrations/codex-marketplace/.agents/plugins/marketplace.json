@@ -1,7 +1,7 @@
 {
   "name": "workpet-local",
   "interface": {
-    "displayName": "WorkPet Local"
+    "displayName": "Worket Local"
   },
   "plugins": [
     {

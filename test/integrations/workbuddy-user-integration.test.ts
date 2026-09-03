@@ -19,8 +19,8 @@ test("WorkBuddy 用户级接入保留现有配置并可幂等安装", async () =
     mcpServers: { existing: { command: "existing-mcp" } }
   }));
 
-  const first = await installWorkBuddyUserIntegration("/Applications/WorkPet.app/Contents/Resources/app", configDirectory);
-  const second = await installWorkBuddyUserIntegration("/Applications/WorkPet.app/Contents/Resources/app", configDirectory);
+  const first = await installWorkBuddyUserIntegration("/Applications/Worket.app/Contents/Resources/app", configDirectory);
+  const second = await installWorkBuddyUserIntegration("/Applications/Worket.app/Contents/Resources/app", configDirectory);
 
   const settings = JSON.parse(await readFile(join(configDirectory, "settings.json"), "utf8")) as Record<string, any>;
   const mcp = JSON.parse(await readFile(join(configDirectory, ".mcp.json"), "utf8")) as Record<string, any>;

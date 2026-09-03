@@ -123,7 +123,7 @@ MVP 首次把 WorkInstance 交给 WorkBuddy 时必须创建全新的 WorkBuddy �
 
 - 在 WorkBuddy 中配置本地 Work Record MCP Connector；
 
-完成一次性设置后，日常交接必须是一键操作。MCP 负责让 WorkBuddy 读取 Work Record；WorkBuddy 官方 Deep Link 负责拉起应用、新建对话和提交首条接力指令。WorkPet 不模拟键盘输入。
+完成一次性设置后，日常交接必须是一键操作。MCP 负责让 WorkBuddy 读取 Work Record；WorkBuddy 官方 Deep Link 负责拉起应用、新建对话和提交首条接力指令。Worket 不模拟键盘输入。
 
 WorkBuddy Adapter 使用 WorkBuddy 官方支持的用户级 MCP 与 Hook 配置：MCP 读取 Handoff Package，Hook 捕获用户提交、Agent 停止和会话结束等事件并增量回写 WorkRecord。
 
@@ -206,7 +206,7 @@ WorkPattern 不修改 WorkDefinition，不反向修改历史 WorkRecord，也不
 - Codex Desktop 内置 App Server 可列出并读取真实 task 的完整可见 turns、工具记录与显式附件；隐藏 reasoning 正文在 Adapter 层丢弃；
 - WorkBuddy 5.4.7 支持 `SessionStart`、`UserPromptSubmit`、`Stop`、`SessionEnd` Hook，Hook 输入包含真实 `session_id` 与 `transcript_path`；
 - `workbuddy://task?action=start` Deep Link 能创建全新 WorkBuddy 对话并提交不超过 8000 字的 marker；
-- WorkBuddy 用户级 MCP 能连接 WorkPet localhost Bridge；`get_work_context` 不含完整 Source Archive，`get_work_archive` 必须显式调用；
+- WorkBuddy 用户级 MCP 能连接 Worket localhost Bridge；`get_work_context` 不含完整 Source Archive，`get_work_archive` 必须显式调用；
 - 早期 CLI 验收曾因拒绝回复复述了验收口令而产生假阳性；复核真实 transcript 后已撤销该证据。当前验证器必须同时观察到精确成功结果、真实 Conversation Binding、同一 Binding/ExecutionEpisode 内成对的 `get_work_context` 成功审计、MCP 随机 proof token 和可见回复 Hook 回写，缺一即失败；
-- `qa:desktop-roundtrip` 使用临时 WorkPet 数据库，强制检查二十轮用户输入、两份不同附件、Codex 增量、全新 WorkBuddy 桌面对话、MCP 审计、Hook 回写和完成后停止捕获；运行前必须取得用户对本次具体数据的外发授权；
+- `qa:desktop-roundtrip` 使用临时 Worket 数据库，强制检查二十轮用户输入、两份不同附件、Codex 增量、全新 WorkBuddy 桌面对话、MCP 审计、Hook 回写和完成后停止捕获；运行前必须取得用户对本次具体数据的外发授权；
 - 自动测试覆盖领域生命周期、去重、历史人工编辑与 tombstone 兼容保护、ArtifactRef 复核、隐藏思维过滤、持久化接力投影、失败恢复、从指定消息新建工作、MCP 调用审计、WorkBuddy marker 绑定与回写、接入配置幂等性，以及拒绝回复不能冒充验收成功。

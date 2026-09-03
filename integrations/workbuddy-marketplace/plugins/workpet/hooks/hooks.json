@@ -1,5 +1,5 @@
 {
-  "description": "WorkPet 只记录被明确交接的 WorkBuddy 会话",
+  "description": "Worket 只记录被明确交接的 WorkBuddy 会话",
   "hooks": {
     "SessionStart": [
       {

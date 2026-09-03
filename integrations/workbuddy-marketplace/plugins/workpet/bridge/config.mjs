@@ -6,7 +6,7 @@ export async function readBridgeConfig() {
   const path = process.env.WORKPET_BRIDGE_CONFIG || join(homedir(), ".workpet", "bridge.json");
   const parsed = JSON.parse(await readFile(path, "utf8"));
   if (parsed.host !== "127.0.0.1" || !Number.isInteger(parsed.port) || typeof parsed.token !== "string") {
-    throw new Error("WorkPet bridge 配置无效");
+    throw new Error("Worket bridge 配置无效");
   }
   return parsed;
 }
@@ -18,7 +18,7 @@ export async function postToWorkPet(path, body) {
     headers: { "Content-Type": "application/json", "X-WorkPet-Token": config.token },
     body: JSON.stringify(body)
   });
-  if (!response.ok) throw new Error(`WorkPet bridge 返回 HTTP ${response.status}`);
+  if (!response.ok) throw new Error(`Worket bridge 返回 HTTP ${response.status}`);
   if (response.status === 204) return null;
   return response.json();
 }

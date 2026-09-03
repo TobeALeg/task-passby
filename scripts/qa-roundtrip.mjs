@@ -34,7 +34,7 @@ const electronApp = await electron.launch({ executablePath, args: ["."], cwd: ro
 try {
   await new Promise((resolve) => setTimeout(resolve, 900));
   const panel = electronApp.windows().find((page) => page.url().endsWith("/panel.html"));
-  if (!panel) throw new Error("WorkPet panel 未启动");
+  if (!panel) throw new Error("Worket panel 未启动");
   const imported = await panel.evaluate(async () => {
     const threads = await window.workpet.listCodexThreads();
     if (!threads.length) throw new Error("没有可用于验收的 Codex 任务");
@@ -47,7 +47,7 @@ try {
 
   const prompt = [
     `[WORKPET:${workId}]`,
-    `这是 WorkPet 桌面闭环验收。请调用 get_work_context，参数 work_id=${workId}。`,
+    `这是 Worket 桌面闭环验收。请调用 get_work_context，参数 work_id=${workId}。`,
     `读取返回字段 qaProofToken 后，只回复 ${ROUNDTRIP_SENTINEL}:<qaProofToken>；不要猜测 token。`
   ].join("\n");
   const { stdout, stderr } = await execFileAsync(workBuddyCli, [

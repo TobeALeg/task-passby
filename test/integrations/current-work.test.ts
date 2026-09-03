@@ -246,7 +246,7 @@ test("桌宠无法识别受支持的前台应用时返回提示而不抛出 IPC 
   const service = new AppService({
     databasePath: ":memory:",
     codex: new FakeCodexSource(emptyThread),
-    foreground: { async detect() { return { bundleId: "dev.workpet.desktop", name: "WorkPet", windowTitle: "我的工作" }; } },
+    foreground: { async detect() { return { bundleId: "dev.workpet.desktop", name: "Worket", windowTitle: "我的工作" }; } },
     launcher: { async openNewConversation() { return "opened"; } }
   });
 

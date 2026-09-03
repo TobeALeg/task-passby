@@ -25,7 +25,7 @@ int main(void) {
       CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID)
     );
 
-    // Helper 由 WorkPet 主进程直接启动。面板位于前台时，向后选择最近的受支持工作窗口；
+    // Helper 由 Worket 主进程直接启动。面板位于前台时，向后选择最近的受支持工作窗口；
     // 其他不受支持的前台应用仍按原样返回，避免把后台聊天误判为当前工作。
     if (application.processIdentifier == getppid()) {
       for (NSDictionary *candidate in windows) {

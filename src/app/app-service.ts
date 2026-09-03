@@ -198,7 +198,7 @@ export class AppService {
     this.#selectedWorkId = work.instance.id;
     if (this.#cloudExtractionIsEnabled()) this.#cloudExtractionWorkIds.add(work.instance.id);
     this.#petState = "awake";
-    this.#notice = "已准备记录当前 WorkBuddy 对话；请在该对话提交下一条消息，WorkPet 会用真实 session ID 自动绑定并归档完整可见 transcript。";
+    this.#notice = "已准备记录当前 WorkBuddy 对话；请在该对话提交下一条消息，Worket 会用真实 session ID 自动绑定并归档完整可见 transcript。";
     return this.dashboard(work.instance.id);
   }
 
@@ -507,7 +507,7 @@ export class AppService {
     this.#cloudExtractionWorkIds.delete(workId);
     this.#selectedWorkId = null;
     this.#petState = "sleeping";
-    this.#notice = "WorkPet 本地记录已永久删除；原文件和外部对话未改动。";
+    this.#notice = "Worket 本地记录已永久删除；原文件和外部对话未改动。";
     return this.dashboard();
   }
 

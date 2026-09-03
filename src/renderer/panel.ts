@@ -63,12 +63,6 @@ function renderDetail(work: WorkDetailView | null): void {
     ${Object.entries(WORK_STATE_LABELS).map(([field, label]) => stateSection(work, field as WorkStateField, label)).join("")}
     <section class="state-section"><h3>执行片段</h3>${work.episodes.map((episode) => `<div class="episode"><span>${escapeHtml(episode.environment)} · ${escapeHtml(episode.executor)}</span><strong>${episode.status}</strong></div>`).join("")}</section>`;
 
-  for (const textarea of detail.querySelectorAll<HTMLTextAreaElement>("textarea[data-item-id]")) {
-    textarea.addEventListener("change", () => void updateItem(work.id, textarea));
-  }
-  for (const button of detail.querySelectorAll<HTMLButtonElement>("button[data-remove-item]")) {
-    button.addEventListener("click", () => void removeItem(work.id, button));
-  }
   for (const button of detail.querySelectorAll<HTMLButtonElement>("button[data-action]")) {
     button.addEventListener("click", () => void runAction(work.id, button.dataset.action ?? ""));
   }
@@ -77,24 +71,13 @@ function renderDetail(work: WorkDetailView | null): void {
 function stateSection(work: WorkDetailView, field: WorkStateField, label: string): string {
   const items = work.state[field];
   return `<section class="state-section"><h3>${label}</h3>${items.length ? items.map((item) => `<div class="state-item">
-    <textarea data-field="${field}" data-item-id="${item.id}">${escapeHtml(item.text)}</textarea>
-    <button class="remove" data-remove-item="${item.id}" data-field="${field}" aria-label="删除">×</button>
-    <span class="origin">${item.origin} · ${item.sourceMessageIds.length} 个来源</span>
+    <p>${escapeHtml(item.text)}</p>
+    <span class="origin">只读提取 · ${item.sourceMessageIds.length} 个来源</span>
   </div>`).join("") : `<p class="empty-field">暂无</p>`}</section>`;
 }
 
 async function selectWork(workId: string): Promise<void> {
   dashboard = await window.workpet.getDashboard(workId);
-  render();
-}
-
-async function updateItem(workId: string, textarea: HTMLTextAreaElement): Promise<void> {
-  dashboard = await window.workpet.editStateItem(workId, textarea.dataset.field as WorkStateField, textarea.dataset.itemId ?? "", textarea.value.trim());
-  render();
-}
-
-async function removeItem(workId: string, button: HTMLButtonElement): Promise<void> {
-  dashboard = await window.workpet.deleteStateItem(workId, button.dataset.field as WorkStateField, button.dataset.removeItem ?? "");
   render();
 }
 

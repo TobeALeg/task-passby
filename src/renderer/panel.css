@@ -6,7 +6,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; background: #f6f2e9; }
-button, input, select, textarea { font: inherit; }
+button, input, select { font: inherit; }
 button { cursor: pointer; }
 .topbar { position: sticky; top: 0; z-index: 4; display: flex; align-items: flex-start; justify-content: space-between; padding: 23px 24px 17px; background: rgba(246,242,233,.94); border-bottom: 1px solid #d8d0c2; -webkit-app-region: drag; }
 .eyebrow { font-size: 10px; font-weight: 750; letter-spacing: .16em; color: #9c613a; }
@@ -42,11 +42,9 @@ main { padding: 18px 20px 30px; }
 .detail-actions button.handoff { border-color: #92562f; background: #a86135; color: #fff; }
 .state-section { border-top: 1px solid #ded6c9; padding: 14px 0; }
 .state-section h3 { margin-bottom: 9px; color: #7c4b2d; font-size: 11px; letter-spacing: .08em; }
-.state-item { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; margin-bottom: 7px; }
-.state-item textarea { width: 100%; resize: vertical; min-height: 50px; padding: 9px 10px; border: 1px solid #d8d0c2; border-radius: 9px; background: #fffaf2; color: #302a24; line-height: 1.45; }
-.state-item textarea:focus { outline: 2px solid rgba(182,110,62,.22); border-color: #b66e3e; }
-.state-item .remove { border: 0; background: transparent; color: #9b9184; font-size: 18px; }
-.origin { grid-column: 1 / -1; margin-top: -5px; color: #9a9185; font-size: 10px; }
+.state-item { display: grid; gap: 6px; margin-bottom: 8px; padding: 10px 11px; border-left: 2px solid #c5885e; background: #fffaf2; }
+.state-item p { color: #302a24; font: 500 13px/1.5 Georgia, "Songti SC", serif; }
+.origin { color: #9a9185; font-size: 10px; }
 .empty-field { color: #9a9185; font-size: 12px; }
 .episode { display: flex; justify-content: space-between; gap: 10px; margin: 6px 0; padding: 8px 10px; border-left: 2px solid #c5885e; background: #eee7da; font-size: 11px; }
 dialog { width: min(390px, calc(100vw - 30px)); padding: 0; border: 1px solid #cfc4b5; border-radius: 15px; background: #f8f3ea; color: #2d2822; box-shadow: 0 24px 80px rgba(35,28,21,.28); }

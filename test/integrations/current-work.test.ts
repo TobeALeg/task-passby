@@ -37,6 +37,53 @@ test("桌宠用一次服务调用检测并记录当前工作，不依赖预先�
   service.close();
 });
 
+test("桌宠预览使用应用生成的会话标题，并在同一会话记录后切换为打开", async () => {
+  const thread: NormalizedThread = {
+    threadId: "preview-codex-thread", title: "应用总结的任务标题", cwd: "/tmp",
+    createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T02:00:00.000Z",
+    events: [{
+      id: "prompt", externalId: "prompt", sequence: 1, kind: "user.prompt", content: "这是用户首次发起会话的原始内容，不应该显示在气泡里",
+      timestamp: "2026-09-03T01:00:00.000Z", executorType: "HUMAN", environmentType: "CODEX_DESKTOP"
+    }]
+  };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(thread),
+    foreground: { async detect() { return { bundleId: "com.openai.codex", name: "ChatGPT", windowTitle: "应用总结的任务标题 — Codex" }; } },
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+
+  const before = await service.getPetView();
+  assert.deepEqual(before.currentConversation, {
+    adapter: "codex",
+    applicationName: "Codex",
+    title: "应用总结的任务标题",
+    workId: null
+  });
+
+  const recorded = await service.recordCurrentContext();
+  const after = await service.getPetView();
+  assert.equal(after.currentConversation?.workId, recorded.selectedWorkId);
+  assert.equal(after.currentConversation?.title, "应用总结的任务标题");
+  const reopened = await service.recordCurrentContext();
+  assert.equal(reopened.selectedWorkId, recorded.selectedWorkId);
+  assert.equal(reopened.works.length, 1);
+  service.close();
+});
+
+test("桌宠预览在未聚焦受支持应用时不显示会话或记录入口", async () => {
+  const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(emptyThread),
+    foreground: { async detect() { return { bundleId: "com.apple.finder", name: "Finder", windowTitle: "下载" }; } },
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+
+  assert.equal((await service.getPetView()).currentConversation, null);
+  service.close();
+});
+
 test("桌宠无法识别受支持的前台应用时返回提示而不抛出 IPC 错误", async () => {
   const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
   const service = new AppService({
@@ -75,7 +122,16 @@ test("从已识别的当前 Codex 对话创建工作时默认启用提炼，不�
 
 test("从 WorkBuddy 当前窗口发起记录时等待下一次真实提交来绑定会话，而不是猜测聊天", async () => {
   const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
-  const service = new AppService({ databasePath: ":memory:", codex: new FakeCodexSource(emptyThread), launcher: { async openNewConversation() { return "opened"; } } });
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(emptyThread),
+    foreground: { async detect() { return { bundleId: "com.tencent.workbuddy.mac", name: "WorkBuddy", windowTitle: "当前工作" }; } },
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+
+  assert.deepEqual((await service.getPetView()).currentConversation, {
+    adapter: "workbuddy", applicationName: "WorkBuddy", title: "当前工作", workId: null
+  });
 
   const result = await service.createWorkFromCurrentContext({
     adapter: "workbuddy", environmentName: "WorkBuddy Desktop", applicationName: "WorkBuddy", windowTitle: "当前工作"
@@ -83,6 +139,9 @@ test("从 WorkBuddy 当前窗口发起记录时等待下一次真实提交来绑
 
   assert.equal(result.selectedWork?.bindings[0]?.conversationId.startsWith("waiting:"), true);
   assert.match(result.notice ?? "", /提交下一条消息/u);
+  assert.equal((await service.getPetView()).currentConversation?.workId, result.selectedWorkId);
+  const reopened = await service.recordCurrentContext();
+  assert.equal(reopened.works.length, 1);
   service.close();
 });
 

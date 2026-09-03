@@ -1,17 +1,73 @@
-import type { DashboardView } from "../ui-contract.js";
+import type { CurrentConversationView, PetView } from "../ui-contract.js";
 
-const petElement = document.querySelector<HTMLButtonElement>("#pet");
-if (!petElement) throw new Error("Pet element is missing");
-const pet: HTMLButtonElement = petElement;
+const root = required<HTMLElement>("#pet-root");
+const pet = required<HTMLElement>("#pet");
+const petBody = required<HTMLButtonElement>("#pet-body");
+const bubble = required<HTMLElement>("#context-bubble");
+const applicationMark = required<HTMLElement>("#application-mark");
+const contextLabel = required<HTMLElement>("#context-label");
+const contextTitle = required<HTMLElement>("#context-title");
+const paperAction = required<HTMLButtonElement>("#paper-action");
+const paperLabel = required<HTMLElement>("#paper-label");
+let currentConversation: CurrentConversationView | null = null;
+let busy = false;
 
-function render(state: DashboardView): void {
-  pet.className = `pet ${state.petState}`;
-  pet.title = state.selectedWork ? `${state.selectedWork.title} · ${state.selectedWork.status}` : "记录当前工作";
+function required<T extends Element>(selector: string): T {
+  const element = document.querySelector<T>(selector);
+  if (!element) throw new Error(`Missing element: ${selector}`);
+  return element;
 }
 
-pet.addEventListener("click", async () => {
-  render(await window.workpet.recordCurrentContextFromPet());
+function render(state: PetView): void {
+  pet.className = `pet ${state.petState}`;
+  currentConversation = state.currentConversation;
+  const hasConversation = Boolean(currentConversation);
+  root.classList.toggle("has-context", hasConversation);
+  root.classList.toggle("recording-context", Boolean(currentConversation?.workId));
+  bubble.hidden = !currentConversation;
+  paperAction.disabled = !currentConversation || busy;
+  if (!currentConversation) {
+    petBody.title = "打开 WorkPet";
+    paperLabel.textContent = "记录";
+    paperAction.removeAttribute("data-action");
+    paperAction.setAttribute("aria-label", "当前没有可记录的对话");
+    return;
+  }
+  const isOpen = Boolean(currentConversation.workId);
+  applicationMark.textContent = currentConversation.adapter === "codex" ? "⌘" : "W";
+  applicationMark.className = `application-mark ${currentConversation.adapter}`;
+  contextLabel.textContent = `${isOpen ? "正在记录" : "当前聚焦"} · ${currentConversation.applicationName}`;
+  contextTitle.textContent = currentConversation.title;
+  paperLabel.textContent = isOpen ? "打开" : "记录";
+  paperAction.dataset.action = isOpen ? "open" : "record";
+  paperAction.setAttribute("aria-label", `${isOpen ? "打开" : "记录"}当前工作：${currentConversation.title}`);
+  petBody.title = `打开 WorkPet · ${currentConversation.title}`;
+}
+
+async function refresh(): Promise<void> {
+  if (busy) return;
+  render(await window.workpet.getPetView());
+}
+
+petBody.addEventListener("click", () => void window.workpet.togglePanelFromPet());
+
+paperAction.addEventListener("click", async () => {
+  if (!currentConversation || busy) return;
+  busy = true;
+  paperAction.disabled = true;
+  try {
+    await window.workpet.recordCurrentContextFromPet();
+  } finally {
+    busy = false;
+    await refresh();
+  }
 });
 
-setInterval(() => window.workpet.getDashboard().then(render).catch(() => undefined), 3_000);
-void window.workpet.getDashboard().then(render);
+document.addEventListener("mousemove", (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  window.workpet.setPetMousePassthrough(!target?.closest("#pet"));
+});
+document.addEventListener("mouseleave", () => window.workpet.setPetMousePassthrough(true));
+
+setInterval(() => void refresh().catch(() => undefined), 2_000);
+void refresh();

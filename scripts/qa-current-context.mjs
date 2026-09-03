@@ -11,6 +11,7 @@ const root = process.cwd();
 const outputDirectory = join(root, "output", "playwright");
 const testDirectory = await mkdtemp(join(tmpdir(), "workpet-current-context-"));
 const screenshotPath = join(outputDirectory, "current-context-panel.png");
+const petScreenshotPath = join(outputDirectory, "current-context-pet-hover.png");
 
 await mkdir(outputDirectory, { recursive: true });
 
@@ -40,10 +41,15 @@ try {
     panelWindow?.focus();
   });
   await panel.waitForTimeout(200);
-  await pet.waitForFunction(() => Boolean(document.querySelector("#pet")?.getAttribute("title")), undefined, { timeout: 5_000 });
+  const paperAction = pet.locator("#paper-action");
+  await paperAction.waitFor({ state: "visible", timeout: 5_000 });
+  await pet.waitForFunction(() => !document.querySelector("#paper-action")?.hasAttribute("disabled"), undefined, { timeout: 15_000 });
+  const conversationTitle = await pet.locator("#context-title").innerText();
 
   const foregroundBeforeClick = JSON.parse((await execFileAsync(join(root, "dist", "foreground-context"))).stdout.trim());
-  await pet.locator("#pet").evaluate((button) => button.click());
+  await paperAction.hover();
+  await pet.screenshot({ path: petScreenshotPath });
+  await paperAction.click();
   let dashboard = await pet.evaluate(() => window.workpet.getDashboard());
   for (let attempt = 0; attempt < 120 && !dashboard.works.length && !dashboard.notice; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 250));
@@ -56,14 +62,20 @@ try {
       `点击桌宠后没有创建当前 Codex 工作：${dashboard.notice ?? "无提示"}；点击前台=${JSON.stringify(foregroundBeforeClick)}；渲染错误=${rendererErrors.join(" | ") || "无"}`
     );
   }
+  await pet.waitForFunction(() => document.querySelector("#paper-action")?.getAttribute("data-action") === "open", undefined, { timeout: 10_000 });
+  if (!conversationTitle.trim()) throw new Error("当前会话气泡没有展示应用生成的标题");
+  if (await panel.locator("textarea[data-item-id], [data-remove-item]").count()) {
+    throw new Error("只读 Work State 中仍存在编辑或删除控件");
+  }
 
   console.log(JSON.stringify({
     passed: true,
     foregroundBeforeClick,
     workId: dashboard.selectedWork.id,
     title: dashboard.selectedWork.title,
+    conversationTitle,
     binding: dashboard.selectedWork.bindings[0],
-    screenshot: screenshotPath,
+    screenshots: [petScreenshotPath, screenshotPath],
     database: join(testDirectory, "workpet.sqlite")
   }, null, 2));
 } finally {

@@ -7,11 +7,22 @@
     <link rel="stylesheet" href="pet.css" />
   </head>
   <body>
-    <button id="pet" class="pet sleeping" aria-label="打开 WorkPet">
-      <span class="paper"><i></i><i></i><i></i></span>
-      <span class="face"><i class="eye left"></i><i class="eye right"></i><i class="mouth"></i></span>
-      <span class="status-dot"></span>
-    </button>
+    <main id="pet-root" class="pet-root">
+      <section id="context-bubble" class="context-bubble" aria-live="polite" hidden>
+        <span id="application-mark" class="application-mark"></span>
+        <span class="context-copy"><small id="context-label"></small><strong id="context-title"></strong></span>
+      </section>
+      <div id="pet" class="pet sleeping">
+        <button id="pet-body" class="pet-body" aria-label="打开 WorkPet">
+          <span class="face" aria-hidden="true"><i class="eye left"></i><i class="eye right"></i><i class="mouth"></i></span>
+          <span class="status-dot" aria-hidden="true"></span>
+        </button>
+        <button id="paper-action" class="paper-action" aria-label="记录当前工作" disabled>
+          <span class="paper-lines" aria-hidden="true"><i></i><i></i><i></i></span>
+          <strong id="paper-label">记录</strong>
+        </button>
+      </div>
+    </main>
     <script type="module" src="pet.js"></script>
   </body>
 </html>

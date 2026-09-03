@@ -185,11 +185,11 @@ WorkPattern 不修改 WorkDefinition，不反向修改历史 WorkRecord，也不
 只有以下真实桌面闭环全部通过，MVP 才算完成：
 
 1. 用户在真实 Codex 桌面任务中已经对话二十轮，并上传至少两个文件；
-2. 用户聚焦真实 Codex 对话并点击桌宠，系统自动识别当前会话；
+2. 用户聚焦真实 Codex 对话，气泡显示 Codex 生成的会话标题；用户悬浮桌宠并点击展开的“记录”便利贴，系统重新确认当前会话；
 3. 系统创建 `GeneralWorkDefinition v1`、WorkInstance、WorkRecord 和 Codex ExecutionEpisode；
 4. 系统从第一轮开始导入完整 Prompt、可见回复、可读取工具记录和 ArtifactRef；
 5. WorkStateExtractor 生成八部分 Work State，每条内容带 `origin + sourceMessageIds`；
-6. 用户修改一条约束后，它变为 `USER_EDITED`，刷新后不被模型覆盖；
+6. Work State 在侧边面板中只读展示，并显示每条内容的来源数量，不提供就地编辑或删除；
 7. 用户继续在 Codex 对话，Source Archive 增量更新；长时间无活动不切分 WorkInstance；
 8. 用户点击“交给 WorkBuddy”；
 9. 系统真实打开 WorkBuddy、创建全新对话，并建立新的 ExecutionEpisode；
@@ -208,5 +208,5 @@ WorkPattern 不修改 WorkDefinition，不反向修改历史 WorkRecord，也不
 - `workbuddy://task?action=start` Deep Link 能创建全新 WorkBuddy 对话并提交不超过 8000 字的 marker；
 - WorkBuddy 用户级 MCP 能连接 WorkPet localhost Bridge；`get_work_context` 不含完整 Source Archive，`get_work_archive` 必须显式调用；
 - 早期 CLI 验收曾因拒绝回复复述了验收口令而产生假阳性；复核真实 transcript 后已撤销该证据。当前验证器必须同时观察到精确成功结果、真实 Conversation Binding、同一 Binding/ExecutionEpisode 内成对的 `get_work_context` 成功审计、MCP 随机 proof token 和可见回复 Hook 回写，缺一即失败；
-- `qa:desktop-roundtrip` 使用临时 WorkPet 数据库，强制检查二十轮用户输入、两份不同附件、人工编辑保护、Codex 增量、全新 WorkBuddy 桌面对话、MCP 审计、Hook 回写和完成后停止捕获；运行前必须取得用户对本次具体数据的外发授权；
+- `qa:desktop-roundtrip` 使用临时 WorkPet 数据库，强制检查二十轮用户输入、两份不同附件、Codex 增量、全新 WorkBuddy 桌面对话、MCP 审计、Hook 回写和完成后停止捕获；运行前必须取得用户对本次具体数据的外发授权；
 - 自动测试覆盖领域生命周期、去重、人工编辑保护、tombstone、ArtifactRef 复核、隐藏思维过滤、持久化接力投影、失败恢复、从指定消息新建工作、MCP 调用审计、WorkBuddy marker 绑定与回写、接入配置幂等性，以及拒绝回复不能冒充验收成功。

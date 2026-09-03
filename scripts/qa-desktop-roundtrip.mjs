@@ -141,20 +141,8 @@ try {
   const imported = await panel.evaluate((threadId) => window.workpet.createWorkFromCodex({ threadId, allowCloudExtraction: false }), selectedThreadId);
   const workId = imported.selectedWorkId;
   if (!workId || !imported.selectedWork) throw new Error("Codex 工作没有被记录");
-  const constraint = imported.selectedWork.state.constraints[0];
-  if (!constraint) throw new Error("所选工作没有可用于人工编辑保护验收的约束，请换一个任务");
-  const editedConstraint = `${constraint.text}（桌面验收人工修订）`;
-  await panel.evaluate(
-    ({ id, itemId, text }) => window.workpet.editStateItem(id, "constraints", itemId, text),
-    { id: workId, itemId: constraint.id, text: editedConstraint }
-  );
-  const refreshedAfterEdit = await panel.evaluate((id) => window.workpet.refreshWork(id), workId);
-  const protectedConstraint = refreshedAfterEdit.selectedWork?.state.constraints.find((item) => item.id === constraint.id);
-  if (protectedConstraint?.origin !== "USER_EDITED" || protectedConstraint.text !== editedConstraint) {
-    throw new Error("人工编辑在刷新后没有受到保护");
-  }
-
-  const beforeCodexContinuation = refreshedAfterEdit.selectedWork?.eventCount ?? 0;
+  const refreshedBeforeContinuation = await panel.evaluate((id) => window.workpet.refreshWork(id), workId);
+  const beforeCodexContinuation = refreshedBeforeContinuation.selectedWork?.eventCount ?? 0;
   console.log(`已导入：${preview.title}；${preview.userPromptCount} 轮用户输入；${preview.artifactCount} 份附件。`);
   await terminal.question("请在这个 Codex 任务中新增一轮对话，等回复完成后回到终端按回车：");
   const afterCodexContinuation = await panel.evaluate((id) => window.workpet.refreshWork(id), workId);

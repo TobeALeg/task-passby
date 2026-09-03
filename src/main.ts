@@ -8,8 +8,6 @@ import { AppService } from "./app/app-service.js";
 import { WorkPetHttpBridge } from "./bridge/http-bridge.js";
 import { WorkPetMcpHandler } from "./bridge/mcp-handler.js";
 import { IntegrationInstaller } from "./integrations/installer.js";
-import type { WorkStateField } from "./ui-contract.js";
-
 let petWindow: BrowserWindow | null = null;
 let panelWindow: BrowserWindow | null = null;
 let service: AppService | null = null;
@@ -30,8 +28,8 @@ function requireService(): AppService {
 function createWindows(): void {
   const preload = join(app.getAppPath(), "dist", "preload.cjs");
   petWindow = new BrowserWindow({
-    width: 112,
-    height: 116,
+    width: 286,
+    height: 182,
     transparent: true,
     frame: false,
     resizable: false,
@@ -43,9 +41,10 @@ function createWindows(): void {
   });
   petWindow.setAlwaysOnTop(true, "floating");
   petWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  petWindow.setIgnoreMouseEvents(true, { forward: true });
   petWindow.loadFile(join(app.getAppPath(), "dist", "renderer", "pet.html"));
   const workArea = screen.getPrimaryDisplay().workArea;
-  petWindow.setPosition(workArea.x + workArea.width - 135, workArea.y + workArea.height - 150);
+  petWindow.setPosition(workArea.x + workArea.width - 304, workArea.y + workArea.height - 206);
 
   panelWindow = new BrowserWindow({
     width: 448,
@@ -106,10 +105,15 @@ function revealApp(): void {
 
 function registerIpc(): void {
   ipcMain.handle("panel:toggle", () => togglePanel());
+  ipcMain.handle("pet:get-view", () => requireService().getPetView());
   ipcMain.handle("panel:record-current-context", async () => {
     const dashboard = await requireService().recordCurrentContext();
     showPanel();
     return dashboard;
+  });
+  ipcMain.on("pet:mouse-passthrough", (event, ignored: boolean) => {
+    if (event.sender !== petWindow?.webContents) return;
+    petWindow.setIgnoreMouseEvents(Boolean(ignored), { forward: true });
   });
   ipcMain.handle("panel:close", () => panelWindow?.hide());
   ipcMain.handle("dashboard:get", (_event, workId?: string) => requireService().dashboardWithVerification(workId));
@@ -119,8 +123,6 @@ function registerIpc(): void {
   ipcMain.handle("work:split-points", (_event, workId: string) => requireService().listCodexSplitPoints(workId));
   ipcMain.handle("work:create-from-codex-message", (_event, request) => requireService().createWorkFromCodexMessage(request));
   ipcMain.handle("work:refresh", (_event, workId: string) => requireService().refreshWork(workId));
-  ipcMain.handle("work:state-edit", (_event, workId: string, field: WorkStateField, itemId: string, text: string) => requireService().editStateItem(workId, field, itemId, text));
-  ipcMain.handle("work:state-delete", (_event, workId: string, field: WorkStateField, itemId: string) => requireService().deleteStateItem(workId, field, itemId));
   ipcMain.handle("work:complete", (_event, workId: string) => requireService().completeWork(workId));
   ipcMain.handle("work:archive", (_event, workId: string) => requireService().archiveWork(workId));
   ipcMain.handle("work:resume", (_event, workId: string) => requireService().resumeWork(workId));

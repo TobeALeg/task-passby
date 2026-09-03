@@ -59,6 +59,18 @@ export interface DashboardView {
   notice: string | null;
 }
 
+export interface CurrentConversationView {
+  adapter: "codex" | "workbuddy";
+  applicationName: "Codex" | "WorkBuddy";
+  title: string;
+  workId: string | null;
+}
+
+export interface PetView {
+  petState: PetState;
+  currentConversation: CurrentConversationView | null;
+}
+
 export interface CodexThreadView {
   id: string;
   title: string;
@@ -94,6 +106,9 @@ export interface CreateWorkFromCodexMessageRequest {
 
 export interface WorkPetApi {
   recordCurrentContextFromPet(): Promise<DashboardView>;
+  getPetView(): Promise<PetView>;
+  togglePanelFromPet(): Promise<void>;
+  setPetMousePassthrough(ignored: boolean): void;
   getDashboard(workId?: string): Promise<DashboardView>;
   listCodexThreads(): Promise<CodexThreadView[]>;
   previewCodexThread(threadId: string): Promise<CodexImportPreview>;
@@ -101,8 +116,6 @@ export interface WorkPetApi {
   listCodexSplitPoints(workId: string): Promise<CodexSplitPointView[]>;
   createWorkFromCodexMessage(request: CreateWorkFromCodexMessageRequest): Promise<DashboardView>;
   refreshWork(workId: string): Promise<DashboardView>;
-  editStateItem(workId: string, field: WorkStateField, itemId: string, text: string): Promise<DashboardView>;
-  deleteStateItem(workId: string, field: WorkStateField, itemId: string): Promise<DashboardView>;
   completeWork(workId: string): Promise<DashboardView>;
   archiveWork(workId: string): Promise<DashboardView>;
   resumeWork(workId: string): Promise<DashboardView>;

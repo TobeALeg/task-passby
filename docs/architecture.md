@@ -42,7 +42,7 @@ Work Core ─────────────── Local Persistence
 
 ### Desktop Pet Interface
 
-只调用 Work Core Interface，不承担领域判断。点击桌宠是检测并记录当前工作的唯一入口；检测与创建由同一个服务操作完成，检测失败只返回可见提示，不留下可被面板误用的缓存上下文。侧边面板只负责 Work 列表、编辑、交接、完成、归档和永久删除。MVP 保留 macOS Dock 入口；单实例锁拦截重复进程后，重复启动事件必须恢复并聚焦已有窗口，不能静默退出。
+只调用 Work Core Interface，不承担领域判断。PetView 轮询只返回受支持前台聊天的 Adapter、应用生成标题及已绑定 WorkInstance，不写入 notice 或持久数据；未识别到唯一聊天时隐藏气泡并禁用便利贴操作。用户点击便利贴后重新检测并创建记录，避免使用可能过期的预览缓存；便利贴在已有绑定时改为打开对应工作。扩大后的透明桌宠窗口通过鼠标穿透避免遮挡来源应用。侧边面板只负责 Work 列表、只读 Work State、重新整理、交接、完成、归档和永久删除。MVP 保留 macOS Dock 入口；单实例锁拦截重复进程后，重复启动事件必须恢复并聚焦已有窗口，不能静默退出。
 
 ### Foreground Context Detector
 
@@ -83,8 +83,10 @@ Work Core ─────────────── Local Persistence
 ### 创建记录
 
 ```text
-用户聚焦 Codex / WorkBuddy 后点击桌宠
-  → Foreground Context Detector 识别前台应用
+用户聚焦 Codex / WorkBuddy
+  → PetView 只读识别前台应用和应用生成的会话标题
+  → 用户悬浮桌宠并点击展开的便利贴
+  → Foreground Context Detector 重新确认前台应用
   → Codex：唯一标题匹配当前任务并读取完整历史
   → WorkBuddy：下一次提交由 Hook 提供真实 session ID
   → Work Core 创建 WorkInstance / WorkRecord / Episode

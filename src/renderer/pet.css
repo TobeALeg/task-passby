@@ -1,8 +1,19 @@
-:root { color-scheme: light; }
+:root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif; }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
-body { display: grid; place-items: center; -webkit-app-region: drag; }
-.pet {
+body { -webkit-app-region: drag; }
+button { font: inherit; }
+.pet-root { display: grid; justify-items: end; align-content: end; gap: 18px; width: 100%; height: 100%; padding: 20px 16px 12px; }
+.context-bubble { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px; width: 238px; min-height: 52px; padding: 9px 11px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; background: rgba(41,37,33,.93); color: #fff; box-shadow: 0 14px 38px rgba(47,39,29,.22); backdrop-filter: blur(16px); pointer-events: none; }
+.context-bubble[hidden] { display: none; }
+.context-bubble::after { content: ""; position: absolute; right: 27px; bottom: -7px; width: 14px; height: 14px; background: #292521; transform: rotate(45deg); }
+.application-mark { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 8px; background: #333; color: #fff; font-size: 12px; font-weight: 800; }
+.application-mark.workbuddy { background: #3a65a5; }
+.context-copy { min-width: 0; display: grid; gap: 3px; }
+.context-copy small { color: #d9a980; font-size: 9px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.context-copy strong { overflow: hidden; font: 600 13px/1.25 Georgia, "Songti SC", serif; text-overflow: ellipsis; white-space: nowrap; }
+.pet { position: relative; width: 88px; height: 88px; }
+.pet-body {
   position: relative;
   width: 88px;
   height: 88px;
@@ -14,24 +25,33 @@ body { display: grid; place-items: center; -webkit-app-region: drag; }
   -webkit-app-region: no-drag;
   transition: transform .18s ease, background .2s ease;
 }
-.pet:hover { transform: translateY(-3px) scale(1.03); }
-.pet:active { transform: translateY(0) scale(.98); }
+.pet:hover .pet-body, .pet:focus-within .pet-body { transform: translateY(-2px); }
+.pet-body:active { transform: translateY(0) scale(.98); }
 .face { position: absolute; left: 0; right: 0; bottom: 18px; height: 24px; }
 .eye { position: absolute; top: 2px; width: 8px; height: 11px; border-radius: 8px; background: #31271d; transition: height .18s ease; }
 .eye.left { left: 25px; }
 .eye.right { right: 25px; }
 .mouth { position: absolute; left: 39px; top: 15px; width: 10px; height: 5px; border-bottom: 2px solid #31271d; border-radius: 0 0 10px 10px; }
-.paper { position: absolute; left: 28px; top: -5px; width: 34px; height: 35px; padding: 8px 7px; border-radius: 5px; background: #fffaf0; box-shadow: 0 4px 10px rgba(53, 40, 20, .15); transform: rotate(-3deg); }
-.paper i { display: block; height: 2px; margin: 4px 0; background: #d7c7a6; border-radius: 2px; }
-.paper i:last-child { width: 65%; }
+.paper-action { position: absolute; z-index: 3; left: 28px; top: -5px; width: 34px; height: 35px; margin: 0; padding: 0; overflow: hidden; border: 1px solid rgba(129,102,63,.08); border-radius: 5px 5px 8px 5px; background: #fffaf0; color: #75462b; box-shadow: 0 4px 10px rgba(53,40,20,.15); cursor: pointer; transform: rotate(-3deg); transform-origin: 50% 100%; -webkit-app-region: no-drag; transition: left .18s ease, top .18s ease, width .18s ease, height .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease; }
+.paper-action::after { content: ""; position: absolute; right: 0; bottom: 0; width: 8px; height: 8px; background: linear-gradient(135deg, rgba(215,199,166,.1) 50%, #e6d8bc 51%); }
+.paper-lines { position: absolute; inset: 8px 7px; transition: opacity .12s ease, transform .18s ease; }
+.paper-lines i { display: block; height: 2px; margin: 4px 0; border-radius: 2px; background: #d7c7a6; }
+.paper-lines i:last-child { width: 65%; }
+.paper-action strong { position: absolute; inset: 0; display: grid; place-items: center; padding-right: 2px; font-size: 10px; font-weight: 800; letter-spacing: .06em; opacity: 0; transform: translateY(4px); transition: opacity .12s ease .04s, transform .18s ease; }
+.paper-action:disabled { cursor: default; }
+.pet:hover .paper-action:not(:disabled), .paper-action:focus-visible { left: 13px; top: -12px; width: 62px; height: 36px; border-color: rgba(139,91,51,.22); background: #fff4d9; box-shadow: 0 7px 14px rgba(53,40,20,.2); outline: none; transform: rotate(0) translateY(-2px); }
+.pet:hover .paper-action:not(:disabled) .paper-lines, .paper-action:focus-visible .paper-lines { opacity: 0; transform: translateY(-4px); }
+.pet:hover .paper-action:not(:disabled) strong, .paper-action:focus-visible strong { opacity: 1; transform: translateY(0); }
+.recording-context .paper-action { background: #f4fae9; }
+.recording-context .paper-lines i { background: #a8c39a; }
 .status-dot { position: absolute; right: 1px; bottom: 5px; width: 16px; height: 16px; border: 3px solid #fff9e9; border-radius: 50%; background: #a6a093; }
 .pet.sleeping .eye { top: 8px; height: 2px; border-radius: 2px; }
 .pet.sleeping .mouth { border-bottom: 0; border-top: 2px solid #31271d; border-radius: 10px 10px 0 0; }
-.pet.awake { background: #f2be4f; animation: breathe 2.4s ease-in-out infinite; }
+.pet.awake .pet-body { background: #f2be4f; animation: breathe 2.4s ease-in-out infinite; }
 .pet.awake .status-dot { background: #3f9d70; }
-.pet.carrying { background: #e99252; animation: carry .7s ease-in-out infinite alternate; }
+.pet.carrying .pet-body { background: #e99252; animation: carry .7s ease-in-out infinite alternate; }
 .pet.carrying .status-dot { background: #377fd2; }
-.pet.alert { background: #e8735d; animation: nudge .35s ease-in-out 3; }
+.pet.alert .pet-body { background: #e8735d; animation: nudge .35s ease-in-out 3; }
 .pet.alert .status-dot { background: #b6262e; }
 @keyframes breathe { 50% { transform: translateY(-2px); } }
 @keyframes carry { to { transform: translateY(-5px) rotate(2deg); } }

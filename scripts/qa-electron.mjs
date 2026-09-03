@@ -48,9 +48,11 @@ try {
     height: innerHeight,
     scrollWidth: document.documentElement.scrollWidth,
     scrollHeight: document.documentElement.scrollHeight,
-    button: document.querySelector("#pet")?.getBoundingClientRect().toJSON()
+    body: document.querySelector("#pet-body")?.getBoundingClientRect().toJSON(),
+    paper: document.querySelector("#paper-action")?.getBoundingClientRect().toJSON(),
+    bubble: document.querySelector("#context-bubble")?.getBoundingClientRect().toJSON()
   }));
-  await pet.locator("#pet").click();
+  await pet.locator("#pet-body").click();
   await panel.waitForTimeout(250);
   const panelVisible = await electronApp.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows().some((window) => window.webContents.getURL().endsWith("/panel.html") && window.isVisible())
@@ -65,50 +67,10 @@ try {
     clientHeight: document.documentElement.clientHeight,
     scrollWidth: document.documentElement.scrollWidth,
     scrollHeight: document.documentElement.scrollHeight,
-    primaryAction: document.querySelector("#record-codex")?.getBoundingClientRect().toJSON(),
     filters: document.querySelector(".filters")?.getBoundingClientRect().toJSON()
   }));
-
-  await panel.locator("#record-codex").click();
-  await panel.locator("#import-dialog[open]").waitFor({ state: "visible", timeout: 15_000 });
-  await panel.screenshot({ path: join(output, "03-import-confirmation.png") });
-  const previewText = await panel.locator("#import-preview").innerText();
-  const optionCount = await panel.locator("#codex-thread option").count();
-  if (!optionCount) throw new Error("Codex App Server 没有返回候选任务");
-  if (!/条消息/u.test(previewText)) throw new Error(`确认摘要缺少消息计数：${previewText}`);
-
-  await panel.locator("#confirm-import").click();
-  await panel.locator("#import-dialog").waitFor({ state: "hidden", timeout: 30_000 });
-  await panel.locator("#work-detail").waitFor({ state: "visible", timeout: 10_000 });
-  await panel.screenshot({ path: join(output, "04-work-detail.png") });
-  const detailText = await panel.locator("#work-detail").innerText();
-  if (!detailText.includes("执行片段") || !detailText.includes("Codex Desktop")) {
-    throw new Error("Work Detail 没有展示 Codex ExecutionEpisode");
-  }
-
-  await panel.getByRole("button", { name: "从消息新建", exact: true }).click();
-  await panel.locator("#split-dialog[open]").waitFor({ state: "visible" });
-  const splitOptionCount = await panel.locator("#split-point option").count();
-  if (!splitOptionCount) throw new Error("从消息新建没有提供用户消息起点");
-  await panel.screenshot({ path: join(output, "04b-split-dialog.png") });
-  await panel.locator("#split-dialog").getByRole("button", { name: "取消", exact: true }).click();
-
-  const editable = panel.locator("textarea[data-item-id]").first();
-  const editedText = "QA 人工修改：后续提炼不得覆盖";
-  await editable.fill(editedText);
-  await editable.blur();
-  await panel.waitForTimeout(150);
-  if ((await editable.inputValue()) !== editedText) throw new Error("Work State 人工编辑没有保存");
-
-  await panel.getByRole("button", { name: "完成", exact: true }).click();
-  await panel.getByRole("button", { name: "已完成", exact: true }).click();
-  await panel.getByRole("button", { name: "继续原工作", exact: true }).waitFor({ state: "visible" });
-  await panel.getByRole("button", { name: "继续原工作", exact: true }).click();
-  await panel.getByRole("button", { name: "进行中", exact: true }).click();
-  await panel.getByRole("button", { name: "完成", exact: true }).waitFor({ state: "visible" });
-  const episodeCount = await panel.locator(".episode").count();
-  if (episodeCount < 2) throw new Error("继续原工作没有创建新的 ExecutionEpisode");
-  await panel.screenshot({ path: join(output, "05-resumed-work.png") });
+  const editableControlCount = await panel.locator("textarea[data-item-id], [data-remove-item]").count();
+  if (editableControlCount) throw new Error("Work State 面板仍暴露编辑或删除控件");
 
   console.log(JSON.stringify({
     passed: true,
@@ -116,11 +78,8 @@ try {
     secondInstanceRestored,
     petMetrics,
     panelMetrics,
-    optionCount,
-    splitOptionCount,
-    previewText,
-    episodeCount,
-    screenshots: ["01-pet.png", "02-panel-empty.png", "03-import-confirmation.png", "04-work-detail.png", "04b-split-dialog.png", "05-resumed-work.png"]
+    editableControlCount,
+    screenshots: ["01-pet.png", "02-panel-empty.png"]
   }, null, 2));
 } finally {
   await electronApp.close();

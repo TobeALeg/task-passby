@@ -8,7 +8,7 @@
 
 ### 核心价值
 
-用户主动点击桌宠后，系统识别前台 Codex 或 WorkBuddy 的工作上下文，把松散的 AI 协作过程记录并抽象为独立的 WorkInstance 和 WorkRecord。记录能够持续跨越不同 Executor 与 ExecutionEnvironment，并在需要时生成可直接接力的 Handoff Package。
+用户在桌宠头顶展开的便利贴上点击“记录”后，系统识别前台 Codex 或 WorkBuddy 的工作上下文，把松散的 AI 协作过程记录并抽象为独立的 WorkInstance 和 WorkRecord。记录能够持续跨越不同 Executor 与 ExecutionEnvironment，并在需要时生成可直接接力的 Handoff Package。
 
 产品的核心是记录与建模“工作”本身。跨 Agent 接力是 WorkRecord 能够独立描述工作的直接价值。长期价值是从多次相似 WorkInstance 中提炼可跨 Agent 使用、属于用户自己的 WorkPattern。
 
@@ -19,7 +19,7 @@
 - WorkInstance ID 是工作身份，对话 ID 只是来源引用；
 - 原始档案与结构化 Work State 分离；
 - 每条结构化信息必须可追溯到来源；
-- 用户编辑优先于系统推断，后续模型不得覆盖；
+- 自动提取结果是可追溯的只读投影；用户回到来源对话修正事实后，再触发重新整理；
 - 持久数据只存本机，云端提炼需要首次明确授权；
 - 完整记录不等于把完整聊天塞进目标 Agent；
 - WorkDefinition、WorkInstance、WorkRecord、Executor 和 ExecutionEpisode 必须分离；
@@ -39,16 +39,17 @@
 ### 用户体验路径
 
 1. 用户在 Codex 或 WorkBuddy 中进行工作；
-2. 用户点击常驻桌宠；桌宠是开始记录当前工作的唯一入口，侧边面板只管理已有工作；
-3. 系统识别前台应用及当前聊天，不展示应用或任务选择器；Codex 容器没有窗口标题时，仅在唯一近期活动任务成立时自动绑定；
-4. Codex 在唯一标题匹配后立即导入完整既有历史；WorkBuddy 在同一窗口的下一次提交中取得真实 session ID、校验窗口标题后绑定并归档 transcript；
-5. 桌宠进入清醒状态，Source Archive 持续增量归档；
-6. 用户点击桌宠查看或更新八部分 Work State；
-7. 用户可以修正 Work State、从当前消息新建 Work、完成、归档或永久删除；
-8. 用户点击“交给 WorkBuddy”；
-9. 系统创建全新 WorkBuddy 对话，通过 MCP 交付 Handoff Package；
-10. WorkBuddy 的后续协作继续写回同一个 WorkRecord；
-11. 用户明确完成后停止自动写入；再次活动时选择继续原工作或新建工作。
+2. 桌宠上方只在识别到支持的前台聊天时显示应用生成的会话标题，不把首次用户消息当标题；
+3. 用户悬浮桌宠，头顶便利贴展开为“记录”；便利贴是开始记录当前工作的唯一入口，桌宠身体和侧边面板只打开、管理已有工作；
+4. 系统识别前台应用及当前聊天，不展示应用或任务选择器；Codex 容器没有窗口标题时，仅在唯一近期活动任务成立时自动绑定；
+5. Codex 在唯一标题匹配后立即导入完整既有历史；WorkBuddy 在同一窗口的下一次提交中取得真实 session ID、校验窗口标题后绑定并归档 transcript；
+6. 桌宠进入清醒状态，同一张便利贴变为“打开”，Source Archive 持续增量归档；
+7. 用户通过便利贴或桌宠身体打开只读 Work State 面板；
+8. 用户可以重新整理、从当前消息新建 Work、完成、归档或永久删除；
+9. 用户点击“交给 WorkBuddy”；
+10. 系统创建全新 WorkBuddy 对话，通过 MCP 交付 Handoff Package；
+11. WorkBuddy 的后续协作继续写回同一个 WorkRecord；
+12. 用户明确完成后停止自动写入；再次活动时选择继续原工作或新建工作。
 
 ## UX
 
@@ -56,8 +57,9 @@
 
 - **可见的授权状态**：桌宠用睡眠、清醒、搬运、提醒四种状态表达当前是否记录和是否需要处理；
 - **可发现的运行入口**：MVP 保留 Dock 图标；开发中固定使用 `scripts/run-latest.command` 启动当前源码；再次双击应用会把已有桌宠和侧边面板带回前台；
-- **单次授权，不逐条打扰**：点击桌宠即授权记录当前工作，不预览全部历史，也不要求逐项确认 Work State；
-- **纠错永远可达**：点击桌宠即可查看和编辑 Work State，人工修改受到保护；
+- **单次授权，不逐条打扰**：悬浮桌宠后点击便利贴即授权记录当前工作，不预览全部历史，也不要求逐项确认 Work State；
+- **当前来源可见**：只在确认支持的前台聊天后显示窄气泡，标题直接使用来源应用生成的会话标题；
+- **提取结果只读**：面板展示来源数量与提取结果，但不提供就地编辑或删除，避免投影与来源事实分叉；
 - **交接是一键动作**：接入配置随 WorkPet 启动自动安装或更新，日常交接只需一个动作；
 - **小而完整**：采用桌宠加轻量侧边面板，不建立复杂管理后台；
 - **隐私可撤销**：用户可以完成、归档或永久删除本工具的数据；
@@ -73,6 +75,6 @@
 - 本地 SQLite Work Core 与八部分 Work State；
 - Codex Desktop 真实历史导入、增量 Hook 与 ArtifactRef；
 - WorkBuddy 新对话 Deep Link、用户级 MCP、可见事件 Hook 与同一 WorkInstance 回写；
-- `OPEN`、`COMPLETED`、`ARCHIVED` 生命周期、继续原工作、人工编辑保护、tombstone 和永久删除；
+- `OPEN`、`COMPLETED`、`ARCHIVED` 生命周期、继续原工作、来源可追溯的只读 Work State 和永久删除；
 - 默认以本地规则提炼 Work State；只有用户在本机显式启用云端提炼并配置 API Key 时才调用 OpenAI-compatible 模型；
 - arm64 macOS `.app` 打包与启动时自动、幂等的本机接入安装。

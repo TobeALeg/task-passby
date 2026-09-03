@@ -12,7 +12,11 @@ import {
 } from "../adapters/foreground/context.js";
 import type { NormalizedSourceEvent, NormalizedThread } from "../adapters/types.js";
 import { buildWorkBuddyBootstrap, buildWorkBuddyDeepLink } from "../adapters/workbuddy/deep-link.js";
-import { createPendingWorkBuddyConversationId, isPendingWorkBuddyConversationId } from "../adapters/workbuddy/pending-capture.js";
+import {
+  createPendingWorkBuddyConversationId,
+  isPendingWorkBuddyConversationId,
+  matchesPendingWorkBuddyWindow
+} from "../adapters/workbuddy/pending-capture.js";
 import { WorkBuddyHookIngestor, type HookIngestResult } from "../adapters/workbuddy/hook-ingestor.js";
 import type { WorkBuddyLauncher } from "../adapters/workbuddy/launcher.js";
 import {
@@ -20,8 +24,7 @@ import {
   type SourceEvent,
   type SourceEventInput,
   type WorkCore,
-  type WorkSnapshot,
-  type WorkStateField
+  type WorkSnapshot
 } from "../core/index.js";
 import { LocalRuleExtractor } from "../extractor/local-rule-extractor.js";
 import { OpenAICompatibleExtractor } from "../extractor/openai-compatible-extractor.js";
@@ -32,6 +35,7 @@ import type {
   CreateWorkFromCodexMessageRequest,
   CreateWorkRequest,
   DashboardView,
+  PetView,
   WorkDetailView,
   WorkSummaryView
 } from "../ui-contract.js";
@@ -60,6 +64,7 @@ export class AppService {
   #petState: DashboardView["petState"] = "sleeping";
   #notice: string | null = null;
   readonly #cloudExtractionWorkIds = new Set<string>();
+  readonly #workBuddyWindowWorkIds = new Map<string, string>();
 
   constructor(options: AppServiceOptions) {
     this.#core = createWorkCore({ databasePath: options.databasePath });
@@ -75,10 +80,31 @@ export class AppService {
   }
 
   async captureForegroundContext(): Promise<CurrentApplicationContext | null> {
+    return this.#resolveForegroundContext(true);
+  }
+
+  async getPetView(): Promise<PetView> {
+    const context = await this.#resolveForegroundContext(false);
+    if (!context?.windowTitle?.trim()) {
+      return { petState: this.#petState, currentConversation: null };
+    }
+    const workId = this.#workIdForContext(context);
+    return {
+      petState: this.#petState,
+      currentConversation: {
+        adapter: context.adapter,
+        applicationName: context.adapter === "codex" ? "Codex" : "WorkBuddy",
+        title: context.windowTitle,
+        workId
+      }
+    };
+  }
+
+  async #resolveForegroundContext(updateNotice: boolean): Promise<CurrentApplicationContext | null> {
     const application = await this.#foreground.detect();
     const context = application ? classifyForegroundApplication(application) : null;
     if (!context) {
-      this.#notice = "未识别到受支持的前台应用。请先聚焦 Codex 或 WorkBuddy。";
+      if (updateNotice) this.#notice = "未识别到受支持的前台应用。请先聚焦 Codex 或 WorkBuddy。";
       return null;
     }
     if (context.adapter === "codex") {
@@ -86,19 +112,25 @@ export class AppService {
       const thread = resolveCodexThreadFromWindowTitle(context.windowTitle, threads)
         ?? resolveCodexThreadFromRecentActivity(threads);
       if (!thread) {
-        this.#notice = "已识别 Codex，但当前没有唯一的近期任务可安全绑定。请在目标聊天继续一次后重试。";
+        if (updateNotice) this.#notice = "已识别 Codex，但当前没有唯一的近期任务可安全绑定。请在目标聊天继续一次后重试。";
         return null;
       }
-      this.#notice = `已识别当前 Codex 任务：${thread.title}`;
-      return { ...context, conversationId: thread.id };
+      if (updateNotice) this.#notice = `已识别当前 Codex 任务：${thread.title}`;
+      return { ...context, windowTitle: thread.title, conversationId: thread.id };
     }
-    this.#notice = "已识别 WorkBuddy。点击记录后，下一次在当前聊天提交消息时会自动确认会话身份。";
+    if (updateNotice) this.#notice = "已识别 WorkBuddy。点击记录后，下一次在当前聊天提交消息时会自动确认会话身份。";
     return context;
   }
 
   async recordCurrentContext(): Promise<DashboardView> {
     const context = await this.captureForegroundContext();
-    return context ? this.createWorkFromCurrentContext(context) : this.dashboard();
+    if (!context) return this.dashboard();
+    const existingWorkId = this.#workIdForContext(context);
+    if (existingWorkId) {
+      this.#notice = "已打开当前对话对应的工作记录。";
+      return this.dashboard(existingWorkId);
+    }
+    return this.createWorkFromCurrentContext(context);
   }
 
   async createWorkFromCurrentContext(context: CurrentApplicationContext): Promise<DashboardView> {
@@ -123,6 +155,7 @@ export class AppService {
       source: { adapter: "workbuddy", conversationId: waitingConversationId }
     });
     this.#selectedWorkId = work.instance.id;
+    this.#workBuddyWindowWorkIds.set(this.#windowTitleKey(context.windowTitle), work.instance.id);
     if (this.#cloudExtractionIsEnabled()) this.#cloudExtractionWorkIds.add(work.instance.id);
     this.#petState = "awake";
     this.#notice = "已准备记录当前 WorkBuddy 聊天；请在该聊天提交下一条消息，WorkPet 会用真实 session ID 自动绑定并归档完整可见 transcript。";
@@ -292,6 +325,10 @@ export class AppService {
       this.#core.listWorks().map((work) => [work.instance.id, new Set(work.sourceArchive.map((event) => event.externalId))])
     );
     const result = await this.#workBuddyHooks.ingest(payload);
+    const windowTitle = typeof payload.workpet_window_title === "string" ? payload.workpet_window_title : null;
+    if (result.workInstanceId && windowTitle?.trim()) {
+      this.#workBuddyWindowWorkIds.set(this.#windowTitleKey(windowTitle), result.workInstanceId);
+    }
     if (!result.accepted || !result.workInstanceId || !result.appendedCount) return result;
     const work = this.#core.getWork(result.workInstanceId);
     if (!work) return result;
@@ -332,18 +369,6 @@ export class AppService {
       if (selected?.artifactRefs.length) await this.#artifacts.verify(selected);
     }
     return this.dashboard();
-  }
-
-  editStateItem(workId: string, field: WorkStateField, itemId: string, text: string): DashboardView {
-    this.#core.editWorkStateItem(workId, field, itemId, text);
-    this.#notice = "人工修改已保护，后续提炼不会覆盖。";
-    return this.dashboard(workId);
-  }
-
-  deleteStateItem(workId: string, field: WorkStateField, itemId: string): DashboardView {
-    this.#core.deleteWorkStateItem(workId, field, itemId);
-    this.#notice = "该条目已删除并留下 tombstone，不会被自动重新提取。";
-    return this.dashboard(workId);
   }
 
   completeWork(workId: string): DashboardView {
@@ -429,6 +454,9 @@ export class AppService {
     this.#selectedWorkId = null;
     this.#petState = "sleeping";
     this.#notice = "WorkPet 本地记录已永久删除；原文件和外部对话未改动。";
+    for (const [windowTitle, mappedWorkId] of this.#workBuddyWindowWorkIds) {
+      if (mappedWorkId === workId) this.#workBuddyWindowWorkIds.delete(windowTitle);
+    }
     return this.dashboard();
   }
 
@@ -459,6 +487,24 @@ export class AppService {
 
   #cloudExtractionEnabledFor(workId: string): boolean {
     return this.#cloudExtractionWorkIds.has(workId) || this.#cloudExtractionIsEnabled();
+  }
+
+  #workIdForContext(context: CurrentApplicationContext): string | null {
+    if (context.adapter === "codex" && context.conversationId) {
+      return this.#core.findWorkByBinding("codex", context.conversationId)?.instance.id ?? null;
+    }
+    if (context.adapter !== "workbuddy" || !context.windowTitle?.trim()) return null;
+    const pending = this.#core.listWorks("OPEN").find((work) => {
+      const conversationId = work.activeBinding?.adapter === "workbuddy" ? work.activeBinding.conversationId : "";
+      return matchesPendingWorkBuddyWindow(conversationId, context.windowTitle);
+    });
+    if (pending) return pending.instance.id;
+    const mapped = this.#workBuddyWindowWorkIds.get(this.#windowTitleKey(context.windowTitle));
+    return mapped && this.#core.getWork(mapped) ? mapped : null;
+  }
+
+  #windowTitleKey(windowTitle: string): string {
+    return windowTitle.trim().replace(/\s+/gu, " ").toLocaleLowerCase("zh-CN");
   }
 
   #sourceInputs(events: Array<NormalizedSourceEvent | SourceEventInput | SourceEvent>): SourceEventInput[] {

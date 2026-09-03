@@ -60,6 +60,8 @@ Work Core ─────────────── Local Persistence
 - Hook：把用户 Prompt、Agent 停止、会话结束和资料变化转换成统一 Source Event；
 - Deep Link：负责唤起 WorkBuddy、创建全新对话并提交首条接力指令；
 
+`IntegrationInstaller` 在 WorkPet 每次启动时幂等地合并这些用户级配置；安装不是面板中的手动步骤。首次写入或更新配置后，Codex 与 WorkBuddy 需要重启以加载新 Hook/MCP。
+
 本机 WorkBuddy 5.4.7 的目录型 marketplace 会误报安装成功但不生成桌面主进程要求的版本化 cache record。为避免伪安装，MVP 不手工篡改其插件 registry，而是原子合并 `~/.workbuddy/.mcp.json` 与 `~/.workbuddy/settings.json` 中的官方用户级 MCP/Hook 配置。Hook 对所有会话可见，但 Bridge 只接受带有 WorkInstance marker 且存在 OPEN pending binding 的会话；其他会话立即忽略。整个 Adapter 不读取 WorkBuddy 私有数据库。
 
 每次 WorkBuddy 成功读取 `get_work_context` 或 `get_artifact_refs` 后，Bridge 才在当前 WorkBuddy Binding 和 ExecutionEpisode 中原子追加一对不含返回正文的 `tool.call + tool.result` 审计事件，并记录 conversationId、bindingId 与同一 auditId。桌面验收还会在 MCP 返回中加入仅本次运行可见的随机 proof token，并要求同一会话的可见回复带回该值；因此工具失败、旧 Episode 或 Agent 自称“读过”都不能冒充成功。

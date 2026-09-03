@@ -13,7 +13,9 @@ npm ci
 npm start
 ```
 
-首次打开侧边面板后点击“设置接入”，确认安装 Codex Hook 与 WorkBuddy 用户级 MCP/Hook，然后重启 Codex 和 WorkBuddy。它们都是本机配置：Codex Hook 用于已绑定任务的增量通知；WorkBuddy Hook 提供真实 `session_id` 与可见 transcript，MCP 则让接力任务读取 WorkRecord。没有 WorkPet 服务端需要部署。
+WorkPet 每次启动都会静默、幂等地安装 Codex Hook 与 WorkBuddy 用户级 MCP/Hook；不再提供“设置接入”按钮。它们都是本机配置：Codex Hook 用于已绑定任务的增量通知；WorkBuddy Hook 提供真实 `session_id` 与可见 transcript，MCP 则让接力任务读取 WorkRecord。没有 WorkPet 服务端需要部署。首次安装或更新接入后，重启 Codex 和 WorkBuddy 使其加载新配置。
+
+开发中的最新版本固定从 [scripts/run-latest.command](/Users/dandi/YanGuan/scripts/run-latest.command) 启动：双击它，或在终端运行该路径。它会先编译当前源码，再启动 Electron，不使用 `release/` 下的旧打包版。启动前请退出已有的 `WorkPet.app`。
 
 日常使用时，先聚焦目标聊天，再点击桌宠：
 

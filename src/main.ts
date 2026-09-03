@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { app, BrowserWindow, ipcMain, Menu, dialog, screen, type MessageBoxOptions } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, screen } from "electron";
 
 import { ElectronWorkBuddyLauncher } from "./adapters/workbuddy/launcher.js";
 import { AppService } from "./app/app-service.js";
@@ -135,22 +135,6 @@ function registerIpc(): void {
   ipcMain.handle("work:resume", (_event, workId: string) => requireService().resumeWork(workId));
   ipcMain.handle("work:handoff", (_event, workId: string) => requireService().handoffToWorkBuddy(workId));
   ipcMain.handle("work:delete", (_event, workId: string, confirmation: string) => requireService().deleteWork(workId, confirmation));
-  ipcMain.handle("integrations:install", async () => {
-    const options: MessageBoxOptions = {
-      type: "question",
-      buttons: ["安装", "取消"],
-      defaultId: 0,
-      cancelId: 1,
-      title: "启用 Codex 与 WorkBuddy 接入",
-      message: "安装两个本地插件？",
-      detail: "Codex Hook 只通知已绑定任务变化；WorkBuddy 使用用户级 MCP、可见对话 Hook 与官方 Deep Link。所有数据仍留在本机。"
-    };
-    const answer = panelWindow
-      ? await dialog.showMessageBox(panelWindow, options)
-      : await dialog.showMessageBox(options);
-    if (answer.response !== 0) return { cancelled: true };
-    return new IntegrationInstaller(app.getAppPath()).install();
-  });
 }
 
 app.whenReady().then(async () => {
@@ -173,6 +157,11 @@ app.whenReady().then(async () => {
     onCodexHook: (payload) => requireService().syncCodexHook(payload)
   });
   await bridge.start();
+  try {
+    await new IntegrationInstaller(app.getAppPath()).install();
+  } catch (error) {
+    service.setNotice(`本机接入未完成：${error instanceof Error ? error.message : String(error)}`);
+  }
   createWindows();
   registerIpc();
 });

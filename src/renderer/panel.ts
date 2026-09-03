@@ -126,12 +126,6 @@ required("#record-current-work").addEventListener("click", async () => {
   filter = "OPEN";
   render();
 });
-required("#setup-integrations").addEventListener("click", async () => {
-  const result = await window.workpet.installIntegrations();
-  if (result && typeof result === "object" && "cancelled" in result) return;
-  notice.hidden = false;
-  notice.textContent = "Codex 与 WorkBuddy 本地接入已安装。请重启两个应用使插件生效。";
-});
 required("#close-panel").addEventListener("click", () => void window.workpet.closePanel());
 required<HTMLButtonElement>("#confirm-split").addEventListener("click", async (event) => {
   event.preventDefault();

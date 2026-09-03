@@ -308,9 +308,8 @@ export class AppService {
       prompt += "\n\n本次为桌面闭环验收：请在成功调用 get_work_context 后，把返回字段 qaProofToken 的值原样放进可见回复；不要猜测该值。";
     }
     this.#petState = "carrying";
-    let launchResult: "sent" | "draft";
     try {
-      launchResult = await this.#launcher.openNewConversation(buildWorkBuddyDeepLink(prompt));
+      await this.#launcher.openNewConversation(buildWorkBuddyDeepLink(prompt));
     } catch (error) {
       this.#core.stopCapture(workId);
       if (sourceEpisode && sourceBinding) {
@@ -328,9 +327,7 @@ export class AppService {
       return this.dashboard(workId);
     }
     this.#petState = "awake";
-    this.#notice = launchResult === "sent"
-      ? "已在 WorkBuddy 新建并发送接力任务；Hook 会绑定真实会话并继续记录。"
-      : "已在 WorkBuddy 预填接力任务。首次使用请授予 WorkPet“辅助功能”权限，或手动按回车发送。";
+    this.#notice = "已唤起 WorkBuddy 接力任务；正在等待 MCP/Hook 确认真实会话。";
     return this.dashboard(workId);
   }
 

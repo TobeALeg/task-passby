@@ -13,7 +13,7 @@ npm ci
 npm start
 ```
 
-首次打开侧边面板后点击“设置接入”，确认安装 Codex Hook 与 WorkBuddy 用户级 MCP/Hook，然后重启 Codex 和 WorkBuddy。首次点击“交给 WorkBuddy”时，macOS 会询问 WorkPet 的“辅助功能”权限；允许后，之后的交接可以自动发送。若不授权，接力内容仍会安全地停在 WorkBuddy 草稿框，用户按一次回车即可继续。
+首次打开侧边面板后点击“设置接入”，确认安装 Codex Hook 与 WorkBuddy 用户级 MCP/Hook，然后重启 Codex 和 WorkBuddy。点击“交给 WorkBuddy”后，WorkPet 使用 WorkBuddy 官方 Deep Link 新建并提交接力任务，不模拟键盘，也不需要 macOS“辅助功能”权限。
 
 ## 打包
 
@@ -36,7 +36,7 @@ npm run qa:desktop-roundtrip:list
 
 如果当前验收任务只有一份附件，可把无敏感信息的 [第二验收资料](test/fixtures/desktop-acceptance-second-artifact.md) 作为新附件发到该 Codex 任务，再重新运行候选扫描。
 
-严格桌面验收必须由用户亲自发送。先退出正在运行的 WorkPet，然后从上一步结果选择一个 `threadId`：
+严格桌面验收会向当前登录的 WorkBuddy 账号提交接力任务。取得用户对本次具体数据的授权后，先退出正在运行的 WorkPet，再从上一步结果选择一个 `threadId`：
 
 ```bash
 WORKPET_QA_THREAD_ID='<thread-id>' \
@@ -44,7 +44,7 @@ WORKPET_QA_CONFIRM=SEND_TO_CURRENT_WORKBUDDY_ACCOUNT \
 npm run qa:desktop-roundtrip
 ```
 
-脚本会使用临时 WorkPet 数据库，验证人工编辑保护，并等待用户在 Codex 新增一轮对话。随后它只打开 WorkBuddy 全新草稿，由用户检查后亲自按回车；成功条件同时要求真实桌面 Conversation ID、同一 Binding/ExecutionEpisode 内成对的 `get_work_context` 成功审计、MCP 返回的随机 proof token 出现在可见回复中，以及 WorkBuddy 用户 Prompt 和回复经 Hook 写回同一 WorkInstance。`qa:roundtrip` 是额外的 CLI 接入检查，会主动调用当前 WorkBuddy 账号，不能替代桌面同会话验收，也不应在没有具体数据发送授权时运行。
+脚本会使用临时 WorkPet 数据库，验证人工编辑保护，并等待用户在 Codex 新增一轮对话。随后它通过 Deep Link 新建并提交 WorkBuddy 接力任务；成功条件同时要求真实桌面 Conversation ID、同一 Binding/ExecutionEpisode 内成对的 `get_work_context` 成功审计、MCP 返回的随机 proof token 出现在可见回复中，以及 WorkBuddy 用户 Prompt 和回复经 Hook 写回同一 WorkInstance。WorkBuddy 页面可能短暂显示空白，验收器不会据此判定成功。`qa:roundtrip` 是额外的 CLI 接入检查，会主动调用当前 WorkBuddy 账号，不能替代桌面同会话验收，也不应在没有具体数据发送授权时运行。
 
 ## 数据边界
 

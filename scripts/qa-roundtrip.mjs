@@ -25,7 +25,6 @@ const expectedReply = `${ROUNDTRIP_SENTINEL}:${proofToken}`;
 const sharedEnvironment = {
   ...process.env,
   CODEBUDDY_CONFIG_DIR: "/Users/dandi/.workbuddy",
-  WORKPET_AUTO_SEND: "0",
   WORKPET_BRIDGE_CONFIG: bridgePath,
   WORKPET_DATA_DIR: testDirectory
 };

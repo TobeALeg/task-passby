@@ -43,7 +43,7 @@
 - 完整 Source Archive 作为可查阅附件提供，不默认塞进目标 Agent 的主 Prompt。
 - MVP 在完成 Codex 到 WorkBuddy 的交接后，继续捕获 WorkBuddy 中的用户 Prompt、Agent 可见回复和资料，并写回同一个 Work Record。
 - MVP 首次把 WorkInstance 交给 WorkBuddy 时，总是创建一个新的 WorkBuddy 对话，并登记为新的 ExecutionEpisode。
-- MVP 接受一次性配置 WorkBuddy 自定义 MCP Connector，并授予桌宠 macOS 辅助功能权限；之后提供一键接力。
+- MVP 接受一次性配置 WorkBuddy 自定义 MCP Connector；之后通过 WorkBuddy 官方 Deep Link 提供一键接力，不模拟键盘输入。
 - WorkBuddy Adapter 优先实现为包含 MCP 与 Hook 的本地插件；若本机兼容性验证失败，降级为用户点击桌宠时主动同步当前 WorkBuddy 对话。
 - WorkBuddy 降级同步不得读取应用私有数据库。
 - MVP 的 Source Archive、ArtifactRef、WorkRecord、WorkDefinition 和 ExecutionEpisode 只存本机。

@@ -15,7 +15,6 @@ const electronApp = await electron.launch({
   cwd: root,
   env: {
     ...process.env,
-    WORKPET_AUTO_SEND: "0",
     WORKPET_BRIDGE_CONFIG: join(testDirectory, "bridge.json"),
     WORKPET_DATA_DIR: testDirectory
   }

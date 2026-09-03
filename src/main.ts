@@ -111,7 +111,7 @@ function registerIpc(): void {
       cancelId: 1,
       title: "启用 Codex 与 WorkBuddy 接入",
       message: "安装两个本地插件？",
-      detail: "Codex Hook 只通知已绑定任务变化；WorkBuddy 使用用户级 MCP 与可见对话 Hook。首次一键接力时，macOS 会询问“辅助功能”权限以代你按下发送。所有数据仍留在本机。"
+      detail: "Codex Hook 只通知已绑定任务变化；WorkBuddy 使用用户级 MCP、可见对话 Hook 与官方 Deep Link。所有数据仍留在本机。"
     };
     const answer = panelWindow
       ? await dialog.showMessageBox(panelWindow, options)

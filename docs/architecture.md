@@ -17,7 +17,7 @@ Work Core ─────────────── Local Persistence
    └── WorkBuddy Adapter
        ├── User-scoped MCP Connector
        ├── User-scoped visible-event Hooks
-       └── Deep Link + macOS Accessibility
+       └── WorkBuddy Deep Link
 ```
 
 ### Work Core
@@ -51,8 +51,7 @@ Work Core ─────────────── Local Persistence
 
 - MCP：让 WorkBuddy 按 WorkInstance ID 读取 Handoff Package；
 - Hook：把用户 Prompt、Agent 停止、会话结束和资料变化转换成统一 Source Event；
-- Deep Link：负责唤起 WorkBuddy、创建全新对话并预填首条接力指令；
-- macOS 辅助功能：用户授权后只代为按下发送，不读取屏幕或其他对话。
+- Deep Link：负责唤起 WorkBuddy、创建全新对话并提交首条接力指令；
 
 本机 WorkBuddy 5.4.7 的目录型 marketplace 会误报安装成功但不生成桌面主进程要求的版本化 cache record。为避免伪安装，MVP 不手工篡改其插件 registry，而是原子合并 `~/.workbuddy/.mcp.json` 与 `~/.workbuddy/settings.json` 中的官方用户级 MCP/Hook 配置。Hook 对所有会话可见，但 Bridge 只接受带有 WorkInstance marker 且存在 OPEN pending binding 的会话；其他会话立即忽略。整个 Adapter 不读取 WorkBuddy 私有数据库。
 
@@ -99,8 +98,7 @@ Codex 或 WorkBuddy 产生新事件
 用户点击“交给 WorkBuddy”
   → Work Core 更新 Work State
   → HandoffCoordinator 生成 Handoff Package
-  → Deep Link 创建全新 WorkBuddy 对话并预填 marker
-  → 已授权时 Accessibility 代为发送；否则保留草稿供用户按回车
+  → Deep Link 创建全新 WorkBuddy 对话并提交 marker
   → 首条指令携带 WorkInstance ID
   → WorkBuddy 通过 MCP 读取 Work State 与当前资料
   → 建立 WorkBuddy CaptureBinding / ExecutionEpisode

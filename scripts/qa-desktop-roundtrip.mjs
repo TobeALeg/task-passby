@@ -68,7 +68,6 @@ async function launchWorkPet({ bridgePath, dataDirectory, proofToken }) {
     cwd: root,
     env: {
       ...process.env,
-      WORKPET_AUTO_SEND: "0",
       WORKPET_BRIDGE_CONFIG: bridgePath,
       WORKPET_DATA_DIR: dataDirectory,
       ...(proofToken ? { WORKPET_QA_PROOF_TOKEN: proofToken } : {})
@@ -165,7 +164,7 @@ try {
 
   const beforeWorkBuddy = afterCodexContinuation.selectedWork?.eventCount ?? 0;
   await panel.evaluate((id) => window.workpet.handoffToWorkBuddy(id), workId);
-  console.log("WorkBuddy 已打开全新草稿。请检查内容后亲自按回车发送；脚本只等待本地 MCP/Hook 证据，不代替你发送。");
+  console.log("已唤起 WorkBuddy 接力任务，无需手动发送；正在等待真实 Conversation、MCP 与 Hook 回写证据。");
 
   const deadline = Date.now() + 10 * 60_000;
   let finalEvidence = null;

@@ -52,7 +52,7 @@ test("刷新工作时复核已有 ArtifactRef 并记录 changed 事件", async (
   const service = new AppService({
     databasePath: ":memory:",
     codex: new FakeCodexSource(thread),
-    launcher: { async openNewConversation() { return "draft"; } }
+    launcher: { async openNewConversation() { return "opened"; } }
   });
   const created = await service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false });
   const workId = created.selectedWorkId;
@@ -147,7 +147,7 @@ test("用户可从指定 Codex 消息创建新的 WorkInstance", async () => {
   const service = new AppService({
     databasePath: ":memory:",
     codex: new FakeCodexSource(thread),
-    launcher: { async openNewConversation() { return "draft"; } }
+    launcher: { async openNewConversation() { return "opened"; } }
   });
   const original = await service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false });
   const originalId = original.selectedWorkId;
@@ -197,5 +197,34 @@ test("无来源 CaptureBinding 的工作交接失败时结束 pending Episode", 
   assert.equal(service.core().getWork(workId)?.activeBinding, null);
   assert.equal(service.core().getWork(workId)?.activeEpisode, null);
   assert.ok(service.core().getWork(workId)?.episodes.every((episode) => episode.status === "ENDED"));
+  service.close();
+});
+
+test("WorkBuddy Deep Link 启动后不把未知提交状态误报为待发送草稿", async () => {
+  const thread: NormalizedThread = {
+    threadId: "handoff-opened-thread",
+    title: "接力状态提示",
+    cwd: "/tmp",
+    createdAt: "2026-09-03T10:00:00.000Z",
+    updatedAt: "2026-09-03T10:00:00.000Z",
+    events: [{
+      id: "prompt-1", externalId: "prompt-1", sequence: 1, kind: "user.prompt",
+      content: "交给 WorkBuddy", timestamp: "2026-09-03T10:00:00.000Z",
+      executorType: "HUMAN", environmentType: "CODEX_DESKTOP"
+    }]
+  };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(thread),
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+  const created = await service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false });
+  const workId = created.selectedWorkId;
+  assert.ok(workId);
+
+  const result = await service.handoffToWorkBuddy(workId);
+
+  assert.match(result.notice ?? "", /已唤起 WorkBuddy/u);
+  assert.doesNotMatch(result.notice ?? "", /草稿|按回车/u);
   service.close();
 });

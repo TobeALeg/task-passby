@@ -33,7 +33,7 @@ function textInputs(item: CodexItemPayload): Array<{ kind: "text" | "artifact"; 
     const input = raw as UnknownRecord;
     if (input.type === "text" && typeof input.text === "string" && input.text.trim()) {
       output.push({ kind: "text", value: input.text });
-      for (const path of pastedArtifactPaths(input.text)) {
+      for (const path of referencedArtifactPaths(input.text)) {
         output.push({ kind: "artifact", value: path });
       }
     } else if (
@@ -46,10 +46,10 @@ function textInputs(item: CodexItemPayload): Array<{ kind: "text" | "artifact"; 
   return output;
 }
 
-function pastedArtifactPaths(text: string): string[] {
-  const markerIndex = text.indexOf("# Files pasted by the user:");
-  if (markerIndex === -1) return [];
-  const afterMarker = text.slice(markerIndex + "# Files pasted by the user:".length);
+function referencedArtifactPaths(text: string): string[] {
+  const marker = text.match(/# Files (?:pasted|mentioned) by the user:/u);
+  if (marker?.index === undefined) return [];
+  const afterMarker = text.slice(marker.index + marker[0].length);
   const requestIndex = afterMarker.search(/\n##\s+My request:/u);
   const section = requestIndex === -1 ? afterMarker : afterMarker.slice(0, requestIndex);
   const paths = new Set<string>();

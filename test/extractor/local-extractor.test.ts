@@ -48,6 +48,20 @@ test("本地提炼器不会把 Codex 附件提示当成工作目标", async () =
   assert.deepEqual(patch.objective?.[0]?.sourceMessageIds, ["request"]);
 });
 
+test("本地提炼器从 Files mentioned 区块后的 My request 提取目标", async () => {
+  const extractor = new LocalRuleExtractor();
+  const patch = await extractor.extract({
+    previousState: null,
+    events: [source(
+      "mentioned-request",
+      "user.prompt",
+      "# Files mentioned by the user:\n\n## note.md: /tmp/note.md\n\n## My request:\n请继续完成真实桌面验收。"
+    )]
+  });
+
+  assert.equal(patch.objective?.[0]?.text, "请继续完成真实桌面验收");
+});
+
 function source(id: string, kind: string, content: string, metadata: Record<string, unknown> = {}) {
   return {
     id,

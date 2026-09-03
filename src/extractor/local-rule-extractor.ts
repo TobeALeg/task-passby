@@ -33,7 +33,7 @@ function isAcknowledgement(text: string): boolean {
 
 function objectiveCandidate(text: string): string | null {
   const trimmed = text.trim();
-  if (!trimmed.startsWith("# Files pasted by the user:")) return isAcknowledgement(trimmed) ? null : trimmed;
+  if (!/^# Files (?:pasted|mentioned) by the user:/u.test(trimmed)) return isAcknowledgement(trimmed) ? null : trimmed;
   const request = trimmed.match(/\n##\s+My request:\s*\n([\s\S]+)$/u)?.[1]?.trim();
   return request && !isAcknowledgement(request) ? request : null;
 }

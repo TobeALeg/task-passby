@@ -7,6 +7,8 @@ interface PendingWorkBuddyCapture {
   windowFingerprint: string | null;
 }
 
+export type WorkBuddyPendingCaptureState = "ACTIVE" | "EXPIRED" | "NOT_PENDING";
+
 function fingerprint(windowTitle: string): string {
   return createHash("sha256").update(windowTitle.trim().toLocaleLowerCase("zh-CN")).digest("hex").slice(0, 20);
 }
@@ -20,13 +22,13 @@ export function createPendingWorkBuddyConversationId(windowTitle: string | null,
   return `${WAITING_PREFIX}${now + 5 * 60_000}:${randomUUID()}${windowFingerprint}`;
 }
 
-export function isPendingWorkBuddyConversationId(conversationId: string, now = Date.now()): boolean {
+export function workBuddyPendingCaptureState(
+  conversationId: string,
+  now = Date.now()
+): WorkBuddyPendingCaptureState {
   const pending = parsePendingWorkBuddyCapture(conversationId);
-  return Boolean(pending && pending.expiresAt > now);
-}
-
-export function isWaitingWorkBuddyConversationId(conversationId: string): boolean {
-  return parsePendingWorkBuddyCapture(conversationId) !== null;
+  if (!pending) return "NOT_PENDING";
+  return pending.expiresAt > now ? "ACTIVE" : "EXPIRED";
 }
 
 export function matchesPendingWorkBuddyWindow(

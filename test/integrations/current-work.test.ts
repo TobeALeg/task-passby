@@ -151,6 +151,38 @@ test("当前工作完成后保留打开入口，但不再把气泡标记为正�
   service.close();
 });
 
+test("工作交给 WorkBuddy 后回看原 Codex 聊天不会把标题写进 WorkBuddy Episode", async () => {
+  const thread: NormalizedThread = {
+    threadId: "handed-off-codex-thread", title: "交接前标题", cwd: "/tmp",
+    createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T02:00:00.000Z",
+    events: [{
+      id: "prompt", externalId: "prompt", sequence: 1, kind: "user.prompt", content: "交接这个任务",
+      timestamp: "2026-09-03T01:00:00.000Z", executorType: "HUMAN", environmentType: "CODEX_DESKTOP"
+    }]
+  };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(thread),
+    foreground: { async detect() { return { bundleId: "com.openai.codex", name: "ChatGPT", windowTitle: `${thread.title} — Codex` }; } },
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+  const recorded = await service.recordCurrentContext();
+  assert.ok(recorded.selectedWorkId);
+  await service.handoffToWorkBuddy(recorded.selectedWorkId);
+  thread.title = "交接后更新的 Codex 标题";
+
+  await service.dashboardWithVerification(recorded.selectedWorkId);
+
+  const work = service.core().getWork(recorded.selectedWorkId);
+  assert.equal(work?.activeBinding?.adapter, "workbuddy");
+  assert.deepEqual(
+    work?.sourceArchive.filter((event) => event.kind === "conversation.title").map((event) => event.content),
+    ["交接前标题"]
+  );
+  assert.equal(work?.state.objective[0]?.text, "交接前标题");
+  service.close();
+});
+
 test("桌宠预览在未聚焦受支持应用时不显示会话或记录入口", async () => {
   const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
   const service = new AppService({

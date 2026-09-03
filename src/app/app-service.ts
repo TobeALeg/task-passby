@@ -572,7 +572,11 @@ export class AppService {
       this.#applyCodexObjective(work, titleEvent);
       return;
     }
-    if (work.instance.status !== "OPEN" || !work.activeBinding) return;
+    if (
+      work.instance.status !== "OPEN"
+      || work.activeBinding?.adapter !== "codex"
+      || work.activeBinding.conversationId !== threadId
+    ) return;
     work = this.#core.appendSourceEvents(workId, [titleEvent]).work;
     this.#applyCodexObjective(work, titleEvent);
   }

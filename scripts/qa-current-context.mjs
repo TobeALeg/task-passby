@@ -34,7 +34,9 @@ try {
   const panel = pages.find((page) => page.url().endsWith("/panel.html"));
   if (!pet || !panel) throw new Error(`WorkPet 窗口不完整：${pages.map((page) => page.url()).join(", ")}`);
   const rendererErrors = [];
+  const panelErrors = [];
   pet.on("pageerror", (error) => rendererErrors.push(error.message));
+  panel.on("pageerror", (error) => panelErrors.push(error.message));
 
   await electronApp.evaluate(({ BrowserWindow }) => {
     const panelWindow = BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().endsWith("/panel.html"));
@@ -106,6 +108,18 @@ try {
   const completedDashboard = await pet.evaluate((workId) => window.workpet.getDashboard(workId), dashboard.selectedWork.id);
   if (completedDashboard.selectedWork?.status !== "COMPLETED") {
     throw new Error(`已完成工作重新打开面板失败：${JSON.stringify(completedDashboard.selectedWork)}`);
+  }
+  await panel.evaluate(() => window.workpet.closePanel());
+  await pet.locator("#pet-body").click();
+  let panelVisible = false;
+  for (let attempt = 0; attempt < 40 && !panelVisible; attempt += 1) {
+    panelVisible = await electronApp.evaluate(({ BrowserWindow }) => Boolean(
+      BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().endsWith("/panel.html"))?.isVisible()
+    ));
+    if (!panelVisible) await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  if (!panelVisible || panelErrors.length) {
+    throw new Error(`已完成工作无法通过桌宠重新打开面板：visible=${panelVisible}；错误=${panelErrors.join(" | ") || "无"}`);
   }
   await pet.screenshot({ path: completedPetScreenshotPath });
 

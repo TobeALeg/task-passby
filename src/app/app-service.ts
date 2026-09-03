@@ -168,6 +168,14 @@ export class AppService {
       return this.dashboard(dashboard.selectedWorkId ?? undefined);
     }
     const windowTitle = context.windowTitle?.trim() || null;
+    if (!windowTitle) {
+      const activeWorkBuddyWorks = this.#core.listWorks("OPEN").filter(
+        (openWork) => openWork.activeBinding?.adapter === "workbuddy"
+      );
+      if (activeWorkBuddyWorks.length) {
+        throw new Error("WorkBuddy 未提供聊天标题，当前仅支持一份活动记录；请先完成已有的 WorkBuddy 工作。");
+      }
+    }
     for (const openWork of this.#core.listWorks("OPEN")) {
       const conversationId = openWork.activeBinding?.adapter === "workbuddy" ? openWork.activeBinding.conversationId : "";
       if (isPendingWorkBuddyConversationId(conversationId)) this.#core.stopCapture(openWork.instance.id);
@@ -534,6 +542,8 @@ export class AppService {
     }
     if (context.adapter !== "workbuddy") return null;
     if (!context.windowTitle?.trim()) {
+      // WorkBuddy 5.4.7 不暴露聊天标题，因此这里只表达应用级的单一活动记录，
+      // 不声称已经取得当前聊天的会话级匹配证据。
       const activeWorks = this.#core.listWorks("OPEN").filter(
         (work) => work.activeBinding?.adapter === "workbuddy"
       );

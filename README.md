@@ -47,7 +47,7 @@ npm run qa:desktop-roundtrip:list
 
 `qa:current-context` 使用临时数据库启动真实 Electron 应用，强制让 WorkPet 面板保持前台，再通过便利贴识别并记录真实 Codex 任务，同时检查应用标题气泡、记录后“打开”和只读 Work State。`qa:package` 验证打包后的真实 Electron 窗口、桌宠入口与面板基本布局。`qa:desktop-roundtrip:list` 只读取本机 Codex 任务并列出哪些任务满足“至少二十轮用户输入、两份不同附件”，不向 WorkBuddy 发送内容。
 
-`qa:workbuddy-context` 要求 WorkBuddy 已启动且位于 WorkPet 后方，使用临时数据库验证即使系统窗口标题为空，桌宠仍显示通用 WorkBuddy 气泡，并能建立等待下一条真实提交确认的绑定；脚本不会向 WorkBuddy 发送消息。
+`qa:workbuddy-context` 会启动或聚焦 WorkBuddy，再使用临时数据库验证即使系统窗口标题为空，桌宠仍显示通用 WorkBuddy 气泡，并能建立等待下一条真实提交确认的绑定；脚本不会向 WorkBuddy 发送消息。
 
 如果当前验收任务只有一份附件，可把无敏感信息的 [第二验收资料](test/fixtures/desktop-acceptance-second-artifact.md) 作为新附件发到该 Codex 任务，再重新运行候选扫描。
 

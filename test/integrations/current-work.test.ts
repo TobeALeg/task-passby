@@ -332,6 +332,53 @@ test("WorkBuddy 不暴露窗口标题时仍识别前台应用，并用下一条�
   service.close();
 });
 
+test("WorkBuddy 记录时有窗口标题但官方 Hook 未提供标题，仍用唯一短时授权绑定", async () => {
+  const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
+  const foreground = { async detect() { return { bundleId: "com.tencent.workbuddy.mac", name: "WorkBuddy", windowTitle: "有标题的对话" }; } };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(emptyThread),
+    foreground,
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+
+  const pending = await service.recordCurrentContext();
+  const hook = await service.syncWorkBuddyHook({
+    hook_event_name: "UserPromptSubmit",
+    session_id: "official-hook-without-title",
+    prompt: "继续处理这个工作"
+  });
+  assert.equal(hook.accepted, true);
+  assert.equal(hook.workInstanceId, pending.selectedWorkId);
+  assert.equal(service.dashboard(pending.selectedWorkId ?? undefined).selectedWork?.bindings[0]?.conversationId, "official-hook-without-title");
+  service.close();
+});
+
+test("WorkBuddy 无标题且已有多份活动记录时不猜测当前聊天", async () => {
+  const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
+  const foreground = { async detect() { return { bundleId: "com.tencent.workbuddy.mac", name: "WorkBuddy", windowTitle: "" }; } };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(emptyThread),
+    foreground,
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+  for (const conversationId of ["legacy-workbuddy-a", "legacy-workbuddy-b"]) {
+    service.core().createWork({
+      definition: { key: "general-work", name: "通用工作", version: 1 },
+      executor: { type: "AGENT", name: "WorkBuddy" },
+      environment: { type: "WORKBUDDY_DESKTOP", name: "WorkBuddy Desktop" },
+      source: { adapter: "workbuddy", conversationId }
+    });
+  }
+
+  const before = await service.getPetView();
+  assert.equal(before.currentConversation?.workId, null);
+  assert.equal(before.currentConversation?.isRecording, false);
+  await assert.rejects(service.recordCurrentContext(), /当前仅支持一份活动记录/u);
+  service.close();
+});
+
 test("WorkBuddy 取得真实 session 后默认生成 Work State", async () => {
   const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
   const service = new AppService({ databasePath: ":memory:", codex: new FakeCodexSource(emptyThread), launcher: { async openNewConversation() { return "opened"; } } });

@@ -1,6 +1,8 @@
 import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 import { _electron as electron } from "playwright";
 
@@ -8,8 +10,22 @@ const root = process.cwd();
 const outputDirectory = join(root, "output", "playwright");
 const testDirectory = await mkdtemp(join(tmpdir(), "workpet-workbuddy-context-"));
 const screenshotPath = join(outputDirectory, "workbuddy-current-context.png");
+const execFileAsync = promisify(execFile);
 
 await mkdir(outputDirectory, { recursive: true });
+
+await execFileAsync("/usr/bin/open", ["-a", "WorkBuddy"]);
+let foregroundWorkBuddy = null;
+for (let attempt = 0; attempt < 30; attempt += 1) {
+  const { stdout } = await execFileAsync(join(root, "dist", "foreground-context"));
+  const foreground = JSON.parse(stdout);
+  if (foreground.bundleId === "com.tencent.workbuddy.mac") {
+    foregroundWorkBuddy = foreground;
+    break;
+  }
+  await new Promise((resolve) => setTimeout(resolve, 100));
+}
+if (!foregroundWorkBuddy) throw new Error("无法把 WorkBuddy 聚焦到测试实例后方");
 
 const electronApp = await electron.launch({
   executablePath: join(root, "node_modules", "electron", "dist", "Electron.app", "Contents", "MacOS", "Electron"),

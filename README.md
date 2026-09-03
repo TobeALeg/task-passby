@@ -19,10 +19,10 @@ WorkPet 每次启动都会静默、幂等地安装 Codex Hook 与 WorkBuddy 用�
 
 开发中的最新版本固定从 [scripts/run-latest.command](/Users/dandi/YanGuan/scripts/run-latest.command) 启动：双击它，或在终端运行该路径。它会先停止本项目已运行的开发版，再编译当前源码并启动 Electron，不使用 `release/` 下的旧打包版；首次从打包版切换时仍请先退出 `WorkPet.app`。
 
-日常使用时，先聚焦目标聊天，再点击桌宠：
+日常使用时，先聚焦目标聊天，再点击桌宠。即使 WorkPet 面板仍在前台，桌宠也会识别它后方最近的受支持工作窗口；侧边面板只管理已有工作，不是新的记录入口。
 
-- Codex 会通过前台窗口标题与 App Server 中唯一的任务标题匹配当前任务；首次使用需在 macOS“隐私与安全性 → 辅助功能”中允许 WorkPet 读取窗口标题。
-- WorkBuddy 会在你点击“记录当前工作”后，等待该聊天的下一次提交，从官方 Hook 取得真实 `session_id`，并用同一窗口标题校验后绑定；不会用最近会话猜测当前聊天。
+- Codex 优先通过前台窗口标题与 App Server 中唯一的任务标题匹配当前任务；容器不提供窗口标题时，只接受唯一的近期活动任务。
+- WorkBuddy 会在你点击桌宠后，等待该聊天的下一次提交，从官方 Hook 取得真实 `session_id`，并用同一窗口标题校验后绑定；不会用最近会话猜测当前聊天。
 
 WorkPet 默认提炼 Work State，且默认使用本地规则，不会外发数据。只有本机同时配置 `WORKPET_LLM_API_KEY` 和 `WORKPET_CLOUD_EXTRACTION=true`，才会把必要的可见对话发送给所配置的 OpenAI-compatible 模型。
 
@@ -39,11 +39,12 @@ npm run package:mac
 ```bash
 npm test
 npm run typecheck
+npm run qa:current-context
 npm run qa:package
 npm run qa:desktop-roundtrip:list
 ```
 
-`qa:package` 验证打包后的真实 Electron 窗口、Codex 导入确认、人工编辑保护和继续原工作。`qa:desktop-roundtrip:list` 只读取本机 Codex 任务并列出哪些任务满足“至少二十轮用户输入、两份不同附件”，不向 WorkBuddy 发送内容。
+`qa:current-context` 使用临时数据库启动真实 Electron 应用，强制让 WorkPet 面板保持前台，再通过桌宠 IPC 识别并记录真实 Codex 任务。`qa:package` 验证打包后的真实 Electron 窗口、Codex 导入确认、人工编辑保护和继续原工作。`qa:desktop-roundtrip:list` 只读取本机 Codex 任务并列出哪些任务满足“至少二十轮用户输入、两份不同附件”，不向 WorkBuddy 发送内容。
 
 如果当前验收任务只有一份附件，可把无敏感信息的 [第二验收资料](test/fixtures/desktop-acceptance-second-artifact.md) 作为新附件发到该 Codex 任务，再重新运行候选扫描。
 

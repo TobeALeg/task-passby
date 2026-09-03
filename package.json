@@ -14,6 +14,7 @@
     "dev": "npm run build && electron . --dev",
     "setup:integrations": "npm run build && node scripts/install-integrations.mjs",
     "qa:roundtrip": "npm run build && node scripts/qa-roundtrip.mjs",
+    "qa:current-context": "npm run build && node scripts/qa-current-context.mjs",
     "qa:desktop-roundtrip:list": "node scripts/qa-desktop-roundtrip.mjs --list",
     "qa:desktop-roundtrip": "node scripts/qa-desktop-roundtrip.mjs",
     "qa:package": "WORKPET_EXECUTABLE_PATH=$PWD/release/WorkPet-darwin-arm64/WorkPet.app/Contents/MacOS/WorkPet node scripts/qa-electron.mjs",

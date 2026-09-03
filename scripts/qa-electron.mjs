@@ -11,7 +11,9 @@ const packagedExecutable = process.env.WORKPET_EXECUTABLE_PATH;
 
 const electronApp = await electron.launch({
   executablePath: packagedExecutable ?? join(root, "node_modules", "electron", "dist", "Electron.app", "Contents", "MacOS", "Electron"),
-  args: packagedExecutable ? [] : ["."],
+  args: packagedExecutable
+    ? [`--user-data-dir=${testDirectory}`]
+    : [".", `--user-data-dir=${testDirectory}`],
   cwd: root,
   env: {
     ...process.env,
@@ -26,6 +28,19 @@ try {
   const pet = pages.find((page) => page.url().endsWith("/pet.html"));
   const panel = pages.find((page) => page.url().endsWith("/panel.html"));
   if (!pet || !panel) throw new Error(`窗口不完整：${pages.map((page) => page.url()).join(", ")}`);
+  const dockVisible = await electronApp.evaluate(({ app }) =>
+    process.platform !== "darwin" || Boolean(app.dock?.isVisible())
+  );
+  if (!dockVisible) throw new Error("WorkPet 已启动但 Dock 图标被隐藏，用户无法确认程序正在运行");
+  await electronApp.evaluate(({ app }) => app.emit("second-instance", {}, [], process.cwd()));
+  await panel.waitForTimeout(100);
+  const secondInstanceRestored = await electronApp.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows().some((window) => window.webContents.getURL().endsWith("/panel.html") && window.isVisible())
+  );
+  if (!secondInstanceRestored) throw new Error("再次双击 WorkPet 时没有把已有窗口带回前台");
+  await electronApp.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().endsWith("/panel.html"))?.hide()
+  );
 
   await pet.screenshot({ path: join(output, "01-pet.png") });
   const petMetrics = await pet.evaluate(() => ({
@@ -97,6 +112,8 @@ try {
 
   console.log(JSON.stringify({
     passed: true,
+    dockVisible,
+    secondInstanceRestored,
     petMetrics,
     panelMetrics,
     optionCount,

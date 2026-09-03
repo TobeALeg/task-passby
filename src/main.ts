@@ -17,7 +17,11 @@ let service: AppService | null = null;
 let bridge: WorkPetHttpBridge | null = null;
 
 app.setName("WorkPet");
-if (!app.requestSingleInstanceLock()) app.quit();
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on("second-instance", () => revealApp());
+}
 
 function requireService(): AppService {
   if (!service) throw new Error("WorkPet 尚未准备完成");
@@ -69,6 +73,11 @@ function createWindows(): void {
 function togglePanel(): void {
   if (!petWindow || !panelWindow) return;
   if (panelWindow.isVisible()) { panelWindow.hide(); return; }
+  showPanel();
+}
+
+function showPanel(): void {
+  if (!petWindow || !panelWindow) return;
   const petBounds = petWindow.getBounds();
   const panelBounds = panelWindow.getBounds();
   const display = screen.getDisplayNearestPoint({ x: petBounds.x, y: petBounds.y });
@@ -84,6 +93,15 @@ function togglePanel(): void {
   panelWindow.show();
   panelWindow.focus();
   panelWindow.webContents.send("panel:shown");
+}
+
+function revealApp(): void {
+  petWindow?.show();
+  if (panelWindow?.isVisible()) {
+    panelWindow.focus();
+  } else {
+    showPanel();
+  }
 }
 
 function registerIpc(): void {
@@ -122,7 +140,7 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(async () => {
-  if (process.platform === "darwin") app.dock?.hide();
+  if (process.platform === "darwin") await app.dock?.show();
   Menu.setApplicationMenu(null);
   const dataDirectory = process.env.WORKPET_DATA_DIR ?? app.getPath("userData");
   service = new AppService({
@@ -144,6 +162,8 @@ app.whenReady().then(async () => {
   createWindows();
   registerIpc();
 });
+
+app.on("activate", () => revealApp());
 
 app.on("before-quit", () => {
   void bridge?.close();

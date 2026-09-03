@@ -94,3 +94,27 @@ test("WorkBuddy 通过 marker 绑定同一工作、读取接力状态并把可�
   assert.match(JSON.stringify(archive), /完整历史不得/u);
   core.close();
 });
+
+test("用户从当前 WorkBuddy 窗口发起的短时记录请求只在下一次真实提交时绑定 session", async () => {
+  const core = createWorkCore({ databasePath: ":memory:" });
+  const waitingConversationId = `waiting:${Date.now() + 60_000}:current-window`;
+  const created = core.createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    executor: { type: "AGENT", name: "WorkBuddy" },
+    environment: { type: "WORKBUDDY_DESKTOP", name: "WorkBuddy Desktop" },
+    source: { adapter: "workbuddy", conversationId: waitingConversationId }
+  });
+  const hooks = new WorkBuddyHookIngestor(core);
+
+  const result = await hooks.ingest({
+    hook_event_name: "UserPromptSubmit",
+    session_id: "identified-current-session",
+    prompt: "继续处理这个客户需求"
+  });
+
+  assert.equal(result.accepted, true);
+  assert.equal(result.workInstanceId, created.instance.id);
+  assert.equal(core.getWork(created.instance.id)?.activeBinding?.conversationId, "identified-current-session");
+  assert.equal(core.getWork(created.instance.id)?.sourceArchive[0]?.content, "继续处理这个客户需求");
+  core.close();
+});

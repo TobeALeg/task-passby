@@ -21,6 +21,16 @@ function stringField(payload: HookPayload, key: string): string | null {
   return typeof payload[key] === "string" ? payload[key] as string : null;
 }
 
+function waitingBinding(core: WorkCore): WorkSnapshot | null {
+  const now = Date.now();
+  const candidates = core.listWorks("OPEN").filter((work) => {
+    const conversationId = work.activeBinding?.adapter === "workbuddy" ? work.activeBinding.conversationId : "";
+    const [, expiresAt] = conversationId.split(":");
+    return conversationId.startsWith("waiting:") && Number.isFinite(Number(expiresAt)) && Number(expiresAt) > now;
+  });
+  return candidates.length === 1 ? candidates[0] ?? null : null;
+}
+
 export class WorkBuddyHookIngestor {
   readonly #core: WorkCore;
   readonly #artifacts: ArtifactTracker;
@@ -45,6 +55,13 @@ export class WorkBuddyHookIngestor {
         : null;
       if (candidate && pending) {
         work = this.#core.bindConversation(candidate.instance.id, "workbuddy", pending.conversationId, sessionId);
+      }
+      if (!work && eventName === "UserPromptSubmit") {
+        const waiting = waitingBinding(this.#core);
+        const pending = waiting?.activeBinding;
+        if (waiting && pending) {
+          work = this.#core.bindConversation(waiting.instance.id, "workbuddy", pending.conversationId, sessionId);
+        }
       }
     }
     if (!work || work.instance.status !== "OPEN" || work.activeBinding?.adapter !== "workbuddy") {

@@ -6,7 +6,7 @@
 
 ## 目标
 
-把用户在 Codex 中松散发生的工作抽象成独立、持久、可追溯的 Work Record，并在需要时将同一个 Work 交给 WorkBuddy 继续。
+把用户在 Codex 或 WorkBuddy 中松散发生的工作抽象成独立、持久、可追溯的 Work Record，并在需要时将同一个 Work 交给另一端继续。
 
 产品首先是工作记录与建模工具。跨 Agent 接力是 Work Record 的一个输出能力。
 
@@ -17,9 +17,8 @@
 ## 首版范围
 
 - 本地 macOS 桌面工具，采用桌宠形态提供入口和状态提示。
-- 来源只支持 Codex 桌面应用。
-- 接力目标只支持 WorkBuddy 桌面应用。
-- 用户主动触发，不在未授权状态下记录其他窗口或应用活动。
+- 来源支持 Codex 与 WorkBuddy 桌面应用。
+- 用户主动触发，不在未授权状态下归档其他窗口或应用活动；前台识别只读取应用身份与窗口标题，不读取窗口内容。
 - 工作类型通用，不绑定固定业务场景。
 - UI 仅包含常驻桌宠和点击展开的轻量侧边面板，不开发完整 Dashboard。
 
@@ -38,11 +37,11 @@
 
 ## 主流程
 
-1. 用户在 Codex 中进行工作。
-2. 用户点击桌宠，请求记录当前 Codex 对话。
-3. 系统显示一次简洁确认，至少说明对话身份、历史消息数量、附件数量和工作目录。
-4. 用户确认后，系统依据 WorkDefinition 创建 WorkInstance 及其 WorkRecord。
-5. 系统从第一轮开始导入该 Codex 对话的完整可见历史。
+1. 用户在 Codex 或 WorkBuddy 中进行工作。
+2. 用户点击桌宠，请求记录当前前台对话。
+3. 系统自动识别应用与会话身份，不显示应用或任务选择器；Codex 只接受唯一窗口标题匹配，WorkBuddy 以当前聊天下一次 Hook 的真实 `session_id` 绑定。
+4. 系统依据 WorkDefinition 创建 WorkInstance 及其 WorkRecord。
+5. Codex 从第一轮导入完整可见历史；WorkBuddy 在首个 Stop Hook 从 transcript 导入完整可见历史。
 6. 系统建立 Codex 对话到 WorkInstance 的 Capture Binding，并保存增量同步位置。
 7. 用户以后在同一对话继续工作时，新内容仍归属于同一个 WorkInstance，不受间隔时间影响。
 8. 用户需要交接时，系统更新 Work Record，并生成面向 WorkBuddy 的 Handoff Package。
@@ -152,7 +151,7 @@ Capture Binding 的启停与 WorkInstance 生命周期相互独立。解除绑�
 ## 数据与模型处理
 
 - Source Archive、ArtifactRef、WorkRecord、WorkDefinition 和 ExecutionEpisode 只存本机；
-- 用户首次创建 WorkRecord 时，确认是否允许把必要对话发送给其配置的云端模型生成 Work State；
+- 创建 WorkRecord 后默认生成 Work State；未配置 API Key 时使用本地规则，配置 API Key 后将必要对话发送给用户配置的 OpenAI-compatible 模型；
 - 默认不向模型上传原始文件；需要理解文件时必须明确把相应内容纳入本次提炼；
 - Work State 提炼位于 `WorkStateExtractor` seam 后，Work 核心模型不依赖具体云端或本地模型实现；
 - 未来允许替换为本地模型，但不作为 MVP 要求。
@@ -186,7 +185,7 @@ WorkPattern 不修改 WorkDefinition，不反向修改历史 WorkRecord，也不
 只有以下真实桌面闭环全部通过，MVP 才算完成：
 
 1. 用户在真实 Codex 桌面任务中已经对话二十轮，并上传至少两个文件；
-2. 用户点击桌宠并完成一次简洁确认；
+2. 用户聚焦真实 Codex 对话并点击桌宠，系统自动识别当前会话；
 3. 系统创建 `GeneralWorkDefinition v1`、WorkInstance、WorkRecord 和 Codex ExecutionEpisode；
 4. 系统从第一轮开始导入完整 Prompt、可见回复、可读取工具记录和 ArtifactRef；
 5. WorkStateExtractor 生成八部分 Work State，每条内容带 `origin + sourceMessageIds`；
@@ -198,7 +197,7 @@ WorkPattern 不修改 WorkDefinition，不反向修改历史 WorkRecord，也不
 11. WorkBuddy 中新的用户 Prompt、Agent 可见回复和资料通过 Hook 或主动同步写回同一个 WorkRecord；
 12. WorkRecord 能明确展示同一个 WorkInstance 下的 Codex Episode 与 WorkBuddy Episode；
 13. 用户完成 Work 后停止自动写入，再次活动时必须选择“继续原工作”或“新建工作”；
-14. 所有持久数据只存本机，只有经首次授权的提炼内容可以发往配置的云端模型。
+14. 所有持久数据只存本机；仅当本机配置 API Key 时，必要的可见提炼内容才会发往配置的云端模型。
 
 验收必须使用真实安装的 Codex 与 WorkBuddy，不以 Mock、Swagger、接口返回或静态页面代替端到端桌面验证。
 

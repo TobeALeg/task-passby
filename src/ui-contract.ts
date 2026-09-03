@@ -78,7 +78,7 @@ export interface CodexImportPreview extends CodexThreadView {
 
 export interface CreateWorkRequest {
   threadId: string;
-  allowCloudExtraction: boolean;
+  allowCloudExtraction?: boolean;
 }
 
 export interface CodexSplitPointView {
@@ -94,7 +94,11 @@ export interface CreateWorkFromCodexMessageRequest {
 
 export interface WorkPetApi {
   togglePanel(): Promise<void>;
+  showPanelForCurrentContext(): Promise<unknown>;
   getDashboard(workId?: string): Promise<DashboardView>;
+  captureForegroundContext(): Promise<unknown>;
+  getCurrentContext(): Promise<unknown>;
+  createWorkFromCurrentContext(): Promise<DashboardView>;
   listCodexThreads(): Promise<CodexThreadView[]>;
   previewCodexThread(threadId: string): Promise<CodexImportPreview>;
   createWorkFromCodex(request: CreateWorkRequest): Promise<DashboardView>;

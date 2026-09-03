@@ -1,6 +1,6 @@
 # WorkPet
 
-WorkPet 是一个本地 macOS 工作记录工具。用户主动点击桌宠后，它把 Codex 中松散的 Prompt、可见回复、工具记录与资料引用整理成独立的 `WorkInstance` / `WorkRecord`，并可交给 WorkBuddy 在同一项工作上继续。
+WorkPet 是一个本地 macOS 工作记录工具。用户主动点击桌宠后，它识别当前前台的 Codex 或 WorkBuddy 工作上下文，把可见 Prompt、回复、工具记录与资料引用整理成独立的 `WorkInstance` / `WorkRecord`，并可交给另一端继续。
 
 它不是 Agent，也不替用户执行任务。Codex 与 WorkBuddy 都只是可替换的执行环境。
 
@@ -13,7 +13,14 @@ npm ci
 npm start
 ```
 
-首次打开侧边面板后点击“设置接入”，确认安装 Codex Hook 与 WorkBuddy 用户级 MCP/Hook，然后重启 Codex 和 WorkBuddy。点击“交给 WorkBuddy”后，WorkPet 使用 WorkBuddy 官方 Deep Link 新建并提交接力任务，不模拟键盘，也不需要 macOS“辅助功能”权限。
+首次打开侧边面板后点击“设置接入”，确认安装 Codex Hook 与 WorkBuddy 用户级 MCP/Hook，然后重启 Codex 和 WorkBuddy。它们都是本机配置：Codex Hook 用于已绑定任务的增量通知；WorkBuddy Hook 提供真实 `session_id` 与可见 transcript，MCP 则让接力任务读取 WorkRecord。没有 WorkPet 服务端需要部署。
+
+日常使用时，先聚焦目标聊天，再点击桌宠：
+
+- Codex 会通过前台窗口标题与 App Server 中唯一的任务标题匹配当前任务；首次使用需在 macOS“隐私与安全性 → 辅助功能”中允许 WorkPet 读取窗口标题。
+- WorkBuddy 会在你点击“记录当前工作”后，等待该聊天的下一次提交，从官方 Hook 取得真实 `session_id` 并绑定；不会用最近会话猜测当前聊天。
+
+WorkPet 默认提炼 Work State。未配置 API Key 时使用本地规则，不会外发数据；配置 `WORKPET_LLM_API_KEY` 后才会把必要的可见对话发送给所配置的 OpenAI-compatible 模型。
 
 ## 打包
 
@@ -49,10 +56,10 @@ npm run qa:desktop-roundtrip
 ## 数据边界
 
 - SQLite、Source Archive、ArtifactRef 与 Work State 默认只保存在本机；
-- 未点击“记录 Codex”前不监听用户活动；
+- 未点击“记录当前工作”前不归档用户活动；前台识别只读取应用身份和窗口标题，不读取或保存窗口内容；
 - 不读取、推断或保存 Agent 隐藏思维；
 - ArtifactRef 保存原路径与元数据，不复制或修改原文件；
-- 只有用户在创建记录时勾选云端提炼，且配置了 API Key，必要的可见对话才会发送给 OpenAI-compatible 接口；
+- 默认进行本地 Work State 提炼；仅当本机配置了 API Key 时，必要的可见对话才会发送给 OpenAI-compatible 接口；
 - WorkBuddy Hook 会看到事件，但只接受带 WorkPet marker 且已绑定到 `OPEN` WorkInstance 的会话，其他会话不会落盘。
 
 完整产品与领域定义见 [docs/product.md](docs/product.md) 和 [docs/architecture.md](docs/architecture.md)。

@@ -1,6 +1,5 @@
 import {
   WORK_STATE_LABELS,
-  type CodexImportPreview,
   type DashboardView,
   type WorkDetailView,
   type WorkStateField,
@@ -10,12 +9,9 @@ import {
 const list = required<HTMLElement>("#work-list");
 const detail = required<HTMLElement>("#work-detail");
 const notice = required<HTMLElement>("#notice");
-const importDialog = required<HTMLDialogElement>("#import-dialog");
 const splitDialog = required<HTMLDialogElement>("#split-dialog");
 const deleteDialog = required<HTMLDialogElement>("#delete-dialog");
-const threadSelect = required<HTMLSelectElement>("#codex-thread");
 const splitPointSelect = required<HTMLSelectElement>("#split-point");
-const preview = required<HTMLElement>("#import-preview");
 let dashboard: DashboardView;
 let filter: WorkStatus = "OPEN";
 let pendingDeleteWorkId: string | null = null;
@@ -125,20 +121,11 @@ async function openSplit(workId: string): Promise<void> {
   splitDialog.showModal();
 }
 
-async function openImport(): Promise<void> {
-  const threads = await window.workpet.listCodexThreads();
-  threadSelect.innerHTML = threads.map((thread) => `<option value="${thread.id}">${escapeHtml(thread.title)} · ${escapeHtml(thread.cwd)}</option>`).join("");
-  if (!threads.length) preview.textContent = "没有找到可导入的 Codex 任务";
-  else await updatePreview();
-  importDialog.showModal();
-}
-
-async function updatePreview(): Promise<void> {
-  const data: CodexImportPreview = await window.workpet.previewCodexThread(threadSelect.value);
-  preview.innerHTML = `<strong>${escapeHtml(data.title)}</strong><br>${data.messageCount} 条消息 · ${data.artifactCount} 份资料 · ${data.toolEventCount} 条工具记录<br>${escapeHtml(data.cwd)}`;
-}
-
-required("#record-codex").addEventListener("click", () => void openImport());
+required("#record-current-work").addEventListener("click", async () => {
+  dashboard = await window.workpet.createWorkFromCurrentContext();
+  filter = "OPEN";
+  render();
+});
 required("#setup-integrations").addEventListener("click", async () => {
   const result = await window.workpet.installIntegrations();
   if (result && typeof result === "object" && "cancelled" in result) return;
@@ -146,14 +133,6 @@ required("#setup-integrations").addEventListener("click", async () => {
   notice.textContent = "Codex 与 WorkBuddy 本地接入已安装。请重启两个应用使插件生效。";
 });
 required("#close-panel").addEventListener("click", () => void window.workpet.closePanel());
-threadSelect.addEventListener("change", () => void updatePreview());
-required<HTMLButtonElement>("#confirm-import").addEventListener("click", async (event) => {
-  event.preventDefault();
-  dashboard = await window.workpet.createWorkFromCodex({ threadId: threadSelect.value, allowCloudExtraction: required<HTMLInputElement>("#cloud-consent").checked });
-  importDialog.close();
-  filter = "OPEN";
-  render();
-});
 required<HTMLButtonElement>("#confirm-split").addEventListener("click", async (event) => {
   event.preventDefault();
   if (!pendingSplitWorkId) return;

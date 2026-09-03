@@ -6,6 +6,9 @@
 Desktop Pet Interface
         │
         ▼
+Foreground Context Detector
+        │
+        ▼
 Work Core ─────────────── Local Persistence
    │  │                         │
    │  ├── WorkStateExtractor    └── WorkRecord / Source Archive
@@ -39,7 +42,11 @@ Work Core ─────────────── Local Persistence
 
 ### Desktop Pet Interface
 
-只调用 Work Core Interface，不承担领域判断。负责桌宠状态、一次确认、轻量侧边面板、Work 列表、编辑、交接、完成、归档和永久删除。MVP 保留 macOS Dock 入口；单实例锁拦截重复进程后，重复启动事件必须恢复并聚焦已有窗口，不能静默退出。
+只调用 Work Core Interface，不承担领域判断。负责桌宠状态、轻量侧边面板、Work 列表、编辑、交接、完成、归档和永久删除。MVP 保留 macOS Dock 入口；单实例锁拦截重复进程后，重复启动事件必须恢复并聚焦已有窗口，不能静默退出。
+
+### Foreground Context Detector
+
+仅读取 macOS 前台应用的 bundle ID 与窗口标题，且不持久化窗口标题或内容。它先把应用归类为 Adapter，再由 Adapter 解析会话身份：Codex 只接受窗口标题与 App Server 中唯一任务标题的精确匹配，绝不以最近任务猜测；WorkBuddy 在用户明确发起记录后的短时等待窗口中，以该聊天下一次官方 Hook 提供的 `session_id` 绑定。读取窗口标题需要用户授予 WorkPet macOS 辅助功能权限。
 
 ### Codex Adapter
 
@@ -74,9 +81,10 @@ Work Core ─────────────── Local Persistence
 ### 创建记录
 
 ```text
-用户点击桌宠
-  → Codex Adapter 识别当前任务并读取完整历史
-  → 用户一次确认
+用户聚焦 Codex / WorkBuddy 后点击桌宠
+  → Foreground Context Detector 识别前台应用
+  → Codex：唯一标题匹配当前任务并读取完整历史
+  → WorkBuddy：下一次提交由 Hook 提供真实 session ID
   → Work Core 创建 WorkInstance / WorkRecord / Episode
   → Source Archive 本地落盘
   → WorkStateExtractor 生成八部分 Work State

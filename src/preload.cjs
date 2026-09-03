@@ -2,7 +2,11 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("workpet", {
   togglePanel: () => ipcRenderer.invoke("panel:toggle"),
+  showPanelForCurrentContext: () => ipcRenderer.invoke("panel:show-for-current-context"),
   getDashboard: (workId) => ipcRenderer.invoke("dashboard:get", workId),
+  captureForegroundContext: () => ipcRenderer.invoke("context:capture"),
+  getCurrentContext: () => ipcRenderer.invoke("context:get"),
+  createWorkFromCurrentContext: () => ipcRenderer.invoke("work:create-from-current-context"),
   listCodexThreads: () => ipcRenderer.invoke("codex:list"),
   previewCodexThread: (threadId) => ipcRenderer.invoke("codex:preview", threadId),
   createWorkFromCodex: (request) => ipcRenderer.invoke("work:create-from-codex", request),

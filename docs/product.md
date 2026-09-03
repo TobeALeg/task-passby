@@ -8,14 +8,14 @@
 
 ### 核心价值
 
-用户主动点击桌宠后，系统把松散的 AI 协作过程记录并抽象为独立的 WorkInstance 和 WorkRecord。记录能够持续跨越不同 Executor 与 ExecutionEnvironment，并在需要时生成可直接接力的 Handoff Package。
+用户主动点击桌宠后，系统识别前台 Codex 或 WorkBuddy 的工作上下文，把松散的 AI 协作过程记录并抽象为独立的 WorkInstance 和 WorkRecord。记录能够持续跨越不同 Executor 与 ExecutionEnvironment，并在需要时生成可直接接力的 Handoff Package。
 
 产品的核心是记录与建模“工作”本身。跨 Agent 接力是 WorkRecord 能够独立描述工作的直接价值。长期价值是从多次相似 WorkInstance 中提炼可跨 Agent 使用、属于用户自己的 WorkPattern。
 
 ### 产品原则
 
 - 工作属于用户，不属于 Agent、应用、Skill 或会话；
-- 用户主动触发后才记录，默认不监听其他活动；
+- 用户主动触发后才归档；前台识别只读取应用身份和窗口标题，不读取或保存窗口内容；
 - WorkInstance ID 是工作身份，对话 ID 只是来源引用；
 - 原始档案与结构化 Work State 分离；
 - 每条结构化信息必须可追溯到来源；
@@ -38,10 +38,10 @@
 
 ### 用户体验路径
 
-1. 用户在 Codex 中进行工作；
+1. 用户在 Codex 或 WorkBuddy 中进行工作；
 2. 用户点击常驻桌宠；
-3. 系统展示当前对话、消息数、附件数和工作目录的一次确认；
-4. 用户确认后，系统导入完整既有历史并创建 WorkInstance；
+3. 系统识别前台应用及当前聊天，不展示应用或任务选择器；
+4. Codex 在唯一标题匹配后立即导入完整既有历史；WorkBuddy 在下一次提交中取得真实 session ID 后绑定并归档 transcript；
 5. 桌宠进入清醒状态，Source Archive 持续增量归档；
 6. 用户点击桌宠查看或更新八部分 Work State；
 7. 用户可以修正 Work State、从当前消息新建 Work、完成、归档或永久删除；
@@ -74,5 +74,5 @@
 - Codex Desktop 真实历史导入、增量 Hook 与 ArtifactRef；
 - WorkBuddy 新对话 Deep Link、用户级 MCP、可见事件 Hook 与同一 WorkInstance 回写；
 - `OPEN`、`COMPLETED`、`ARCHIVED` 生命周期、继续原工作、人工编辑保护、tombstone 和永久删除；
-- 默认本地规则提炼；只有用户勾选且配置 API Key 时才调用 OpenAI-compatible 云端模型；
+- 默认提炼 Work State；未配置 API Key 时使用本地规则，配置 API Key 后使用 OpenAI-compatible 模型；
 - arm64 macOS `.app` 打包与一次性接入安装入口。

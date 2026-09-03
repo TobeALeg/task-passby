@@ -6,11 +6,11 @@ const pet: HTMLButtonElement = petElement;
 
 function render(state: DashboardView): void {
   pet.className = `pet ${state.petState}`;
-  pet.title = state.selectedWork ? `${state.selectedWork.title} · ${state.selectedWork.status}` : "记录当前 Codex 工作";
+  pet.title = state.selectedWork ? `${state.selectedWork.title} · ${state.selectedWork.status}` : "记录当前工作";
 }
 
 pet.addEventListener("click", async () => {
-  await window.workpet.togglePanel();
+  await window.workpet.showPanelForCurrentContext();
   render(await window.workpet.getDashboard());
 });
 

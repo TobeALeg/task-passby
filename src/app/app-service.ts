@@ -2,6 +2,13 @@ import { randomUUID } from "node:crypto";
 
 import { ArtifactTracker } from "../artifacts/tracker.js";
 import { CodexAppServerClient, type CodexThreadSummary } from "../adapters/codex/app-server-client.js";
+import {
+  MacForegroundApplicationDetector,
+  classifyForegroundApplication,
+  resolveCodexThreadFromWindowTitle,
+  type CurrentApplicationContext,
+  type ForegroundApplicationDetector
+} from "../adapters/foreground/context.js";
 import type { NormalizedSourceEvent, NormalizedThread } from "../adapters/types.js";
 import { buildWorkBuddyBootstrap, buildWorkBuddyDeepLink } from "../adapters/workbuddy/deep-link.js";
 import type { WorkBuddyLauncher } from "../adapters/workbuddy/launcher.js";
@@ -29,6 +36,7 @@ export interface AppServiceOptions {
   databasePath: string;
   codex?: CodexSource;
   launcher: WorkBuddyLauncher;
+  foreground?: ForegroundApplicationDetector;
 }
 
 export interface CodexSource {
@@ -41,21 +49,74 @@ export class AppService {
   readonly #core: WorkCore;
   readonly #codex: CodexSource;
   readonly #launcher: WorkBuddyLauncher;
+  readonly #foreground: ForegroundApplicationDetector;
   readonly #artifacts: ArtifactTracker;
   #selectedWorkId: string | null = null;
   #petState: DashboardView["petState"] = "sleeping";
   #notice: string | null = null;
   readonly #cloudConsent = new Set<string>();
+  #currentContext: CurrentApplicationContext | null = null;
 
   constructor(options: AppServiceOptions) {
     this.#core = createWorkCore({ databasePath: options.databasePath });
     this.#codex = options.codex ?? new CodexAppServerClient();
     this.#launcher = options.launcher;
+    this.#foreground = options.foreground ?? new MacForegroundApplicationDetector();
     this.#artifacts = new ArtifactTracker(this.#core);
   }
 
   async listCodexThreads(): Promise<CodexThreadSummary[]> {
     return this.#codex.listRecentThreads(30);
+  }
+
+  async captureForegroundContext(): Promise<CurrentApplicationContext | null> {
+    const application = await this.#foreground.detect();
+    const context = application ? classifyForegroundApplication(application) : null;
+    if (!context) {
+      this.#currentContext = null;
+      this.#notice = "未识别到受支持的前台应用。请先聚焦 Codex 或 WorkBuddy。";
+      return null;
+    }
+    if (context.adapter === "codex") {
+      const thread = resolveCodexThreadFromWindowTitle(context.windowTitle, await this.listCodexThreads());
+      if (!thread) {
+        this.#currentContext = null;
+        this.#notice = "已识别 Codex，但未能从窗口标题确认当前任务。请在系统设置中允许 WorkPet 使用辅助功能后重试。";
+        return null;
+      }
+      this.#currentContext = { ...context, conversationId: thread.id };
+      this.#notice = `已识别当前 Codex 任务：${thread.title}`;
+      return this.#currentContext;
+    }
+    this.#currentContext = context;
+    this.#notice = "已识别 WorkBuddy。点击记录后，下一次在当前聊天提交消息时会自动确认会话身份。";
+    return context;
+  }
+
+  currentContext(): CurrentApplicationContext | null {
+    return this.#currentContext;
+  }
+
+  async createWorkFromCurrentContext(context = this.#currentContext): Promise<DashboardView> {
+    if (!context) throw new Error("未识别到当前聊天；请先聚焦 Codex 或 WorkBuddy，再点击桌宠。");
+    if (context.adapter === "codex") {
+      if (!context.conversationId) throw new Error("当前 Codex 聊天尚未确认，不能用最近任务代替。");
+      const dashboard = await this.createWorkFromCodex({ threadId: context.conversationId });
+      this.#notice = "已从当前 Codex 对话开始记录，并默认提炼 Work State。";
+      return this.dashboard(dashboard.selectedWorkId ?? undefined);
+    }
+    const expiresAt = Date.now() + 5 * 60_000;
+    const waitingConversationId = `waiting:${expiresAt}:${randomUUID()}`;
+    const work = this.#core.createWork({
+      definition: { key: "general-work", name: "通用工作", version: 1 },
+      executor: { type: "AGENT", name: "WorkBuddy" },
+      environment: { type: "WORKBUDDY_DESKTOP", name: "WorkBuddy Desktop" },
+      source: { adapter: "workbuddy", conversationId: waitingConversationId }
+    });
+    this.#selectedWorkId = work.instance.id;
+    this.#petState = "awake";
+    this.#notice = "已准备记录当前 WorkBuddy 聊天；请在该聊天提交下一条消息，WorkPet 会用真实 session ID 自动绑定并归档完整可见 transcript。";
+    return this.dashboard(work.instance.id);
   }
 
   async previewCodexThread(threadId: string): Promise<CodexImportPreview> {
@@ -101,8 +162,9 @@ export class AppService {
     const inputs = this.#sourceInputs(thread.events);
     work = this.#core.appendSourceEvents(work.instance.id, inputs).work;
     work = await this.#artifacts.attach(work, thread.events);
-    const extractor = this.#extractor(request.allowCloudExtraction);
-    if (request.allowCloudExtraction) this.#cloudConsent.add(work.instance.id);
+    const allowCloudExtraction = request.allowCloudExtraction ?? true;
+    const extractor = this.#extractor(allowCloudExtraction);
+    if (allowCloudExtraction) this.#cloudConsent.add(work.instance.id);
     const patch = await extractor.extract({ previousState: work.state, events: work.sourceArchive });
     work = this.#core.applyExtractorPatch(work.instance.id, patch);
     this.#selectedWorkId = work.instance.id;

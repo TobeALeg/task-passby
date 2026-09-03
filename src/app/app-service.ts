@@ -102,10 +102,6 @@ export class AppService {
     return this.#currentContext;
   }
 
-  setNotice(message: string): void {
-    this.#notice = message;
-  }
-
   async createWorkFromCurrentContext(context = this.#currentContext): Promise<DashboardView> {
     if (!context) throw new Error("未识别到当前聊天；请先聚焦 Codex 或 WorkBuddy，再点击桌宠。");
     if (context.adapter === "codex") {

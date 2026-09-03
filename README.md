@@ -15,6 +15,8 @@ npm start
 
 WorkPet 每次启动都会静默、幂等地安装 Codex Hook 与 WorkBuddy 用户级 MCP/Hook；不再提供“设置接入”按钮。它们都是本机配置：Codex Hook 用于已绑定任务的增量通知；WorkBuddy Hook 提供真实 `session_id` 与可见 transcript，MCP 则让接力任务读取 WorkRecord。没有 WorkPet 服务端需要部署。首次安装或更新接入后，重启 Codex 和 WorkBuddy 使其加载新配置。
 
+接入安装是启动前提：自动安装失败时 WorkPet 会显示错误并退出，不会在半接入状态下开始记录。
+
 开发中的最新版本固定从 [scripts/run-latest.command](/Users/dandi/YanGuan/scripts/run-latest.command) 启动：双击它，或在终端运行该路径。它会先编译当前源码，再启动 Electron，不使用 `release/` 下的旧打包版。启动前请退出已有的 `WorkPet.app`。
 
 日常使用时，先聚焦目标聊天，再点击桌宠：
@@ -30,7 +32,7 @@ WorkPet 默认提炼 Work State，且默认使用本地规则，不会外发数�
 npm run package:mac
 ```
 
-产物位于 `release/WorkPet-darwin-arm64/WorkPet.app`。启动打包产物后，需要在它自己的“设置接入”入口再执行一次接入安装，使 WorkBuddy 配置指向打包后的稳定路径。
+产物位于 `release/WorkPet-darwin-arm64/WorkPet.app`。启动打包产物时会自动安装或更新本机接入配置，使 WorkBuddy 指向该稳定路径；随后重启 Codex 与 WorkBuddy 使新配置生效。
 
 ## 验证
 

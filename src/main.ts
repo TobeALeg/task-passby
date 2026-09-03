@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { app, BrowserWindow, ipcMain, Menu, screen } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from "electron";
 
 import { ElectronWorkBuddyLauncher } from "./adapters/workbuddy/launcher.js";
 import { AppService } from "./app/app-service.js";
@@ -160,7 +160,19 @@ app.whenReady().then(async () => {
   try {
     await new IntegrationInstaller(app.getAppPath()).install();
   } catch (error) {
-    service.setNotice(`本机接入未完成：${error instanceof Error ? error.message : String(error)}`);
+    await dialog.showMessageBox({
+      type: "error",
+      buttons: ["退出"],
+      defaultId: 0,
+      title: "WorkPet 未能启动",
+      message: "本机接入安装失败，WorkPet 不会在未接入状态下运行。",
+      detail: error instanceof Error ? error.message : String(error)
+    });
+    await bridge.close();
+    service.close();
+    service = null;
+    app.quit();
+    return;
   }
   createWindows();
   registerIpc();

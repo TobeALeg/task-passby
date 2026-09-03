@@ -56,9 +56,9 @@
 
 - **可见的授权状态**：桌宠用睡眠、清醒、搬运、提醒四种状态表达当前是否记录和是否需要处理；
 - **可发现的运行入口**：MVP 保留 Dock 图标；开发中固定使用 `scripts/run-latest.command` 启动当前源码；再次双击应用会把已有桌宠和侧边面板带回前台；
-- **单次确认，不逐条打扰**：创建 WorkRecord 时只确认一次，不预览全部历史，也不要求逐项确认 Work State；
+- **单次授权，不逐条打扰**：点击桌宠即授权记录当前工作，不预览全部历史，也不要求逐项确认 Work State；
 - **纠错永远可达**：点击桌宠即可查看和编辑 Work State，人工修改受到保护；
-- **交接是一键动作**：首次完成 Connector 设置后，日常交接只需一个动作；
+- **交接是一键动作**：接入配置随 WorkPet 启动自动安装或更新，日常交接只需一个动作；
 - **小而完整**：采用桌宠加轻量侧边面板，不建立复杂管理后台；
 - **隐私可撤销**：用户可以完成、归档或永久删除本工具的数据；
 - **来源清楚**：Work State 内容可以定位回原始消息，Codex 与 WorkBuddy 内容按 ExecutionEpisode 区分。
@@ -75,4 +75,4 @@
 - WorkBuddy 新对话 Deep Link、用户级 MCP、可见事件 Hook 与同一 WorkInstance 回写；
 - `OPEN`、`COMPLETED`、`ARCHIVED` 生命周期、继续原工作、人工编辑保护、tombstone 和永久删除；
 - 默认以本地规则提炼 Work State；只有用户在本机显式启用云端提炼并配置 API Key 时才调用 OpenAI-compatible 模型；
-- arm64 macOS `.app` 打包与一次性接入安装入口。
+- arm64 macOS `.app` 打包与启动时自动、幂等的本机接入安装。

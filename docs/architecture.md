@@ -42,7 +42,7 @@ Work Core ─────────────── Local Persistence
 
 ### Desktop Pet Interface
 
-只调用 Work Core Interface，不承担领域判断。PetView 轮询只返回受支持前台聊天的 Adapter、App Server 应用总结标题、已绑定 WorkInstance、`workStatus` 与记录状态，不写入 notice 或持久数据；`workId` 只表达“可以打开历史工作”，不能代替活动记录状态。Helper 原始窗口标题只用于识别，二者在 Context 类型中分开表达。未识别到唯一聊天时隐藏气泡并禁用便利贴操作。用户点击便利贴后重新检测并创建记录，避免使用可能过期的预览缓存；便利贴在已有绑定时改为打开对应工作。Codex 气泡只在当前聊天拥有匹配的 ACTIVE CaptureBinding 时显示“正在记录”；不提供聊天标题的 WorkBuddy 则明确采用应用级单一活动记录，不能伪装成会话级匹配。完成与归档分别显示“已完成”“已归档”。扩大后的透明桌宠窗口通过鼠标穿透避免遮挡来源应用。侧边面板只负责 Work 列表、只读 Work State、重新整理、交接、完成、归档和永久删除；面板读取已有工作时会幂等同步当前 Codex 聊天的应用总结标题，用于纠正早期版本以首条 Prompt 生成的目标。MVP 保留 macOS Dock 入口；单实例锁拦截重复进程后，重复启动事件必须恢复并聚焦已有窗口，不能静默退出。
+只调用 Work Core Interface，不承担领域判断。PetView 轮询只返回受支持前台聊天的 Adapter、App Server 应用总结标题、已绑定 WorkInstance、`workStatus` 与记录状态，不写入 notice 或持久数据；`workId` 只表达“可以打开历史工作”，不能代替活动记录状态。Helper 原始窗口标题只用于识别，二者在 Context 类型中分开表达。未识别到唯一聊天时隐藏气泡并禁用便利贴操作。用户点击便利贴后重新检测并创建记录，避免使用可能过期的预览缓存；便利贴在已有绑定时改为打开对应工作。Codex 气泡只在当前聊天拥有匹配的 ACTIVE CaptureBinding 时显示“正在记录”；不提供聊天标题的 WorkBuddy 则明确采用应用级单一活动记录，不能伪装成会话级匹配。完成与归档分别显示“已完成”“已归档”。扩大后的透明桌宠窗口通过鼠标穿透避免遮挡来源应用。侧边面板只负责 Work 列表、只读 Work State、重新整理、交接、完成、归档和永久删除；面板读取已有工作时会幂等同步当前 Codex 聊天的应用总结标题，用于纠正早期版本以首条 Prompt 生成的目标。MVP 保留 macOS Dock 入口；开发态通过 `assets/WorkPet.png` 设置 Dock 图标，打包态把同一 PNG 复制到原生 Resources 供 Dock API 读取，并用同源的 `assets/WorkPet.icns` 设置应用包图标，避免开发与发布显示不同品牌。单实例锁拦截重复进程后，重复启动事件必须恢复并聚焦已有窗口，不能静默退出。
 
 ### Foreground Context Detector
 
@@ -60,7 +60,7 @@ Work Core ─────────────── Local Persistence
 - Hook：把用户 Prompt、Agent 停止、会话结束和资料变化转换成统一 Source Event；
 - Deep Link：负责唤起 WorkBuddy、创建全新对话并提交首条接力指令；
 
-`IntegrationInstaller` 在 WorkPet 每次启动时幂等地合并这些用户级配置；安装不是面板中的手动步骤，且安装失败会阻止 WorkPet 启动。首次写入或更新配置后，Codex 与 WorkBuddy 需要重启以加载新 Hook/MCP。
+`IntegrationInstaller` 在 WorkPet 每次启动时幂等地合并这些用户级配置；安装不是面板中的手动步骤，且安装失败会阻止 WorkPet 启动。开发态从项目根目录读取接入资源；打包态通过 `asar.unpackDir` 把 `integrations/` 保留在 `Contents/Resources/app.asar.unpacked` 的实体目录中，供只接受普通文件系统路径的外部 CLI 与 Hook 使用，不把 `app.asar` 内部路径泄漏给外部进程。首次写入或更新配置后，Codex 与 WorkBuddy 需要重启以加载新 Hook/MCP。
 
 本机 WorkBuddy 5.4.7 的目录型 marketplace 会误报安装成功但不生成桌面主进程要求的版本化 cache record。为避免伪安装，MVP 不手工篡改其插件 registry，而是原子合并 `~/.workbuddy/.mcp.json` 与 `~/.workbuddy/settings.json` 中的官方用户级 MCP/Hook 配置。Hook 对所有会话可见，但 Bridge 只接受带有 WorkInstance marker 且存在 OPEN pending binding 的会话；其他会话立即忽略。整个 Adapter 不读取 WorkBuddy 私有数据库。
 

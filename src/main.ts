@@ -25,6 +25,25 @@ function requireService(): AppService {
   return service;
 }
 
+function applicationResourceRoot(): string {
+  return app.isPackaged ? process.resourcesPath : app.getAppPath();
+}
+
+function integrationResourceRoot(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, "app.asar.unpacked")
+    : app.getAppPath();
+}
+
+async function configureDock(): Promise<void> {
+  if (process.platform !== "darwin" || !app.dock) return;
+  const iconPath = app.isPackaged
+    ? join(applicationResourceRoot(), "WorkPet.png")
+    : join(applicationResourceRoot(), "assets", "WorkPet.png");
+  app.dock.setIcon(iconPath);
+  await app.dock.show();
+}
+
 function createWindows(): void {
   const preload = join(app.getAppPath(), "dist", "preload.cjs");
   petWindow = new BrowserWindow({
@@ -131,7 +150,7 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(async () => {
-  if (process.platform === "darwin") await app.dock?.show();
+  await configureDock();
   Menu.setApplicationMenu(null);
   const dataDirectory = process.env.WORKPET_DATA_DIR ?? app.getPath("userData");
   service = new AppService({
@@ -151,7 +170,7 @@ app.whenReady().then(async () => {
   });
   await bridge.start();
   try {
-    await new IntegrationInstaller(app.getAppPath()).install();
+    await new IntegrationInstaller(integrationResourceRoot()).install();
   } catch (error) {
     await dialog.showMessageBox({
       type: "error",

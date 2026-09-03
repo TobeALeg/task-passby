@@ -568,6 +568,11 @@ export class AppService {
       applicationTitle,
       new Date().toISOString()
     );
+    if (work.sourceArchive.some((event) => event.externalId === titleEvent.externalId)) {
+      this.#applyCodexObjective(work, titleEvent);
+      return;
+    }
+    if (work.instance.status !== "OPEN" || !work.activeBinding) return;
     work = this.#core.appendSourceEvents(workId, [titleEvent]).work;
     this.#applyCodexObjective(work, titleEvent);
   }

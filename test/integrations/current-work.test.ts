@@ -146,6 +146,8 @@ test("当前工作完成后保留打开入口，但不再把气泡标记为正�
   assert.equal(after.currentConversation?.workId, recorded.selectedWorkId);
   assert.equal(after.currentConversation?.workStatus, "COMPLETED");
   assert.equal(after.currentConversation?.isRecording, false);
+  const reopened = await service.dashboardWithVerification(recorded.selectedWorkId);
+  assert.equal(reopened.selectedWork?.status, "COMPLETED");
   service.close();
 });
 

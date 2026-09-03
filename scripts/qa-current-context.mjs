@@ -71,7 +71,7 @@ try {
   await pet.screenshot({ path: petScreenshotPath });
   await paperAction.click();
   let dashboard = await pet.evaluate(() => window.workpet.getDashboard());
-  for (let attempt = 0; attempt < 120 && !dashboard.works.length && !dashboard.notice; attempt += 1) {
+  for (let attempt = 0; attempt < 120 && !dashboard.works.length; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 250));
     dashboard = await pet.evaluate(() => window.workpet.getDashboard());
   }
@@ -103,6 +103,10 @@ try {
       && document.querySelector("#pet")?.classList.contains("sleeping")
       && !document.querySelector("#pet-root")?.classList.contains("recording-context");
   }, undefined, { timeout: 10_000 });
+  const completedDashboard = await pet.evaluate((workId) => window.workpet.getDashboard(workId), dashboard.selectedWork.id);
+  if (completedDashboard.selectedWork?.status !== "COMPLETED") {
+    throw new Error(`已完成工作重新打开面板失败：${JSON.stringify(completedDashboard.selectedWork)}`);
+  }
   await pet.screenshot({ path: completedPetScreenshotPath });
 
   console.log(JSON.stringify({

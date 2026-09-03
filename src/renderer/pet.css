@@ -3,7 +3,7 @@
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
 body { -webkit-app-region: drag; }
 button { font: inherit; }
-.pet-root { display: grid; justify-items: end; align-content: end; gap: 18px; width: 100%; height: 100%; padding: 20px 16px 12px; }
+.pet-root { display: grid; justify-items: end; align-content: end; gap: 18px; width: 100%; height: 100%; padding: 20px 34px 36px 16px; }
 .context-bubble { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px; width: 238px; min-height: 52px; padding: 9px 11px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; background: rgba(41,37,33,.93); color: #fff; box-shadow: 0 14px 38px rgba(47,39,29,.22); backdrop-filter: blur(16px); pointer-events: none; }
 .context-bubble[hidden] { display: none; }
 .context-bubble::after { content: ""; position: absolute; right: 27px; bottom: -7px; width: 14px; height: 14px; background: #292521; transform: rotate(45deg); }

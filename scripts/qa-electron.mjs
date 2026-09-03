@@ -50,8 +50,19 @@ try {
     scrollHeight: document.documentElement.scrollHeight,
     body: document.querySelector("#pet-body")?.getBoundingClientRect().toJSON(),
     paper: document.querySelector("#paper-action")?.getBoundingClientRect().toJSON(),
-    bubble: document.querySelector("#context-bubble")?.getBoundingClientRect().toJSON()
+    bubble: document.querySelector("#context-bubble")?.getBoundingClientRect().toJSON(),
+    bodyShadow: document.querySelector("#pet-body") ? getComputedStyle(document.querySelector("#pet-body")).boxShadow : null
   }));
+  const shadowInsets = petMetrics.body
+    ? {
+        right: petMetrics.width - petMetrics.body.right,
+        bottom: petMetrics.height - petMetrics.body.bottom
+      }
+    : null;
+  const minimumShadowInsets = { right: 32, bottom: 40 };
+  if (!shadowInsets || shadowInsets.right < minimumShadowInsets.right || shadowInsets.bottom < minimumShadowInsets.bottom) {
+    throw new Error(`桌宠阴影安全区不足，窗口边缘会裁切阴影：${JSON.stringify({ shadowInsets, bodyShadow: petMetrics.bodyShadow })}`);
+  }
   const characterVisuals = await pet.evaluate(() => {
     const character = document.querySelector("#pet");
     const body = document.querySelector("#pet-body");
@@ -133,6 +144,7 @@ try {
     dockVisible,
     secondInstanceRestored,
     petMetrics,
+    shadowInsets,
     characterVisuals,
     panelMetrics,
     editableControlCount,

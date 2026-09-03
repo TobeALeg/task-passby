@@ -12,6 +12,8 @@ let petWindow: BrowserWindow | null = null;
 let panelWindow: BrowserWindow | null = null;
 let service: AppService | null = null;
 let bridge: WorkPetHttpBridge | null = null;
+const PET_WINDOW_WIDTH = 304;
+const PET_WINDOW_HEIGHT = 206;
 
 app.setName("WorkPet");
 if (!app.requestSingleInstanceLock()) {
@@ -47,8 +49,8 @@ async function configureDock(): Promise<void> {
 function createWindows(): void {
   const preload = join(app.getAppPath(), "dist", "preload.cjs");
   petWindow = new BrowserWindow({
-    width: 286,
-    height: 182,
+    width: PET_WINDOW_WIDTH,
+    height: PET_WINDOW_HEIGHT,
     transparent: true,
     frame: false,
     resizable: false,
@@ -63,7 +65,10 @@ function createWindows(): void {
   petWindow.setIgnoreMouseEvents(true, { forward: true });
   petWindow.loadFile(join(app.getAppPath(), "dist", "renderer", "pet.html"));
   const workArea = screen.getPrimaryDisplay().workArea;
-  petWindow.setPosition(workArea.x + workArea.width - 304, workArea.y + workArea.height - 206);
+  petWindow.setPosition(
+    workArea.x + workArea.width - PET_WINDOW_WIDTH,
+    workArea.y + workArea.height - PET_WINDOW_HEIGHT
+  );
 
   panelWindow = new BrowserWindow({
     width: 448,

@@ -39,7 +39,7 @@
 
 1. 用户在 Codex 或 WorkBuddy 中进行工作。
 2. 用户点击桌宠，请求记录当前前台对话。
-3. 系统自动识别应用与会话身份，不显示应用或任务选择器；Codex 只接受唯一窗口标题匹配，WorkBuddy 以当前聊天下一次 Hook 的真实 `session_id` 绑定。
+3. 系统自动识别应用与会话身份，不显示应用或任务选择器；Codex 只接受唯一窗口标题匹配，WorkBuddy 以当前聊天下一次 Hook 的真实 `session_id` 加同一窗口标题校验后绑定。
 4. 系统依据 WorkDefinition 创建 WorkInstance 及其 WorkRecord。
 5. Codex 从第一轮导入完整可见历史；WorkBuddy 在首个 Stop Hook 从 transcript 导入完整可见历史。
 6. 系统建立 Codex 对话到 WorkInstance 的 Capture Binding，并保存增量同步位置。
@@ -151,7 +151,7 @@ Capture Binding 的启停与 WorkInstance 生命周期相互独立。解除绑�
 ## 数据与模型处理
 
 - Source Archive、ArtifactRef、WorkRecord、WorkDefinition 和 ExecutionEpisode 只存本机；
-- 创建 WorkRecord 后默认生成 Work State；未配置 API Key 时使用本地规则，配置 API Key 后将必要对话发送给用户配置的 OpenAI-compatible 模型；
+- 创建 WorkRecord 后默认以本地规则生成 Work State；只有用户在本机显式启用云端提炼并配置 API Key 时，才将必要对话发送给用户配置的 OpenAI-compatible 模型；
 - 默认不向模型上传原始文件；需要理解文件时必须明确把相应内容纳入本次提炼；
 - Work State 提炼位于 `WorkStateExtractor` seam 后，Work 核心模型不依赖具体云端或本地模型实现；
 - 未来允许替换为本地模型，但不作为 MVP 要求。
@@ -197,7 +197,7 @@ WorkPattern 不修改 WorkDefinition，不反向修改历史 WorkRecord，也不
 11. WorkBuddy 中新的用户 Prompt、Agent 可见回复和资料通过 Hook 或主动同步写回同一个 WorkRecord；
 12. WorkRecord 能明确展示同一个 WorkInstance 下的 Codex Episode 与 WorkBuddy Episode；
 13. 用户完成 Work 后停止自动写入，再次活动时必须选择“继续原工作”或“新建工作”；
-14. 所有持久数据只存本机；仅当本机配置 API Key 时，必要的可见提炼内容才会发往配置的云端模型。
+14. 所有持久数据只存本机；仅当用户在本机显式启用云端提炼并配置 API Key 时，必要的可见提炼内容才会发往配置的云端模型。
 
 验收必须使用真实安装的 Codex 与 WorkBuddy，不以 Mock、Swagger、接口返回或静态页面代替端到端桌面验证。
 

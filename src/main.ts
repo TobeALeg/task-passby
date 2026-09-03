@@ -3,7 +3,6 @@ import { join } from "node:path";
 
 import { app, BrowserWindow, ipcMain, Menu, dialog, screen, type MessageBoxOptions } from "electron";
 
-import { WorkBuddyHookIngestor } from "./adapters/workbuddy/hook-ingestor.js";
 import { ElectronWorkBuddyLauncher } from "./adapters/workbuddy/launcher.js";
 import { AppService } from "./app/app-service.js";
 import { WorkPetHttpBridge } from "./bridge/http-bridge.js";
@@ -112,6 +111,12 @@ function registerIpc(): void {
     showPanel();
     return context;
   });
+  ipcMain.handle("panel:record-current-context", async () => {
+    const context = await requireService().captureForegroundContext();
+    const dashboard = context ? await requireService().createWorkFromCurrentContext(context) : requireService().dashboard();
+    showPanel();
+    return dashboard;
+  });
   ipcMain.handle("panel:close", () => panelWindow?.hide());
   ipcMain.handle("dashboard:get", (_event, workId?: string) => requireService().dashboardWithVerification(workId));
   ipcMain.handle("context:capture", () => requireService().captureForegroundContext());
@@ -164,7 +169,7 @@ app.whenReady().then(async () => {
         ? { proofToken: process.env.WORKPET_QA_PROOF_TOKEN }
         : {}
     ),
-    hooks: new WorkBuddyHookIngestor(service.core()),
+    onWorkBuddyHook: (payload) => requireService().syncWorkBuddyHook(payload),
     onCodexHook: (payload) => requireService().syncCodexHook(payload)
   });
   await bridge.start();

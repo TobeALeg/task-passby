@@ -3,13 +3,12 @@ import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { dirname } from "node:path";
 
-import type { WorkBuddyHookIngestor } from "../adapters/workbuddy/hook-ingestor.js";
 import type { WorkPetMcpHandler } from "./mcp-handler.js";
 
 export interface WorkPetBridgeOptions {
   configPath: string;
   mcp: WorkPetMcpHandler;
-  hooks: WorkBuddyHookIngestor;
+  onWorkBuddyHook: (payload: Record<string, unknown>) => Promise<unknown>;
   onCodexHook: (payload: Record<string, unknown>) => Promise<unknown>;
   port?: number;
 }
@@ -51,7 +50,7 @@ export class WorkPetHttpBridge {
           return;
         }
         if (request.url === "/hooks/workbuddy") {
-          const result = await this.#options.hooks.ingest(payload);
+          const result = await this.#options.onWorkBuddyHook(payload);
           response.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(result));
           return;
         }

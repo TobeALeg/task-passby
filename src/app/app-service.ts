@@ -11,9 +11,12 @@ import {
 } from "../adapters/foreground/context.js";
 import type { NormalizedSourceEvent, NormalizedThread } from "../adapters/types.js";
 import { buildWorkBuddyBootstrap, buildWorkBuddyDeepLink } from "../adapters/workbuddy/deep-link.js";
+import { createPendingWorkBuddyConversationId, isPendingWorkBuddyConversationId } from "../adapters/workbuddy/pending-capture.js";
+import { WorkBuddyHookIngestor, type HookIngestResult } from "../adapters/workbuddy/hook-ingestor.js";
 import type { WorkBuddyLauncher } from "../adapters/workbuddy/launcher.js";
 import {
   createWorkCore,
+  type SourceEvent,
   type SourceEventInput,
   type WorkCore,
   type WorkSnapshot,
@@ -51,10 +54,11 @@ export class AppService {
   readonly #launcher: WorkBuddyLauncher;
   readonly #foreground: ForegroundApplicationDetector;
   readonly #artifacts: ArtifactTracker;
+  readonly #workBuddyHooks: WorkBuddyHookIngestor;
   #selectedWorkId: string | null = null;
   #petState: DashboardView["petState"] = "sleeping";
   #notice: string | null = null;
-  readonly #cloudConsent = new Set<string>();
+  readonly #cloudExtractionWorkIds = new Set<string>();
   #currentContext: CurrentApplicationContext | null = null;
 
   constructor(options: AppServiceOptions) {
@@ -63,6 +67,7 @@ export class AppService {
     this.#launcher = options.launcher;
     this.#foreground = options.foreground ?? new MacForegroundApplicationDetector();
     this.#artifacts = new ArtifactTracker(this.#core);
+    this.#workBuddyHooks = new WorkBuddyHookIngestor(this.#core);
   }
 
   async listCodexThreads(): Promise<CodexThreadSummary[]> {
@@ -105,8 +110,14 @@ export class AppService {
       this.#notice = "已从当前 Codex 对话开始记录，并默认提炼 Work State。";
       return this.dashboard(dashboard.selectedWorkId ?? undefined);
     }
-    const expiresAt = Date.now() + 5 * 60_000;
-    const waitingConversationId = `waiting:${expiresAt}:${randomUUID()}`;
+    if (!context.windowTitle?.trim()) {
+      throw new Error("未取得当前 WorkBuddy 窗口标题。请在 macOS“隐私与安全性 → 辅助功能”中允许 WorkPet 后重试。");
+    }
+    for (const openWork of this.#core.listWorks("OPEN")) {
+      const conversationId = openWork.activeBinding?.adapter === "workbuddy" ? openWork.activeBinding.conversationId : "";
+      if (isPendingWorkBuddyConversationId(conversationId)) this.#core.stopCapture(openWork.instance.id);
+    }
+    const waitingConversationId = createPendingWorkBuddyConversationId(context.windowTitle);
     const work = this.#core.createWork({
       definition: { key: "general-work", name: "通用工作", version: 1 },
       executor: { type: "AGENT", name: "WorkBuddy" },
@@ -114,6 +125,7 @@ export class AppService {
       source: { adapter: "workbuddy", conversationId: waitingConversationId }
     });
     this.#selectedWorkId = work.instance.id;
+    if (this.#cloudExtractionIsEnabled()) this.#cloudExtractionWorkIds.add(work.instance.id);
     this.#petState = "awake";
     this.#notice = "已准备记录当前 WorkBuddy 聊天；请在该聊天提交下一条消息，WorkPet 会用真实 session ID 自动绑定并归档完整可见 transcript。";
     return this.dashboard(work.instance.id);
@@ -162,9 +174,9 @@ export class AppService {
     const inputs = this.#sourceInputs(thread.events);
     work = this.#core.appendSourceEvents(work.instance.id, inputs).work;
     work = await this.#artifacts.attach(work, thread.events);
-    const allowCloudExtraction = request.allowCloudExtraction ?? true;
+    const allowCloudExtraction = request.allowCloudExtraction ?? this.#cloudExtractionIsEnabled();
     const extractor = this.#extractor(allowCloudExtraction);
-    if (allowCloudExtraction) this.#cloudConsent.add(work.instance.id);
+    if (allowCloudExtraction) this.#cloudExtractionWorkIds.add(work.instance.id);
     const patch = await extractor.extract({ previousState: work.state, events: work.sourceArchive });
     work = this.#core.applyExtractorPatch(work.instance.id, patch);
     this.#selectedWorkId = work.instance.id;
@@ -215,10 +227,10 @@ export class AppService {
       createdWorkId = work.instance.id;
       work = this.#core.appendSourceEvents(work.instance.id, this.#sourceInputs(selectedEvents)).work;
       work = await this.#artifacts.attach(work, selectedEvents);
-      const allowCloud = this.#cloudConsent.has(sourceWork.instance.id);
+      const allowCloud = this.#cloudExtractionEnabledFor(sourceWork.instance.id);
       const patch = await this.#extractor(allowCloud).extract({ previousState: work.state, events: work.sourceArchive });
       work = this.#core.applyExtractorPatch(work.instance.id, patch);
-      if (allowCloud) this.#cloudConsent.add(work.instance.id);
+      if (allowCloud) this.#cloudExtractionWorkIds.add(work.instance.id);
       this.#selectedWorkId = work.instance.id;
       this.#petState = "awake";
       this.#notice = `已从指定消息创建新的 WorkInstance，并归档后续 ${work.sourceArchive.length} 条记录。`;
@@ -255,7 +267,7 @@ export class AppService {
     const thread = await this.#codex.readThread(codexBinding.conversationId);
     let { work, newEvents } = await this.#ingestCodexDelta(current, thread);
     if (newEvents.length) {
-      const patch = await this.#extractor(this.#cloudConsent.has(workId)).extract({ previousState: current.state, events: this.#sourceInputs(newEvents) });
+      const patch = await this.#extractor(this.#cloudExtractionEnabledFor(workId)).extract({ previousState: current.state, events: this.#sourceInputs(newEvents) });
       work = this.#core.applyExtractorPatch(workId, patch);
     }
     this.#petState = "awake";
@@ -275,6 +287,25 @@ export class AppService {
     if (!newEvents.length) return { accepted: true, appendedCount: 0 };
     this.#notice = `Codex 已增量归档 ${newEvents.length} 条记录；Work State 将在查看、刷新或交接时更新。`;
     return { accepted: true, appendedCount: newEvents.length };
+  }
+
+  async syncWorkBuddyHook(payload: Record<string, unknown>): Promise<HookIngestResult> {
+    const knownEventIds = new Map(
+      this.#core.listWorks().map((work) => [work.instance.id, new Set(work.sourceArchive.map((event) => event.externalId))])
+    );
+    const result = await this.#workBuddyHooks.ingest(payload);
+    if (!result.accepted || !result.workInstanceId || !result.appendedCount) return result;
+    const work = this.#core.getWork(result.workInstanceId);
+    if (!work) return result;
+    const known = knownEventIds.get(result.workInstanceId) ?? new Set<string>();
+    const newEvents = work.sourceArchive.filter((event) => !known.has(event.externalId));
+    if (!newEvents.length) return result;
+    const patch = await this.#extractor(this.#cloudExtractionEnabledFor(result.workInstanceId)).extract({
+      previousState: work.state,
+      events: this.#sourceInputs(newEvents)
+    });
+    this.#core.applyExtractorPatch(result.workInstanceId, patch);
+    return result;
   }
 
   dashboard(workId?: string): DashboardView {
@@ -396,7 +427,7 @@ export class AppService {
   deleteWork(workId: string, confirmation: string): DashboardView {
     if (confirmation !== "永久删除") throw new Error("请输入“永久删除”进行二次确认");
     this.#core.deleteWorkPermanently(workId, { confirmation: workId });
-    this.#cloudConsent.delete(workId);
+    this.#cloudExtractionWorkIds.delete(workId);
     this.#selectedWorkId = null;
     this.#petState = "sleeping";
     this.#notice = "WorkPet 本地记录已永久删除；原文件和外部对话未改动。";
@@ -424,7 +455,15 @@ export class AppService {
     return new LocalRuleExtractor();
   }
 
-  #sourceInputs(events: Array<NormalizedSourceEvent | SourceEventInput>): SourceEventInput[] {
+  #cloudExtractionIsEnabled(): boolean {
+    return process.env.WORKPET_CLOUD_EXTRACTION === "true";
+  }
+
+  #cloudExtractionEnabledFor(workId: string): boolean {
+    return this.#cloudExtractionWorkIds.has(workId) || this.#cloudExtractionIsEnabled();
+  }
+
+  #sourceInputs(events: Array<NormalizedSourceEvent | SourceEventInput | SourceEvent>): SourceEventInput[] {
     return events.map((event) => ({
       externalId: event.externalId,
       sequence: event.sequence,

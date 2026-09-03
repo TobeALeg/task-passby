@@ -46,3 +46,20 @@ test("从 WorkBuddy 当前窗口发起记录时等待下一次真实提交来绑
   assert.match(result.notice ?? "", /提交下一条消息/u);
   service.close();
 });
+
+test("WorkBuddy 取得真实 session 后默认生成 Work State", async () => {
+  const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
+  const service = new AppService({ databasePath: ":memory:", codex: new FakeCodexSource(emptyThread), launcher: { async openNewConversation() { return "opened"; } } });
+  const pending = await service.createWorkFromCurrentContext({
+    adapter: "workbuddy", environmentName: "WorkBuddy Desktop", applicationName: "WorkBuddy", windowTitle: "当前客户需求"
+  });
+  const workId = pending.selectedWorkId;
+  assert.ok(workId);
+
+  await service.syncWorkBuddyHook({
+    hook_event_name: "UserPromptSubmit", session_id: "workbuddy-current-session", workpet_window_title: "当前客户需求", prompt: "整理这个客户需求的下一步"
+  });
+
+  assert.equal(service.core().getWork(workId)?.state.objective[0]?.text, "整理这个客户需求的下一步");
+  service.close();
+});

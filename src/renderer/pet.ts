@@ -10,8 +10,7 @@ function render(state: DashboardView): void {
 }
 
 pet.addEventListener("click", async () => {
-  await window.workpet.showPanelForCurrentContext();
-  render(await window.workpet.getDashboard());
+  render(await window.workpet.recordCurrentContextFromPet());
 });
 
 setInterval(() => window.workpet.getDashboard().then(render).catch(() => undefined), 3_000);

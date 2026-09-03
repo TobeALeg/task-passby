@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { WorkBuddyHookIngestor } from "../../dist/adapters/workbuddy/hook-ingestor.js";
+import { createPendingWorkBuddyConversationId } from "../../dist/adapters/workbuddy/pending-capture.js";
 import { WorkPetMcpHandler } from "../../dist/bridge/mcp-handler.js";
 import { createWorkCore } from "../../dist/core/index.js";
 
@@ -97,7 +98,7 @@ test("WorkBuddy 通过 marker 绑定同一工作、读取接力状态并把可�
 
 test("用户从当前 WorkBuddy 窗口发起的短时记录请求只在下一次真实提交时绑定 session", async () => {
   const core = createWorkCore({ databasePath: ":memory:" });
-  const waitingConversationId = `waiting:${Date.now() + 60_000}:current-window`;
+  const waitingConversationId = createPendingWorkBuddyConversationId("当前 WorkBuddy 工作", Date.now() - 4 * 60_000);
   const created = core.createWork({
     definition: { key: "general-work", name: "通用工作", version: 1 },
     executor: { type: "AGENT", name: "WorkBuddy" },
@@ -109,12 +110,35 @@ test("用户从当前 WorkBuddy 窗口发起的短时记录请求只在下一次
   const result = await hooks.ingest({
     hook_event_name: "UserPromptSubmit",
     session_id: "identified-current-session",
-    prompt: "继续处理这个客户需求"
+    prompt: "继续处理这个客户需求",
+    workpet_window_title: "当前 WorkBuddy 工作"
   });
 
   assert.equal(result.accepted, true);
   assert.equal(result.workInstanceId, created.instance.id);
   assert.equal(core.getWork(created.instance.id)?.activeBinding?.conversationId, "identified-current-session");
   assert.equal(core.getWork(created.instance.id)?.sourceArchive[0]?.content, "继续处理这个客户需求");
+  core.close();
+});
+
+test("窗口标题不匹配时不把另一个 WorkBuddy 聊天绑定到等待中的工作", async () => {
+  const core = createWorkCore({ databasePath: ":memory:" });
+  const created = core.createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    executor: { type: "AGENT", name: "WorkBuddy" },
+    environment: { type: "WORKBUDDY_DESKTOP", name: "WorkBuddy Desktop" },
+    source: { adapter: "workbuddy", conversationId: createPendingWorkBuddyConversationId("目标聊天") }
+  });
+  const hooks = new WorkBuddyHookIngestor(core);
+
+  const result = await hooks.ingest({
+    hook_event_name: "UserPromptSubmit",
+    session_id: "another-session",
+    prompt: "另一项工作",
+    workpet_window_title: "另一个聊天"
+  });
+
+  assert.equal(result.accepted, false);
+  assert.equal(core.getWork(created.instance.id)?.activeBinding?.conversationId.startsWith("waiting:"), true);
   core.close();
 });

@@ -18,9 +18,9 @@ npm start
 日常使用时，先聚焦目标聊天，再点击桌宠：
 
 - Codex 会通过前台窗口标题与 App Server 中唯一的任务标题匹配当前任务；首次使用需在 macOS“隐私与安全性 → 辅助功能”中允许 WorkPet 读取窗口标题。
-- WorkBuddy 会在你点击“记录当前工作”后，等待该聊天的下一次提交，从官方 Hook 取得真实 `session_id` 并绑定；不会用最近会话猜测当前聊天。
+- WorkBuddy 会在你点击“记录当前工作”后，等待该聊天的下一次提交，从官方 Hook 取得真实 `session_id`，并用同一窗口标题校验后绑定；不会用最近会话猜测当前聊天。
 
-WorkPet 默认提炼 Work State。未配置 API Key 时使用本地规则，不会外发数据；配置 `WORKPET_LLM_API_KEY` 后才会把必要的可见对话发送给所配置的 OpenAI-compatible 模型。
+WorkPet 默认提炼 Work State，且默认使用本地规则，不会外发数据。只有本机同时配置 `WORKPET_LLM_API_KEY` 和 `WORKPET_CLOUD_EXTRACTION=true`，才会把必要的可见对话发送给所配置的 OpenAI-compatible 模型。
 
 ## 打包
 
@@ -59,7 +59,7 @@ npm run qa:desktop-roundtrip
 - 未点击“记录当前工作”前不归档用户活动；前台识别只读取应用身份和窗口标题，不读取或保存窗口内容；
 - 不读取、推断或保存 Agent 隐藏思维；
 - ArtifactRef 保存原路径与元数据，不复制或修改原文件；
-- 默认进行本地 Work State 提炼；仅当本机配置了 API Key 时，必要的可见对话才会发送给 OpenAI-compatible 接口；
+- 默认进行本地 Work State 提炼；仅当本机同时配置 API Key 与云端提炼开关时，必要的可见对话才会发送给 OpenAI-compatible 接口；
 - WorkBuddy Hook 会看到事件，但只接受带 WorkPet marker 且已绑定到 `OPEN` WorkInstance 的会话，其他会话不会落盘。
 
 完整产品与领域定义见 [docs/product.md](docs/product.md) 和 [docs/architecture.md](docs/architecture.md)。

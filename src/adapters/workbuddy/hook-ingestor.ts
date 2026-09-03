@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { ArtifactTracker } from "../../artifacts/tracker.js";
 import type { SourceEventInput, WorkCore, WorkSnapshot } from "../../core/index.js";
 import { parseWorkBuddyTranscript } from "./transcript.js";
+import { matchesPendingWorkBuddyWindow } from "./pending-capture.js";
 
 type HookPayload = Record<string, unknown>;
 
@@ -21,12 +22,10 @@ function stringField(payload: HookPayload, key: string): string | null {
   return typeof payload[key] === "string" ? payload[key] as string : null;
 }
 
-function waitingBinding(core: WorkCore): WorkSnapshot | null {
-  const now = Date.now();
+function waitingBinding(core: WorkCore, windowTitle: string | null): WorkSnapshot | null {
   const candidates = core.listWorks("OPEN").filter((work) => {
     const conversationId = work.activeBinding?.adapter === "workbuddy" ? work.activeBinding.conversationId : "";
-    const [, expiresAt] = conversationId.split(":");
-    return conversationId.startsWith("waiting:") && Number.isFinite(Number(expiresAt)) && Number(expiresAt) > now;
+    return matchesPendingWorkBuddyWindow(conversationId, windowTitle);
   });
   return candidates.length === 1 ? candidates[0] ?? null : null;
 }
@@ -43,6 +42,7 @@ export class WorkBuddyHookIngestor {
   async ingest(payload: HookPayload): Promise<HookIngestResult> {
     const eventName = stringField(payload, "hook_event_name");
     const sessionId = stringField(payload, "session_id");
+    const windowTitle = stringField(payload, "workpet_window_title");
     if (!eventName || !sessionId) return { accepted: false, appendedCount: 0, reason: "缺少 Hook 身份字段" };
 
     let work = this.#core.findWorkByBinding("workbuddy", sessionId);
@@ -57,7 +57,7 @@ export class WorkBuddyHookIngestor {
         work = this.#core.bindConversation(candidate.instance.id, "workbuddy", pending.conversationId, sessionId);
       }
       if (!work && eventName === "UserPromptSubmit") {
-        const waiting = waitingBinding(this.#core);
+        const waiting = waitingBinding(this.#core, windowTitle);
         const pending = waiting?.activeBinding;
         if (waiting && pending) {
           work = this.#core.bindConversation(waiting.instance.id, "workbuddy", pending.conversationId, sessionId);

@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("workpet", {
   togglePanel: () => ipcRenderer.invoke("panel:toggle"),
   showPanelForCurrentContext: () => ipcRenderer.invoke("panel:show-for-current-context"),
+  recordCurrentContextFromPet: () => ipcRenderer.invoke("panel:record-current-context"),
   getDashboard: (workId) => ipcRenderer.invoke("dashboard:get", workId),
   captureForegroundContext: () => ipcRenderer.invoke("context:capture"),
   getCurrentContext: () => ipcRenderer.invoke("context:get"),

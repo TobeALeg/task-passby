@@ -41,7 +41,7 @@
 1. 用户在 Codex 或 WorkBuddy 中进行工作；
 2. 用户点击常驻桌宠；
 3. 系统识别前台应用及当前聊天，不展示应用或任务选择器；
-4. Codex 在唯一标题匹配后立即导入完整既有历史；WorkBuddy 在下一次提交中取得真实 session ID 后绑定并归档 transcript；
+4. Codex 在唯一标题匹配后立即导入完整既有历史；WorkBuddy 在同一窗口的下一次提交中取得真实 session ID、校验窗口标题后绑定并归档 transcript；
 5. 桌宠进入清醒状态，Source Archive 持续增量归档；
 6. 用户点击桌宠查看或更新八部分 Work State；
 7. 用户可以修正 Work State、从当前消息新建 Work、完成、归档或永久删除；
@@ -74,5 +74,5 @@
 - Codex Desktop 真实历史导入、增量 Hook 与 ArtifactRef；
 - WorkBuddy 新对话 Deep Link、用户级 MCP、可见事件 Hook 与同一 WorkInstance 回写；
 - `OPEN`、`COMPLETED`、`ARCHIVED` 生命周期、继续原工作、人工编辑保护、tombstone 和永久删除；
-- 默认提炼 Work State；未配置 API Key 时使用本地规则，配置 API Key 后使用 OpenAI-compatible 模型；
+- 默认以本地规则提炼 Work State；只有用户在本机显式启用云端提炼并配置 API Key 时才调用 OpenAI-compatible 模型；
 - arm64 macOS `.app` 打包与一次性接入安装入口。

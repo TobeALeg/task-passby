@@ -17,7 +17,7 @@ WorkPet 每次启动都会静默、幂等地安装 Codex Hook 与 WorkBuddy 用�
 
 接入安装是启动前提：自动安装失败时 WorkPet 会显示错误并退出，不会在半接入状态下开始记录。
 
-开发中的最新版本固定从 [scripts/run-latest.command](/Users/dandi/YanGuan/scripts/run-latest.command) 启动：双击它，或在终端运行该路径。它会先编译当前源码，再启动 Electron，不使用 `release/` 下的旧打包版。启动前请退出已有的 `WorkPet.app`。
+开发中的最新版本固定从 [scripts/run-latest.command](/Users/dandi/YanGuan/scripts/run-latest.command) 启动：双击它，或在终端运行该路径。它会先停止本项目已运行的开发版，再编译当前源码并启动 Electron，不使用 `release/` 下的旧打包版；首次从打包版切换时仍请先退出 `WorkPet.app`。
 
 日常使用时，先聚焦目标聊天，再点击桌宠：
 

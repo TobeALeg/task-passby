@@ -46,7 +46,7 @@ Work Core ─────────────── Local Persistence
 
 ### Foreground Context Detector
 
-仅读取 macOS 前台应用的 bundle ID 与窗口标题，且不持久化窗口标题或内容。它先把应用归类为 Adapter，再由 Adapter 解析会话身份：Codex 只接受窗口标题与 App Server 中唯一任务标题的精确匹配，绝不以最近任务猜测；WorkBuddy 在用户明确发起记录后的短时等待窗口中，以该聊天下一次官方 Hook 提供的 `session_id` 加同一窗口标题校验后绑定。读取窗口标题需要用户授予 WorkPet 及 WorkBuddy 的 Hook 进程 macOS 辅助功能权限。
+通过随应用构建的原生 macOS Helper 读取前台应用 bundle ID 与窗口标题，且不持久化窗口标题或内容，不依赖 `osascript` 的辅助功能授权。它先把应用归类为 Adapter（同时支持 Codex 的 `com.openai.codex` 与 DOVE 桌面容器），再由 Adapter 解析会话身份：Codex 优先接受窗口标题与 App Server 中唯一任务标题的精确匹配；没有窗口标题时，只在最近任务处于五分钟活动窗口且领先第二新任务至少五秒时绑定，否则拒绝猜测；WorkBuddy 在用户明确发起记录后的短时等待窗口中，以该聊天下一次官方 Hook 提供的 `session_id` 加同一窗口标题校验后绑定。
 
 ### Codex Adapter
 

@@ -5,6 +5,7 @@ import { CodexAppServerClient, type CodexThreadSummary } from "../adapters/codex
 import {
   MacForegroundApplicationDetector,
   classifyForegroundApplication,
+  resolveCodexThreadFromRecentActivity,
   resolveCodexThreadFromWindowTitle,
   type CurrentApplicationContext,
   type ForegroundApplicationDetector
@@ -83,10 +84,12 @@ export class AppService {
       return null;
     }
     if (context.adapter === "codex") {
-      const thread = resolveCodexThreadFromWindowTitle(context.windowTitle, await this.listCodexThreads());
+      const threads = await this.listCodexThreads();
+      const thread = resolveCodexThreadFromWindowTitle(context.windowTitle, threads)
+        ?? resolveCodexThreadFromRecentActivity(threads);
       if (!thread) {
         this.#currentContext = null;
-        this.#notice = "已识别 Codex，但未能从窗口标题确认当前任务。请在系统设置中允许 WorkPet 使用辅助功能后重试。";
+        this.#notice = "已识别 Codex，但当前没有唯一的近期任务可安全绑定。请在目标聊天继续一次后重试。";
         return null;
       }
       this.#currentContext = { ...context, conversationId: thread.id };

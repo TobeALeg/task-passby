@@ -47,7 +47,26 @@ try {
   const conversationTitle = await pet.locator("#context-title").innerText();
 
   const foregroundBeforeClick = JSON.parse((await execFileAsync(join(root, "dist", "foreground-context"))).stdout.trim());
+  const collapsedPaper = await paperAction.evaluate((element) => element.getBoundingClientRect().toJSON());
   await paperAction.hover();
+  await pet.waitForFunction(() => {
+    const paper = document.querySelector("#paper-action");
+    const label = document.querySelector("#paper-label");
+    if (!paper || !label) return false;
+    return paper.getBoundingClientRect().width >= 60 && Number.parseFloat(getComputedStyle(label).opacity) >= 0.95;
+  }, undefined, { timeout: 2_000 });
+  const hoverMetrics = await pet.evaluate(() => ({
+    paper: document.querySelector("#paper-action")?.getBoundingClientRect().toJSON(),
+    face: document.querySelector(".face")?.getBoundingClientRect().toJSON(),
+    label: document.querySelector("#paper-label")?.textContent,
+    labelOpacity: getComputedStyle(document.querySelector("#paper-label")).opacity
+  }));
+  if (!hoverMetrics.paper || hoverMetrics.paper.width < collapsedPaper.width + 20 || hoverMetrics.label !== "记录") {
+    throw new Error(`便利贴悬浮后没有展开为“记录”：${JSON.stringify({ collapsedPaper, hoverMetrics })}`);
+  }
+  if (!hoverMetrics.face || hoverMetrics.paper.bottom > hoverMetrics.face.top) {
+    throw new Error(`展开后的便利贴遮住了小土豆的脸：${JSON.stringify(hoverMetrics)}`);
+  }
   await pet.screenshot({ path: petScreenshotPath });
   await paperAction.click();
   let dashboard = await pet.evaluate(() => window.workpet.getDashboard());
@@ -74,6 +93,7 @@ try {
     workId: dashboard.selectedWork.id,
     title: dashboard.selectedWork.title,
     conversationTitle,
+    hoverMetrics,
     binding: dashboard.selectedWork.bindings[0],
     screenshots: [petScreenshotPath, screenshotPath],
     database: join(testDirectory, "workpet.sqlite")

@@ -123,8 +123,10 @@ test("追加来源事件时按 externalId 去重并按 sequence 保持原始顺�
   core.close();
 });
 
-test("Extractor 可更新八字段但不能覆盖 USER_EDITED 内容", () => {
-  const core = createWorkCore({ databasePath: ":memory:" });
+test("Extractor 兼容旧数据库并且不覆盖历史 USER_EDITED 内容", () => {
+  const directory = mkdtempSync(join(tmpdir(), "workpet-legacy-edit-"));
+  const databasePath = join(directory, "workpet.sqlite");
+  let core = createWorkCore({ databasePath });
   const created = core.createWork({
     definition: { key: "general-work", name: "通用工作", version: 1 },
     executor: { type: "AGENT", name: "Codex" },
@@ -142,12 +144,22 @@ test("Extractor 可更新八字段但不能覆盖 USER_EDITED 内容", () => {
     pendingActions: [stateItem("pending-1", "接入 WorkBuddy")],
     artifacts: [stateItem("artifact-1", "需求说明")],
   });
-  const edited = core.editWorkStateItem(
-    created.instance.id,
-    "facts",
-    "fact-1",
-    "WorkBuddy 通过本地 Connector 提供 MCP",
-  );
+  core.close();
+
+  const legacyDatabase = new DatabaseSync(databasePath);
+  const record = legacyDatabase.prepare("SELECT state_json FROM work_records WHERE work_instance_id = ?").get(created.instance.id) as { state_json: string };
+  const legacyState = JSON.parse(record.state_json) as typeof extracted.state;
+  const legacyFact = legacyState.facts[0];
+  assert.ok(legacyFact);
+  legacyFact.originalText = legacyFact.text;
+  legacyFact.text = "WorkBuddy 通过本地 Connector 提供 MCP";
+  legacyFact.origin = "USER_EDITED";
+  legacyFact.editedAt = "2026-09-02T10:00:00.000Z";
+  legacyDatabase.prepare("UPDATE work_records SET state_json = ? WHERE work_instance_id = ?")
+    .run(JSON.stringify(legacyState), created.instance.id);
+  legacyDatabase.close();
+
+  core = createWorkCore({ databasePath });
   const patchedAgain = core.applyExtractorPatch(created.instance.id, {
     facts: [stateItem("fact-1", "模型试图覆盖的旧事实")],
   });
@@ -159,37 +171,46 @@ test("Extractor 可更新八字段但不能覆盖 USER_EDITED 内容", () => {
     Object.values(extracted.state).map((items) => items.length),
     [1, 1, 1, 1, 1, 1, 1, 1],
   );
-  assert.equal(edited.state.facts[0]?.origin, "USER_EDITED");
-  assert.ok(edited.state.facts[0]?.editedAt);
   assert.equal(
     patchedAgain.state.facts[0]?.text,
     "WorkBuddy 通过本地 Connector 提供 MCP",
   );
   assert.equal(patchedAgain.state.facts[0]?.origin, "USER_EDITED");
   assert.deepEqual(patchedAgain.state.facts[0]?.sourceMessageIds, ["message-1"]);
-  assert.equal(edited.state.facts[0]?.originalText, "WorkBuddy 支持 MCP");
+  assert.equal(patchedAgain.state.facts[0]?.originalText, "WorkBuddy 支持 MCP");
   assert.equal(newIdForOriginal.state.facts.length, 1);
 
   core.close();
 });
 
-test("删除的 Work State 条目留下 tombstone 并阻止 Extractor 重建", () => {
-  const core = createWorkCore({ databasePath: ":memory:" });
+test("Extractor 兼容旧数据库并阻止历史 tombstone 内容重建", () => {
+  const directory = mkdtempSync(join(tmpdir(), "workpet-legacy-tombstone-"));
+  const databasePath = join(directory, "workpet.sqlite");
+  let core = createWorkCore({ databasePath });
   const created = core.createWork({
     definition: { key: "general-work", name: "通用工作", version: 1 },
     executor: { type: "AGENT", name: "Codex" },
     environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
     source: { adapter: "codex", conversationId: "thread-tombstone" },
   });
-  core.applyExtractorPatch(created.instance.id, {
+  const extracted = core.applyExtractorPatch(created.instance.id, {
     pendingActions: [stateItem("pending-deleted", "读取 WorkBuddy 私有数据库")],
   });
+  core.close();
 
-  const deleted = core.deleteWorkStateItem(
-    created.instance.id,
-    "pendingActions",
-    "pending-deleted",
-  );
+  const legacyDatabase = new DatabaseSync(databasePath);
+  const legacyState = structuredClone(extracted.state);
+  legacyState.pendingActions = [];
+  legacyDatabase.prepare("UPDATE work_records SET state_json = ?, tombstones_json = ? WHERE work_instance_id = ?")
+    .run(JSON.stringify(legacyState), JSON.stringify([{
+      field: "pendingActions",
+      itemId: "pending-deleted",
+      normalizedText: "读取workbuddy私有数据库",
+      sourceMessageIds: ["message-1"]
+    }]), created.instance.id);
+  legacyDatabase.close();
+
+  core = createWorkCore({ databasePath });
   const patchedAgain = core.applyExtractorPatch(created.instance.id, {
     pendingActions: [
       stateItem("new-id-for-deleted-content", "读取 WorkBuddy 私有数据库。"),
@@ -197,7 +218,6 @@ test("删除的 Work State 条目留下 tombstone 并阻止 Extractor 重建", (
     ],
   });
 
-  assert.deepEqual(deleted.state.pendingActions, []);
   assert.deepEqual(patchedAgain.state.pendingActions.map((item) => item.text), ["通过公开 MCP 读取工作上下文"]);
 
   core.close();

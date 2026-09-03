@@ -205,17 +205,6 @@ export interface WorkCore {
     events: SourceEventInput[],
   ): { appendedCount: number; duplicateCount: number; work: WorkSnapshot };
   applyExtractorPatch(workInstanceId: string, patch: WorkStatePatch): WorkSnapshot;
-  editWorkStateItem(
-    workInstanceId: string,
-    field: WorkStateField,
-    itemId: string,
-    text: string,
-  ): WorkSnapshot;
-  deleteWorkStateItem(
-    workInstanceId: string,
-    field: WorkStateField,
-    itemId: string,
-  ): WorkSnapshot;
   completeWork(workInstanceId: string): WorkSnapshot;
   archiveWork(workInstanceId: string): WorkSnapshot;
   stopCapture(workInstanceId: string): WorkSnapshot;

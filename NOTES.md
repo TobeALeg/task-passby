@@ -52,10 +52,10 @@
 - Source Archive 在新 Prompt、回复或资料出现时增量归档，不调用模型。
 - Work State 只在首次创建、用户点击桌宠查看、发起交接或主动刷新时按需提炼；没有新历史时不调用模型。
 - 增量提炼使用“上一个 Work State + 新增消息”，不重复处理全部历史。
-- 用户可以在桌宠面板编辑或删除 Work State 内容；人工修改标记为 `USER_EDITED`，后续模型不得覆盖。
-- 用户删除的 Work State 内容保留删除标记，防止后续提炼从历史中重新创建。
+- Work State 在桌宠面板中只读展示；内容有误时回到来源对话修正，再刷新提炼结果。
+- Work Core 只读取并保护早期数据库已有的 `USER_EDITED` 和删除标记，不再暴露新增它们的写入口。
 - MVP UI 为常驻桌宠加点击展开的轻量侧边面板，不另做完整 Dashboard。
-- 侧边面板承载当前 Work、全部 Work、Work State 查看与编辑、刷新、分割、交接、完成和归档。
+- 侧边面板承载当前 Work、全部 Work、只读 Work State、刷新、分割、交接、完成和归档。
 - MVP 的 ArtifactRef 只保存原路径、角色、文件元数据和 Hash；在查看、刷新或交接时重新校验。
 - MVP 不监听文件变化、不自动保存文件副本，也不保留历史文件版本。
 - WorkInstance 进入 `COMPLETED` 后停止 Capture Binding 自动写入并结束当前 ExecutionEpisode。

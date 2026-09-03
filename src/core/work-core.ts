@@ -5,6 +5,7 @@ import { createSchema } from "./schema.js";
 import {
   WORK_STATE_FIELDS,
   type CaptureBinding,
+  type CaptureBindingSource,
   type CreateWorkInput,
   type ExecutionEpisode,
   type WorkCore,
@@ -131,18 +132,7 @@ export class SqliteWorkCore implements WorkCore {
           JSON.stringify(input.environment),
           createdAt,
         );
-      this.#database
-        .prepare(
-          "INSERT INTO capture_bindings (id, work_instance_id, episode_id, adapter, conversation_id, source_locator, status) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')",
-        )
-        .run(
-          bindingId,
-          instanceId,
-          episodeId,
-          input.source.adapter,
-          input.source.conversationId,
-          input.source.sourceLocator ?? null,
-        );
+      this.#insertCaptureBinding(bindingId, instanceId, episodeId, input.source);
       this.#database.exec("COMMIT");
 
       const definition: WorkDefinition = {
@@ -435,71 +425,6 @@ export class SqliteWorkCore implements WorkCore {
     return this.#requireWork(workInstanceId);
   }
 
-  editWorkStateItem(
-    workInstanceId: string,
-    field: WorkStateField,
-    itemId: string,
-    text: string,
-  ): WorkSnapshot {
-    const work = this.#requireWork(workInstanceId);
-    const nextState = structuredClone(work.state);
-    const item = nextState[field].find((candidate) => candidate.id === itemId);
-    if (!item) throw new Error("WORK_STATE_ITEM_NOT_FOUND");
-
-    item.originalText ??= item.text;
-    item.text = text;
-    item.origin = "USER_EDITED";
-    item.editedAt = this.#now();
-    this.#saveState(workInstanceId, nextState);
-    return this.#requireWork(workInstanceId);
-  }
-
-  deleteWorkStateItem(
-    workInstanceId: string,
-    field: WorkStateField,
-    itemId: string,
-  ): WorkSnapshot {
-    const work = this.#requireWork(workInstanceId);
-    const nextState = structuredClone(work.state);
-    const existingIndex = nextState[field].findIndex((item) => item.id === itemId);
-    if (existingIndex === -1) throw new Error("WORK_STATE_ITEM_NOT_FOUND");
-
-    const [deletedItem] = nextState[field].splice(existingIndex, 1);
-    const tombstones = this.#loadTombstones(workInstanceId);
-    if (
-      !tombstones.some(
-        (tombstone) => tombstone.field === field && tombstone.itemId === itemId,
-      )
-    ) {
-      tombstones.push({
-        field,
-        itemId,
-        normalizedText: normalizedStateText(deletedItem?.text ?? ""),
-        sourceMessageIds: [...(deletedItem?.sourceMessageIds ?? [])]
-      });
-    }
-
-    this.#database.exec("BEGIN IMMEDIATE");
-    try {
-      this.#database
-        .prepare(
-          `UPDATE work_records
-           SET state_json = ?, tombstones_json = ?
-           WHERE work_instance_id = ?`,
-        )
-        .run(JSON.stringify(nextState), JSON.stringify(tombstones), workInstanceId);
-      this.#database
-        .prepare("UPDATE work_instances SET updated_at = ? WHERE id = ?")
-        .run(this.#now(), workInstanceId);
-      this.#database.exec("COMMIT");
-    } catch (error) {
-      this.#database.exec("ROLLBACK");
-      throw error;
-    }
-
-    return this.#requireWork(workInstanceId);
-  }
-
   completeWork(workInstanceId: string): WorkSnapshot {
     const work = this.#requireWork(workInstanceId);
     if (work.instance.status !== "OPEN") throw new Error("WORK_NOT_OPEN");
@@ -599,20 +524,7 @@ export class SqliteWorkCore implements WorkCore {
           JSON.stringify(input.environment),
           startedAt,
         );
-      this.#database
-        .prepare(
-          `INSERT INTO capture_bindings
-           (id, work_instance_id, episode_id, adapter, conversation_id, source_locator, status)
-           VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')`,
-        )
-        .run(
-          bindingId,
-          workInstanceId,
-          episodeId,
-          input.source.adapter,
-          input.source.conversationId,
-          input.source.sourceLocator ?? null,
-        );
+      this.#insertCaptureBinding(bindingId, workInstanceId, episodeId, input.source);
       this.#database
         .prepare(
           `UPDATE work_instances SET status = 'OPEN', updated_at = ? WHERE id = ?`,
@@ -646,13 +558,7 @@ export class SqliteWorkCore implements WorkCore {
            VALUES (?, ?, ?, ?, 'ACTIVE', ?)`,
         )
         .run(episodeId, workInstanceId, JSON.stringify(input.executor), JSON.stringify(input.environment), startedAt);
-      this.#database
-        .prepare(
-          `INSERT INTO capture_bindings
-           (id, work_instance_id, episode_id, adapter, conversation_id, source_locator, status)
-           VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')`,
-        )
-        .run(bindingId, workInstanceId, episodeId, input.source.adapter, input.source.conversationId, input.source.sourceLocator ?? null);
+      this.#insertCaptureBinding(bindingId, workInstanceId, episodeId, input.source);
       this.#database
         .prepare("UPDATE work_instances SET updated_at = ? WHERE id = ?")
         .run(startedAt, workInstanceId);
@@ -849,6 +755,21 @@ export class SqliteWorkCore implements WorkCore {
       sourceLocator: (row.source_locator as string | null) ?? null,
       status: row.status as CaptureBinding["status"],
     };
+  }
+
+  #insertCaptureBinding(
+    bindingId: string,
+    workInstanceId: string,
+    episodeId: string,
+    source: CaptureBindingSource,
+  ): void {
+    this.#database
+      .prepare(
+        `INSERT INTO capture_bindings
+         (id, work_instance_id, episode_id, adapter, conversation_id, source_locator, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+      )
+      .run(bindingId, workInstanceId, episodeId, source.adapter, source.conversationId, source.sourceLocator ?? null);
   }
 
   #sourceEventFromRow(row: Row): SourceEvent {

@@ -46,7 +46,7 @@ Work Core ─────────────── Local Persistence
 
 ### Foreground Context Detector
 
-通过随应用构建的原生 macOS Helper 读取前台应用 bundle ID 与窗口标题，且不持久化 Helper 取得的原始窗口标题或内容，不依赖 `osascript` 的辅助功能授权。若桌宠点击时 WorkPet 面板本身仍是前台，Helper 只在确认前台 PID 是自己的父进程后，向后选择最近的受支持工作窗口；其他不受支持的前台应用不会被跳过。它先把应用归类为 Adapter（同时支持 Codex 的 `com.openai.codex` 与 DOVE 桌面容器），再由 Adapter 解析会话身份：Codex 有窗口标题时只接受与 App Server 应用任务标题的唯一精确匹配，匹配失败不得回退到最近任务；只有容器不提供窗口标题时，才在最近任务处于五分钟活动窗口且领先第二新任务至少五秒、并且存在应用生成标题时绑定。WorkBuddy 在用户明确发起记录后的短时等待窗口中，以该聊天下一次官方 Hook 提供的 `session_id` 加同一窗口标题校验后绑定；CaptureBinding 只持久化窗口标题的不可逆 SHA-256 短指纹作为 `sourceLocator`，用于应用重启后恢复“打开”状态，不保存标题明文。
+通过随应用构建的原生 macOS Helper 读取前台应用 bundle ID 与可用窗口标题，且不持久化 Helper 取得的原始窗口标题或内容，不依赖 `osascript` 的辅助功能授权。若桌宠点击时 WorkPet 面板本身仍是前台，Helper 只在确认前台 PID 是自己的父进程后，向后选择最近的受支持工作窗口；其他不受支持的前台应用不会被跳过。它先把应用归类为 Adapter（同时支持 Codex 的 `com.openai.codex` 与 DOVE 桌面容器），再由 Adapter 解析会话身份：Codex 有窗口标题时只接受与 App Server 应用任务标题的唯一精确匹配，匹配失败不得回退到最近任务；只有容器不提供窗口标题时，才在最近任务处于五分钟活动窗口且领先第二新任务至少五秒、并且存在应用生成标题时绑定。WorkBuddy 5.4.7 的 CoreGraphics 主窗口没有标题，因此前台识别只要求 bundle ID；用户点击记录后创建唯一的五分钟待确认 Binding，由下一条官方 `UserPromptSubmit` 的真实 `session_id` 完成绑定。若 Hook 原生提供窗口标题则额外校验并只持久化不可逆 SHA-256 `sourceLocator`；没有标题时保持 `sourceLocator = null`，不请求辅助功能权限。
 
 ### Codex Adapter
 

@@ -94,7 +94,9 @@ export class AppService {
     const { context } = await this.#resolveForegroundContext();
     const conversationTitle = context?.adapter === "codex"
       ? context.applicationTitle?.trim()
-      : context?.windowTitle?.trim();
+      : context
+        ? context.windowTitle?.trim() || "当前 WorkBuddy 对话"
+        : null;
     if (!context || !conversationTitle) {
       return { petState: this.#petState, currentConversation: null };
     }
@@ -165,14 +167,12 @@ export class AppService {
       this.#notice = "已从当前 Codex 对话开始记录，并默认提炼 Work State。";
       return this.dashboard(dashboard.selectedWorkId ?? undefined);
     }
-    if (!context.windowTitle?.trim()) {
-      throw new Error("未取得当前 WorkBuddy 窗口标题。请在 macOS“隐私与安全性 → 辅助功能”中允许 WorkPet 后重试。");
-    }
+    const windowTitle = context.windowTitle?.trim() || null;
     for (const openWork of this.#core.listWorks("OPEN")) {
       const conversationId = openWork.activeBinding?.adapter === "workbuddy" ? openWork.activeBinding.conversationId : "";
       if (isPendingWorkBuddyConversationId(conversationId)) this.#core.stopCapture(openWork.instance.id);
     }
-    const waitingConversationId = createPendingWorkBuddyConversationId(context.windowTitle);
+    const waitingConversationId = createPendingWorkBuddyConversationId(windowTitle);
     const work = this.#core.createWork({
       definition: { key: "general-work", name: "通用工作", version: 1 },
       executor: { type: "AGENT", name: "WorkBuddy" },
@@ -180,13 +180,13 @@ export class AppService {
       source: {
         adapter: "workbuddy",
         conversationId: waitingConversationId,
-        sourceLocator: createWorkBuddyWindowLocator(context.windowTitle)
+        ...(windowTitle ? { sourceLocator: createWorkBuddyWindowLocator(windowTitle) } : {})
       }
     });
     this.#selectedWorkId = work.instance.id;
     if (this.#cloudExtractionIsEnabled()) this.#cloudExtractionWorkIds.add(work.instance.id);
     this.#petState = "awake";
-    this.#notice = "已准备记录当前 WorkBuddy 聊天；请在该聊天提交下一条消息，WorkPet 会用真实 session ID 自动绑定并归档完整可见 transcript。";
+    this.#notice = "已准备记录当前 WorkBuddy 对话；请在该对话提交下一条消息，WorkPet 会用真实 session ID 自动绑定并归档完整可见 transcript。";
     return this.dashboard(work.instance.id);
   }
 
@@ -532,7 +532,13 @@ export class AppService {
     if (context.adapter === "codex" && context.conversationId) {
       return this.#core.findWorkByBinding("codex", context.conversationId)?.instance.id ?? null;
     }
-    if (context.adapter !== "workbuddy" || !context.windowTitle?.trim()) return null;
+    if (context.adapter !== "workbuddy") return null;
+    if (!context.windowTitle?.trim()) {
+      const activeWorks = this.#core.listWorks("OPEN").filter(
+        (work) => work.activeBinding?.adapter === "workbuddy"
+      );
+      return activeWorks.length === 1 ? activeWorks[0]?.instance.id ?? null : null;
+    }
     const pending = this.#core.listWorks("OPEN").find((work) => {
       const conversationId = work.activeBinding?.adapter === "workbuddy" ? work.activeBinding.conversationId : "";
       return matchesPendingWorkBuddyWindow(conversationId, context.windowTitle);
@@ -550,6 +556,7 @@ export class AppService {
     if (context.adapter === "codex") {
       return Boolean(context.conversationId && binding.conversationId === context.conversationId);
     }
+    if (!context.windowTitle?.trim()) return true;
     return Boolean(
       context.windowTitle?.trim()
       && binding.sourceLocator === createWorkBuddyWindowLocator(context.windowTitle)

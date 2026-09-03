@@ -23,7 +23,7 @@ WorkPet 每次启动都会静默、幂等地安装 Codex Hook 与 WorkBuddy 用�
 
 - Codex 优先通过前台窗口标题与 App Server 中唯一的任务标题匹配当前任务；容器不提供窗口标题时，只接受唯一的近期活动任务。
 - Codex 的工作目标直接使用 App Server 已总结的任务标题；首条 Prompt 或报错正文只进入来源档案，不会再充当目标。
-- WorkBuddy 会在你点击桌宠后，等待该聊天的下一次提交，从官方 Hook 取得真实 `session_id`，并用同一窗口标题校验后绑定；不会用最近会话猜测当前聊天。
+- WorkBuddy 5.4.7 不向 CoreGraphics 暴露主窗口标题；WorkPet 仍会识别前台应用并显示“当前 WorkBuddy 对话”。点击桌宠后，它等待下一次真实提交，从官方 Hook 取得 `session_id` 后绑定；若 Hook 同时提供标题则追加指纹校验，不要求辅助功能权限。
 
 WorkPet 默认提炼 Work State，且默认使用本地规则，不会外发数据。只有本机同时配置 `WORKPET_LLM_API_KEY` 和 `WORKPET_CLOUD_EXTRACTION=true`，才会把必要的可见对话发送给所配置的 OpenAI-compatible 模型。
 
@@ -46,6 +46,8 @@ npm run qa:desktop-roundtrip:list
 ```
 
 `qa:current-context` 使用临时数据库启动真实 Electron 应用，强制让 WorkPet 面板保持前台，再通过便利贴识别并记录真实 Codex 任务，同时检查应用标题气泡、记录后“打开”和只读 Work State。`qa:package` 验证打包后的真实 Electron 窗口、桌宠入口与面板基本布局。`qa:desktop-roundtrip:list` 只读取本机 Codex 任务并列出哪些任务满足“至少二十轮用户输入、两份不同附件”，不向 WorkBuddy 发送内容。
+
+`qa:workbuddy-context` 要求 WorkBuddy 已启动且位于 WorkPet 后方，使用临时数据库验证即使系统窗口标题为空，桌宠仍显示通用 WorkBuddy 气泡，并能建立等待下一条真实提交确认的绑定；脚本不会向 WorkBuddy 发送消息。
 
 如果当前验收任务只有一份附件，可把无敏感信息的 [第二验收资料](test/fixtures/desktop-acceptance-second-artifact.md) 作为新附件发到该 Codex 任务，再重新运行候选扫描。
 

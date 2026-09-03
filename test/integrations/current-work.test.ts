@@ -302,6 +302,36 @@ test("从 WorkBuddy 当前窗口发起记录时等待下一次真实提交来绑
   service.close();
 });
 
+test("WorkBuddy 不暴露窗口标题时仍识别前台应用，并用下一条真实提交绑定会话", async () => {
+  const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
+  const foreground = { async detect() { return { bundleId: "com.tencent.workbuddy.mac", name: "WorkBuddy", windowTitle: "" }; } };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(emptyThread),
+    foreground,
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+
+  assert.deepEqual((await service.getPetView()).currentConversation, {
+    adapter: "workbuddy", applicationName: "WorkBuddy", title: "当前 WorkBuddy 对话", workId: null,
+    workStatus: null, isRecording: false
+  });
+  const pending = await service.recordCurrentContext();
+  assert.ok(pending.selectedWorkId);
+  assert.match(pending.selectedWork?.bindings[0]?.conversationId ?? "", /^waiting:/u);
+
+  const hook = await service.syncWorkBuddyHook({
+    hook_event_name: "UserPromptSubmit",
+    session_id: "titleless-workbuddy-session",
+    prompt: "继续处理这个工作"
+  });
+  assert.equal(hook.accepted, true);
+  const after = await service.getPetView();
+  assert.equal(after.currentConversation?.workId, pending.selectedWorkId);
+  assert.equal(after.currentConversation?.isRecording, true);
+  service.close();
+});
+
 test("WorkBuddy 取得真实 session 后默认生成 Work State", async () => {
   const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
   const service = new AppService({ databasePath: ":memory:", codex: new FakeCodexSource(emptyThread), launcher: { async openNewConversation() { return "opened"; } } });

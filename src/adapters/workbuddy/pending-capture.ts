@@ -10,8 +10,9 @@ export function createWorkBuddyWindowLocator(windowTitle: string): string {
   return `workbuddy-window:${fingerprint(windowTitle)}`;
 }
 
-export function createPendingWorkBuddyConversationId(windowTitle: string, now = Date.now()): string {
-  return `${WAITING_PREFIX}${now + 5 * 60_000}:${randomUUID()}:${fingerprint(windowTitle)}`;
+export function createPendingWorkBuddyConversationId(windowTitle: string | null, now = Date.now()): string {
+  const windowFingerprint = windowTitle?.trim() ? `:${fingerprint(windowTitle)}` : "";
+  return `${WAITING_PREFIX}${now + 5 * 60_000}:${randomUUID()}${windowFingerprint}`;
 }
 
 export function isPendingWorkBuddyConversationId(conversationId: string, now = Date.now()): boolean {
@@ -25,8 +26,7 @@ export function matchesPendingWorkBuddyWindow(
   now = Date.now()
 ): boolean {
   const parts = conversationId.split(":");
-  return isPendingWorkBuddyConversationId(conversationId, now)
-    && typeof windowTitle === "string"
-    && parts.length === 4
-    && parts[3] === fingerprint(windowTitle);
+  if (!isPendingWorkBuddyConversationId(conversationId, now)) return false;
+  if (parts.length === 3) return true;
+  return typeof windowTitle === "string" && parts.length === 4 && parts[3] === fingerprint(windowTitle);
 }

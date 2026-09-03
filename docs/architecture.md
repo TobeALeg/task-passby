@@ -42,7 +42,7 @@ Work Core ─────────────── Local Persistence
 
 ### Desktop Pet Interface
 
-只调用 Work Core Interface，不承担领域判断。PetView 轮询只返回受支持前台聊天的 Adapter、应用生成标题及已绑定 WorkInstance，不写入 notice 或持久数据；未识别到唯一聊天时隐藏气泡并禁用便利贴操作。用户点击便利贴后重新检测并创建记录，避免使用可能过期的预览缓存；便利贴在已有绑定时改为打开对应工作。扩大后的透明桌宠窗口通过鼠标穿透避免遮挡来源应用。侧边面板只负责 Work 列表、只读 Work State、重新整理、交接、完成、归档和永久删除。MVP 保留 macOS Dock 入口；单实例锁拦截重复进程后，重复启动事件必须恢复并聚焦已有窗口，不能静默退出。
+只调用 Work Core Interface，不承担领域判断。PetView 轮询只返回受支持前台聊天的 Adapter、App Server 应用总结标题及已绑定 WorkInstance，不写入 notice 或持久数据；Helper 原始窗口标题只用于识别，二者在 Context 类型中分开表达。未识别到唯一聊天时隐藏气泡并禁用便利贴操作。用户点击便利贴后重新检测并创建记录，避免使用可能过期的预览缓存；便利贴在已有绑定时改为打开对应工作。扩大后的透明桌宠窗口通过鼠标穿透避免遮挡来源应用。侧边面板只负责 Work 列表、只读 Work State、重新整理、交接、完成、归档和永久删除；面板读取已有工作时会幂等同步当前 Codex 聊天的应用总结标题，用于纠正早期版本以首条 Prompt 生成的目标。MVP 保留 macOS Dock 入口；单实例锁拦截重复进程后，重复启动事件必须恢复并聚焦已有窗口，不能静默退出。
 
 ### Foreground Context Detector
 
@@ -50,7 +50,7 @@ Work Core ─────────────── Local Persistence
 
 ### Codex Adapter
 
-位于外部应用 seam。首选通过 Codex App Server 获取任务身份、应用生成的 `thread.name`、完整历史、附件和增量事件，并转换成 Work Core 接受的统一 Source Event。整段对话创建 Work 时，`thread.name` 作为 `conversation.title` 来源事件进入 Source Archive，并成为 `SYSTEM_INFERRED` 的唯一初始目标；首条 Prompt 仍被归档，但不再承担工作命名。旧版整段对话记录在用户再次点击当前聊天的“打开”时执行同一幂等纠正；从指定消息拆出的 Work 不继承整段会话标题。
+位于外部应用 seam。首选通过 Codex App Server 获取任务身份、应用生成的 `thread.name`、完整历史、附件和增量事件，并转换成 Work Core 接受的统一 Source Event。整段对话创建 Work 时，`thread.name` 作为 `conversation.title` 来源事件进入 Source Archive，并成为 `SYSTEM_INFERRED` 的唯一初始目标；首条 Prompt 仍被归档，但不再承担工作命名。若 App Server 尚未生成 `thread.name`，创建动作明确失败，不得回退到 preview、首条 Prompt 或 Helper 窗口标题。旧版整段对话记录在面板读取或用户点击当前聊天的“打开”时执行同一幂等纠正；从指定消息拆出的 Work 不继承整段会话标题。
 
 ### WorkBuddy Adapter
 

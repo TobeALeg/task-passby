@@ -13,7 +13,7 @@ class FakeCodexSource implements CodexSource {
   async listRecentThreads() {
     return [{ id: this.thread.threadId, title: this.thread.title, preview: "", cwd: this.thread.cwd, updatedAt: this.thread.updatedAt, status: "working" }];
   }
-  async readThread() { return this.thread; }
+  async readThread() { return { ...this.thread, applicationTitle: this.thread.applicationTitle ?? this.thread.title }; }
   close() {}
 }
 
@@ -61,10 +61,25 @@ test("再次识别当前 Codex 聊天时用应用总结标题纠正旧记录的�
     foreground: { async detect() { return { bundleId: "com.openai.codex", name: "ChatGPT", windowTitle: "修复当前聊天识别失败 — Codex" }; } },
     launcher: { async openNewConversation() { return "opened"; } }
   });
-  const legacy = await service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false });
-  assert.equal(legacy.selectedWork?.title, "Error occurred in handler for 'work:create-from-current-context'");
+  let legacy = service.core().createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    executor: { type: "AGENT", name: "Codex" },
+    environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
+    source: { adapter: "codex", conversationId: thread.threadId }
+  });
+  legacy = service.core().appendSourceEvents(legacy.instance.id, [{
+    externalId: "legacy-prompt", sequence: 1, kind: "user.prompt",
+    content: "Error occurred in handler for 'work:create-from-current-context'",
+    timestamp: "2026-09-03T01:00:00.000Z", executorType: "HUMAN", environmentType: "CODEX_DESKTOP",
+    metadata: {}, artifactRefs: []
+  }]).work;
+  legacy = service.core().applyExtractorPatch(legacy.instance.id, { objective: [{
+    id: "legacy-objective", text: "Error occurred in handler for 'work:create-from-current-context'",
+    origin: "USER_STATED", sourceMessageIds: ["legacy-prompt"]
+  }] });
+  assert.equal(service.dashboard(legacy.instance.id).selectedWork?.title, "Error occurred in handler for 'work:create-from-current-context'");
 
-  const corrected = await service.recordCurrentContext();
+  const corrected = await service.dashboardWithVerification(legacy.instance.id);
   assert.equal(corrected.selectedWork?.title, "修复当前聊天识别失败");
   assert.equal(corrected.selectedWork?.state.objective[0]?.origin, "SYSTEM_INFERRED");
   service.close();
@@ -153,6 +168,11 @@ test("Codex 没有应用生成标题时不把首次消息 preview 显示成气�
   });
 
   assert.equal((await service.getPetView()).currentConversation, null);
+  await assert.rejects(
+    service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false }),
+    /尚未生成应用任务标题/u
+  );
+  assert.equal(service.dashboard().works.length, 0);
   service.close();
 });
 
@@ -187,7 +207,7 @@ test("从已识别的当前 Codex 对话创建工作时默认启用提炼，不�
     adapter: "codex", environmentName: "Codex Desktop", applicationName: "ChatGPT", windowTitle: "当前客户提案 — Codex", conversationId: thread.threadId
   });
 
-  assert.equal(result.selectedWork?.title, "当前客户提案 — Codex");
+  assert.equal(result.selectedWork?.title, "当前客户提案");
   assert.match(result.notice ?? "", /当前 Codex 对话/u);
   service.close();
 });

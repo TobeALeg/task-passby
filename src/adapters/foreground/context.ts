@@ -20,6 +20,7 @@ export interface CurrentApplicationContext {
   applicationName: string;
   windowTitle: string | null;
   conversationId?: string;
+  applicationTitle?: string;
 }
 
 export interface ForegroundApplicationDetector {

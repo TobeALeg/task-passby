@@ -52,6 +52,7 @@ test("Codex Adapter 归档可见历史并丢弃隐藏推理正文", () => {
 
   assert.equal(result.threadId, "thread-1");
   assert.equal(result.title, "准备客户提案");
+  assert.equal(result.applicationTitle, "准备客户提案");
   assert.equal(result.events.length, 5);
   assert.deepEqual(
     result.events.map((event) => event.kind),

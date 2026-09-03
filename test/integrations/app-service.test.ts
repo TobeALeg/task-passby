@@ -11,7 +11,7 @@ class FakeCodexSource implements CodexSource {
   readonly thread: NormalizedThread;
   constructor(thread: NormalizedThread) { this.thread = thread; }
   async listRecentThreads() { return []; }
-  async readThread() { return this.thread; }
+  async readThread() { return { ...this.thread, applicationTitle: this.thread.applicationTitle ?? this.thread.title }; }
   close() {}
 }
 
@@ -57,8 +57,9 @@ test("刷新工作时复核已有 ArtifactRef 并记录 changed 事件", async (
   const created = await service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false });
   const workId = created.selectedWorkId;
   assert.ok(workId);
-  assert.equal(created.selectedWork?.state.objective[0]?.text, "处理这份资料");
-  assert.deepEqual(created.selectedWork?.state.objective[0]?.sourceMessageIds, ["prompt-1"]);
+  assert.equal(created.selectedWork?.state.objective[0]?.text, "处理资料");
+  assert.equal(created.selectedWork?.state.objective[0]?.origin, "SYSTEM_INFERRED");
+  assert.match(created.selectedWork?.state.objective[0]?.sourceMessageIds[0] ?? "", /^codex-conversation-title:artifact-thread:/u);
   await writeFile(artifactPath, "v2 changed");
 
   await service.refreshWork(workId);

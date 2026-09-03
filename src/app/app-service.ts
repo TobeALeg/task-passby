@@ -92,7 +92,10 @@ export class AppService {
 
   async getPetView(): Promise<PetView> {
     const { context } = await this.#resolveForegroundContext();
-    if (!context?.windowTitle?.trim()) {
+    const conversationTitle = context?.adapter === "codex"
+      ? context.applicationTitle?.trim()
+      : context?.windowTitle?.trim();
+    if (!context || !conversationTitle) {
       return { petState: this.#petState, currentConversation: null };
     }
     const workId = this.#workIdForContext(context);
@@ -101,7 +104,7 @@ export class AppService {
       currentConversation: {
         adapter: context.adapter,
         applicationName: context.adapter === "codex" ? "Codex" : "WorkBuddy",
-        title: context.windowTitle,
+        title: conversationTitle,
         workId
       }
     };
@@ -128,7 +131,7 @@ export class AppService {
         };
       }
       return {
-        context: { ...context, windowTitle: thread.title, conversationId: thread.id },
+        context: { ...context, applicationTitle: thread.title, conversationId: thread.id },
         notice: `已识别当前 Codex 任务：${thread.title}`
       };
     }
@@ -143,8 +146,8 @@ export class AppService {
     if (!context) return this.dashboard();
     const existingWorkId = this.#workIdForContext(context);
     if (existingWorkId) {
-      if (context.adapter === "codex" && context.conversationId && context.windowTitle) {
-        this.#synchronizeCodexObjective(existingWorkId, context.conversationId, context.windowTitle);
+      if (context.adapter === "codex" && context.conversationId && context.applicationTitle) {
+        this.#synchronizeCodexObjective(existingWorkId, context.conversationId, context.applicationTitle);
       }
       this.#notice = "已打开当前对话对应的工作记录。";
       return this.dashboard(existingWorkId);
@@ -155,10 +158,7 @@ export class AppService {
   async createWorkFromCurrentContext(context: CurrentApplicationContext): Promise<DashboardView> {
     if (context.adapter === "codex") {
       if (!context.conversationId) throw new Error("当前 Codex 聊天尚未确认，不能用最近任务代替。");
-      const dashboard = await this.#createWorkFromCodex(
-        { threadId: context.conversationId },
-        context.windowTitle?.trim() || null
-      );
+      const dashboard = await this.createWorkFromCodex({ threadId: context.conversationId });
       this.#notice = "已从当前 Codex 对话开始记录，并默认提炼 Work State。";
       return this.dashboard(dashboard.selectedWorkId ?? undefined);
     }
@@ -213,13 +213,6 @@ export class AppService {
   }
 
   async createWorkFromCodex(request: CreateWorkRequest): Promise<DashboardView> {
-    return this.#createWorkFromCodex(request);
-  }
-
-  async #createWorkFromCodex(
-    request: CreateWorkRequest,
-    resolvedApplicationTitle: string | null = null
-  ): Promise<DashboardView> {
     const existing = this.#core.findWorkByBinding("codex", request.threadId);
     if (existing) {
       this.#selectedWorkId = existing.instance.id;
@@ -228,26 +221,30 @@ export class AppService {
     }
     this.#petState = "carrying";
     const thread = await this.#codex.readThread(request.threadId);
-    const applicationTitle = resolvedApplicationTitle ?? thread.applicationTitle?.trim() ?? null;
+    const applicationTitle = thread.applicationTitle?.trim();
+    if (!applicationTitle) {
+      this.#petState = "sleeping";
+      throw new Error("Codex 尚未生成应用任务标题，不能用首条消息代替工作目标。");
+    }
     let work = this.#core.createWork({
       definition: { key: "general-work", name: "通用工作", version: 1 },
       executor: { type: "AGENT", name: "Codex" },
       environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
       source: { adapter: "codex", conversationId: thread.threadId }
     });
-    const titleEvent = applicationTitle ? this.#codexTitleEvent(thread.threadId, applicationTitle, thread.updatedAt) : null;
+    const titleEvent = this.#codexTitleEvent(thread.threadId, applicationTitle, thread.updatedAt);
     const inputs = [
-      ...(titleEvent ? [titleEvent] : []),
+      titleEvent,
       ...this.#sourceInputs(thread.events)
     ];
     work = this.#core.appendSourceEvents(work.instance.id, inputs).work;
-    if (titleEvent) work = this.#applyCodexObjective(work, titleEvent);
+    work = this.#applyCodexObjective(work, titleEvent);
     work = await this.#artifacts.attach(work, thread.events);
     const allowCloudExtraction = request.allowCloudExtraction ?? this.#cloudExtractionIsEnabled();
     const extractor = this.#extractor(allowCloudExtraction);
     if (allowCloudExtraction) this.#cloudExtractionWorkIds.add(work.instance.id);
     const patch = await extractor.extract({ previousState: work.state, events: work.sourceArchive });
-    if (titleEvent) patch.objective = [];
+    patch.objective = [];
     work = this.#core.applyExtractorPatch(work.instance.id, patch);
     this.#selectedWorkId = work.instance.id;
     this.#petState = "awake";
@@ -399,6 +396,13 @@ export class AppService {
 
   async dashboardWithVerification(workId?: string): Promise<DashboardView> {
     if (workId) this.#selectedWorkId = workId;
+    const { context } = await this.#resolveForegroundContext();
+    if (context?.adapter === "codex" && context.conversationId && context.applicationTitle) {
+      const currentWorkId = this.#workIdForContext(context);
+      if (currentWorkId) {
+        this.#synchronizeCodexObjective(currentWorkId, context.conversationId, context.applicationTitle);
+      }
+    }
     if (this.#selectedWorkId) {
       const selected = this.#core.getWork(this.#selectedWorkId);
       if (selected?.artifactRefs.length) await this.#artifacts.verify(selected);

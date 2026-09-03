@@ -6,6 +6,10 @@ function fingerprint(windowTitle: string): string {
   return createHash("sha256").update(windowTitle.trim().toLocaleLowerCase("zh-CN")).digest("hex").slice(0, 20);
 }
 
+export function createWorkBuddyWindowLocator(windowTitle: string): string {
+  return `workbuddy-window:${fingerprint(windowTitle)}`;
+}
+
 export function createPendingWorkBuddyConversationId(windowTitle: string, now = Date.now()): string {
   return `${WAITING_PREFIX}${now + 5 * 60_000}:${randomUUID()}:${fingerprint(windowTitle)}`;
 }

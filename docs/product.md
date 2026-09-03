@@ -20,6 +20,7 @@
 - 原始档案与结构化 Work State 分离；
 - 每条结构化信息必须可追溯到来源；
 - 自动提取结果是可追溯的只读投影；用户回到来源对话修正事实后，再触发重新整理；
+- 前台窗口标题不落盘；WorkBuddy 仅保存不可逆标题指纹，用于重启后恢复会话与工作的关联；
 - 持久数据只存本机，云端提炼需要首次明确授权；
 - 完整记录不等于把完整聊天塞进目标 Agent；
 - WorkDefinition、WorkInstance、WorkRecord、Executor 和 ExecutionEpisode 必须分离；

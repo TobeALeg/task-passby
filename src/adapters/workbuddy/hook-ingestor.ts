@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { ArtifactTracker } from "../../artifacts/tracker.js";
 import type { SourceEventInput, WorkCore, WorkSnapshot } from "../../core/index.js";
 import { parseWorkBuddyTranscript } from "./transcript.js";
-import { matchesPendingWorkBuddyWindow } from "./pending-capture.js";
+import { createWorkBuddyWindowLocator, matchesPendingWorkBuddyWindow } from "./pending-capture.js";
 
 type HookPayload = Record<string, unknown>;
 
@@ -43,9 +43,13 @@ export class WorkBuddyHookIngestor {
     const eventName = stringField(payload, "hook_event_name");
     const sessionId = stringField(payload, "session_id");
     const windowTitle = stringField(payload, "workpet_window_title");
+    const sourceLocator = windowTitle?.trim() ? createWorkBuddyWindowLocator(windowTitle) : undefined;
     if (!eventName || !sessionId) return { accepted: false, appendedCount: 0, reason: "缺少 Hook 身份字段" };
 
     let work = this.#core.findWorkByBinding("workbuddy", sessionId);
+    if (work?.activeBinding && sourceLocator && work.activeBinding.sourceLocator !== sourceLocator) {
+      work = this.#core.bindConversation(work.instance.id, "workbuddy", sessionId, sessionId, sourceLocator);
+    }
     const prompt = stringField(payload, "prompt");
     if (!work && prompt) {
       const workId = marker(prompt);
@@ -54,13 +58,13 @@ export class WorkBuddyHookIngestor {
         ? candidate.activeBinding
         : null;
       if (candidate && pending) {
-        work = this.#core.bindConversation(candidate.instance.id, "workbuddy", pending.conversationId, sessionId);
+        work = this.#core.bindConversation(candidate.instance.id, "workbuddy", pending.conversationId, sessionId, sourceLocator);
       }
       if (!work && eventName === "UserPromptSubmit") {
         const waiting = waitingBinding(this.#core, windowTitle);
         const pending = waiting?.activeBinding;
         if (waiting && pending) {
-          work = this.#core.bindConversation(waiting.instance.id, "workbuddy", pending.conversationId, sessionId);
+          work = this.#core.bindConversation(waiting.instance.id, "workbuddy", pending.conversationId, sessionId, sourceLocator);
         }
       }
     }

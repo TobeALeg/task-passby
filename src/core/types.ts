@@ -84,8 +84,13 @@ export interface CaptureBinding {
   episodeId: string;
   adapter: string;
   conversationId: string;
+  sourceLocator: string | null;
   status: BindingStatus;
 }
+
+export type CaptureBindingSource = Pick<CaptureBinding, "adapter" | "conversationId"> & {
+  sourceLocator?: string;
+};
 
 export interface ArtifactRef {
   id: string;
@@ -170,13 +175,13 @@ export interface CreateWorkInput {
   objectiveSourceMessageIds?: string[];
   executor: Executor;
   environment: ExecutionEnvironment;
-  source: Pick<CaptureBinding, "adapter" | "conversationId">;
+  source: CaptureBindingSource;
 }
 
 export interface ResumeWorkInput {
   executor: Executor;
   environment: ExecutionEnvironment;
-  source: Pick<CaptureBinding, "adapter" | "conversationId">;
+  source: CaptureBindingSource;
 }
 
 export interface StartExecutionEpisodeInput extends ResumeWorkInput {
@@ -194,6 +199,7 @@ export interface WorkCore {
   getWork(workInstanceId: string): WorkSnapshot | null;
   listWorks(status?: WorkStatus): WorkSnapshot[];
   findWorkByBinding(adapter: string, conversationId: string): WorkSnapshot | null;
+  findWorkBySourceLocator(adapter: string, sourceLocator: string): WorkSnapshot | null;
   appendSourceEvents(
     workInstanceId: string,
     events: SourceEventInput[],
@@ -223,6 +229,7 @@ export interface WorkCore {
     adapter: string,
     previousConversationId: string,
     conversationId: string,
+    sourceLocator?: string,
   ): WorkSnapshot;
   createHandoffPackage(workInstanceId: string): HandoffPackage;
   getLatestHandoffPackage(workInstanceId: string): HandoffPackage | null;

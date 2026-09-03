@@ -43,6 +43,7 @@ export function createSchema(database: DatabaseSync): void {
       episode_id TEXT NOT NULL REFERENCES execution_episodes(id) ON DELETE CASCADE,
       adapter TEXT NOT NULL,
       conversation_id TEXT NOT NULL,
+      source_locator TEXT,
       status TEXT NOT NULL CHECK(status IN ('ACTIVE', 'INACTIVE'))
     ) STRICT;
 
@@ -88,5 +89,13 @@ export function createSchema(database: DatabaseSync): void {
       generated_at TEXT NOT NULL,
       payload_json TEXT NOT NULL
     ) STRICT;
+  `);
+  const bindingColumns = database.prepare("PRAGMA table_info(capture_bindings)").all() as Array<{ name: string }>;
+  if (!bindingColumns.some((column) => column.name === "source_locator")) {
+    database.exec("ALTER TABLE capture_bindings ADD COLUMN source_locator TEXT");
+  }
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS capture_bindings_source_locator
+      ON capture_bindings(adapter, source_locator);
   `);
 }

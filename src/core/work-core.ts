@@ -133,7 +133,7 @@ export class SqliteWorkCore implements WorkCore {
         );
       this.#database
         .prepare(
-          "INSERT INTO capture_bindings (id, work_instance_id, episode_id, adapter, conversation_id, status) VALUES (?, ?, ?, ?, ?, 'ACTIVE')",
+          "INSERT INTO capture_bindings (id, work_instance_id, episode_id, adapter, conversation_id, source_locator, status) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')",
         )
         .run(
           bindingId,
@@ -141,6 +141,7 @@ export class SqliteWorkCore implements WorkCore {
           episodeId,
           input.source.adapter,
           input.source.conversationId,
+          input.source.sourceLocator ?? null,
         );
       this.#database.exec("COMMIT");
 
@@ -171,6 +172,7 @@ export class SqliteWorkCore implements WorkCore {
         episodeId,
         adapter: input.source.adapter,
         conversationId: input.source.conversationId,
+        sourceLocator: input.source.sourceLocator ?? null,
         status: "ACTIVE",
       };
 
@@ -220,7 +222,7 @@ export class SqliteWorkCore implements WorkCore {
       .map((row) => this.#episodeFromRow(row as Row));
     const bindings = this.#database
       .prepare(
-        `SELECT id, work_instance_id, episode_id, adapter, conversation_id, status
+        `SELECT id, work_instance_id, episode_id, adapter, conversation_id, source_locator, status
          FROM capture_bindings
          WHERE work_instance_id = ?
          ORDER BY rowid`,
@@ -311,6 +313,18 @@ export class SqliteWorkCore implements WorkCore {
          ORDER BY rowid DESC LIMIT 1`,
       )
       .get(adapter, conversationId) as Row | undefined;
+    return row ? this.getWork(row.work_instance_id as string) : null;
+  }
+
+  findWorkBySourceLocator(adapter: string, sourceLocator: string): WorkSnapshot | null {
+    const row = this.#database
+      .prepare(
+        `SELECT work_instance_id
+         FROM capture_bindings
+         WHERE adapter = ? AND source_locator = ?
+         ORDER BY (status = 'ACTIVE') DESC, rowid DESC LIMIT 1`,
+      )
+      .get(adapter, sourceLocator) as Row | undefined;
     return row ? this.getWork(row.work_instance_id as string) : null;
   }
 
@@ -588,8 +602,8 @@ export class SqliteWorkCore implements WorkCore {
       this.#database
         .prepare(
           `INSERT INTO capture_bindings
-           (id, work_instance_id, episode_id, adapter, conversation_id, status)
-           VALUES (?, ?, ?, ?, ?, 'ACTIVE')`,
+           (id, work_instance_id, episode_id, adapter, conversation_id, source_locator, status)
+           VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')`,
         )
         .run(
           bindingId,
@@ -597,6 +611,7 @@ export class SqliteWorkCore implements WorkCore {
           episodeId,
           input.source.adapter,
           input.source.conversationId,
+          input.source.sourceLocator ?? null,
         );
       this.#database
         .prepare(
@@ -634,10 +649,10 @@ export class SqliteWorkCore implements WorkCore {
       this.#database
         .prepare(
           `INSERT INTO capture_bindings
-           (id, work_instance_id, episode_id, adapter, conversation_id, status)
-           VALUES (?, ?, ?, ?, ?, 'ACTIVE')`,
+           (id, work_instance_id, episode_id, adapter, conversation_id, source_locator, status)
+           VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')`,
         )
-        .run(bindingId, workInstanceId, episodeId, input.source.adapter, input.source.conversationId);
+        .run(bindingId, workInstanceId, episodeId, input.source.adapter, input.source.conversationId, input.source.sourceLocator ?? null);
       this.#database
         .prepare("UPDATE work_instances SET updated_at = ? WHERE id = ?")
         .run(startedAt, workInstanceId);
@@ -654,14 +669,15 @@ export class SqliteWorkCore implements WorkCore {
     adapter: string,
     previousConversationId: string,
     conversationId: string,
+    sourceLocator?: string,
   ): WorkSnapshot {
     const result = this.#database
       .prepare(
         `UPDATE capture_bindings
-         SET conversation_id = ?
+         SET conversation_id = ?, source_locator = COALESCE(?, source_locator)
          WHERE work_instance_id = ? AND adapter = ? AND conversation_id = ? AND status = 'ACTIVE'`,
       )
-      .run(conversationId, workInstanceId, adapter, previousConversationId);
+      .run(conversationId, sourceLocator ?? null, workInstanceId, adapter, previousConversationId);
     if (result.changes !== 1) throw new Error("ACTIVE_BINDING_NOT_FOUND");
     return this.#requireWork(workInstanceId);
   }
@@ -830,6 +846,7 @@ export class SqliteWorkCore implements WorkCore {
       episodeId: row.episode_id as string,
       adapter: row.adapter as string,
       conversationId: row.conversation_id as string,
+      sourceLocator: (row.source_locator as string | null) ?? null,
       status: row.status as CaptureBinding["status"],
     };
   }

@@ -73,7 +73,7 @@ export interface PetView {
 
 export interface CodexThreadView {
   id: string;
-  title: string;
+  title: string | null;
   preview: string;
   cwd: string;
   updatedAt: string;

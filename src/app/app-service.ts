@@ -14,6 +14,7 @@ import type { NormalizedSourceEvent, NormalizedThread } from "../adapters/types.
 import { buildWorkBuddyBootstrap, buildWorkBuddyDeepLink } from "../adapters/workbuddy/deep-link.js";
 import {
   createPendingWorkBuddyConversationId,
+  createWorkBuddyWindowLocator,
   isPendingWorkBuddyConversationId,
   matchesPendingWorkBuddyWindow
 } from "../adapters/workbuddy/pending-capture.js";
@@ -53,6 +54,11 @@ export interface CodexSource {
   close(): void;
 }
 
+interface ForegroundContextResolution {
+  context: CurrentApplicationContext | null;
+  notice: string;
+}
+
 export class AppService {
   readonly #core: WorkCore;
   readonly #codex: CodexSource;
@@ -64,7 +70,6 @@ export class AppService {
   #petState: DashboardView["petState"] = "sleeping";
   #notice: string | null = null;
   readonly #cloudExtractionWorkIds = new Set<string>();
-  readonly #workBuddyWindowWorkIds = new Map<string, string>();
 
   constructor(options: AppServiceOptions) {
     this.#core = createWorkCore({ databasePath: options.databasePath });
@@ -80,11 +85,13 @@ export class AppService {
   }
 
   async captureForegroundContext(): Promise<CurrentApplicationContext | null> {
-    return this.#resolveForegroundContext(true);
+    const resolution = await this.#resolveForegroundContext();
+    this.#notice = resolution.notice;
+    return resolution.context;
   }
 
   async getPetView(): Promise<PetView> {
-    const context = await this.#resolveForegroundContext(false);
+    const { context } = await this.#resolveForegroundContext();
     if (!context?.windowTitle?.trim()) {
       return { petState: this.#petState, currentConversation: null };
     }
@@ -100,26 +107,35 @@ export class AppService {
     };
   }
 
-  async #resolveForegroundContext(updateNotice: boolean): Promise<CurrentApplicationContext | null> {
+  async #resolveForegroundContext(): Promise<ForegroundContextResolution> {
     const application = await this.#foreground.detect();
     const context = application ? classifyForegroundApplication(application) : null;
     if (!context) {
-      if (updateNotice) this.#notice = "未识别到受支持的前台应用。请先聚焦 Codex 或 WorkBuddy。";
-      return null;
+      return {
+        context: null,
+        notice: "未识别到受支持的前台应用。请先聚焦 Codex 或 WorkBuddy。"
+      };
     }
     if (context.adapter === "codex") {
       const threads = await this.listCodexThreads();
-      const thread = resolveCodexThreadFromWindowTitle(context.windowTitle, threads)
-        ?? resolveCodexThreadFromRecentActivity(threads);
-      if (!thread) {
-        if (updateNotice) this.#notice = "已识别 Codex，但当前没有唯一的近期任务可安全绑定。请在目标聊天继续一次后重试。";
-        return null;
+      const thread = context.windowTitle?.trim()
+        ? resolveCodexThreadFromWindowTitle(context.windowTitle, threads)
+        : resolveCodexThreadFromRecentActivity(threads);
+      if (!thread?.title?.trim()) {
+        return {
+          context: null,
+          notice: "已识别 Codex，但当前没有唯一的应用任务标题可安全绑定。请在目标聊天继续一次后重试。"
+        };
       }
-      if (updateNotice) this.#notice = `已识别当前 Codex 任务：${thread.title}`;
-      return { ...context, windowTitle: thread.title, conversationId: thread.id };
+      return {
+        context: { ...context, windowTitle: thread.title, conversationId: thread.id },
+        notice: `已识别当前 Codex 任务：${thread.title}`
+      };
     }
-    if (updateNotice) this.#notice = "已识别 WorkBuddy。点击记录后，下一次在当前聊天提交消息时会自动确认会话身份。";
-    return context;
+    return {
+      context,
+      notice: "已识别 WorkBuddy。点击记录后，下一次在当前聊天提交消息时会自动确认会话身份。"
+    };
   }
 
   async recordCurrentContext(): Promise<DashboardView> {
@@ -152,10 +168,13 @@ export class AppService {
       definition: { key: "general-work", name: "通用工作", version: 1 },
       executor: { type: "AGENT", name: "WorkBuddy" },
       environment: { type: "WORKBUDDY_DESKTOP", name: "WorkBuddy Desktop" },
-      source: { adapter: "workbuddy", conversationId: waitingConversationId }
+      source: {
+        adapter: "workbuddy",
+        conversationId: waitingConversationId,
+        sourceLocator: createWorkBuddyWindowLocator(context.windowTitle)
+      }
     });
     this.#selectedWorkId = work.instance.id;
-    this.#workBuddyWindowWorkIds.set(this.#windowTitleKey(context.windowTitle), work.instance.id);
     if (this.#cloudExtractionIsEnabled()) this.#cloudExtractionWorkIds.add(work.instance.id);
     this.#petState = "awake";
     this.#notice = "已准备记录当前 WorkBuddy 聊天；请在该聊天提交下一条消息，WorkPet 会用真实 session ID 自动绑定并归档完整可见 transcript。";
@@ -325,10 +344,6 @@ export class AppService {
       this.#core.listWorks().map((work) => [work.instance.id, new Set(work.sourceArchive.map((event) => event.externalId))])
     );
     const result = await this.#workBuddyHooks.ingest(payload);
-    const windowTitle = typeof payload.workpet_window_title === "string" ? payload.workpet_window_title : null;
-    if (result.workInstanceId && windowTitle?.trim()) {
-      this.#workBuddyWindowWorkIds.set(this.#windowTitleKey(windowTitle), result.workInstanceId);
-    }
     if (!result.accepted || !result.workInstanceId || !result.appendedCount) return result;
     const work = this.#core.getWork(result.workInstanceId);
     if (!work) return result;
@@ -454,9 +469,6 @@ export class AppService {
     this.#selectedWorkId = null;
     this.#petState = "sleeping";
     this.#notice = "WorkPet 本地记录已永久删除；原文件和外部对话未改动。";
-    for (const [windowTitle, mappedWorkId] of this.#workBuddyWindowWorkIds) {
-      if (mappedWorkId === workId) this.#workBuddyWindowWorkIds.delete(windowTitle);
-    }
     return this.dashboard();
   }
 
@@ -499,12 +511,10 @@ export class AppService {
       return matchesPendingWorkBuddyWindow(conversationId, context.windowTitle);
     });
     if (pending) return pending.instance.id;
-    const mapped = this.#workBuddyWindowWorkIds.get(this.#windowTitleKey(context.windowTitle));
-    return mapped && this.#core.getWork(mapped) ? mapped : null;
-  }
-
-  #windowTitleKey(windowTitle: string): string {
-    return windowTitle.trim().replace(/\s+/gu, " ").toLocaleLowerCase("zh-CN");
+    return this.#core.findWorkBySourceLocator(
+      "workbuddy",
+      createWorkBuddyWindowLocator(context.windowTitle)
+    )?.instance.id ?? null;
   }
 
   #sourceInputs(events: Array<NormalizedSourceEvent | SourceEventInput | SourceEvent>): SourceEventInput[] {

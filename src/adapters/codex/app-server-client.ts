@@ -26,7 +26,7 @@ interface ThreadReadResponse {
 
 export interface CodexThreadSummary {
   id: string;
-  title: string;
+  title: string | null;
   preview: string;
   cwd: string;
   updatedAt: string;
@@ -110,7 +110,7 @@ export class CodexAppServerClient {
     });
     return response.data.map((thread) => ({
       id: thread.id,
-      title: thread.name?.trim() || thread.preview?.trim() || "未命名 Codex 工作",
+      title: thread.name?.trim() || null,
       preview: thread.preview ?? "",
       cwd: thread.cwd,
       updatedAt: new Date(thread.updatedAt * 1_000).toISOString(),

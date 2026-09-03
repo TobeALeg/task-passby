@@ -54,7 +54,7 @@ export function resolveCodexThreadFromWindowTitle(
 ): CodexThreadSummary | null {
   if (!windowTitle?.trim()) return null;
   const normalized = normalizeTitle(windowTitle);
-  const matches = threads.filter((thread) => normalizeTitle(thread.title) === normalized);
+  const matches = threads.filter((thread) => thread.title && normalizeTitle(thread.title) === normalized);
   return matches.length === 1 ? matches[0] ?? null : null;
 }
 

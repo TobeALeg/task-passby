@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import type { NormalizedThread } from "../../dist/adapters/types.js";
@@ -84,6 +87,45 @@ test("桌宠预览在未聚焦受支持应用时不显示会话或记录入口",
   service.close();
 });
 
+test("Codex 窗口标题匹配失败时不以最近任务代替当前对话", async () => {
+  const thread: NormalizedThread = {
+    threadId: "recent-but-not-focused", title: "最近任务", cwd: "/tmp",
+    createdAt: "2026-09-03T01:00:00.000Z", updatedAt: new Date().toISOString(), events: []
+  };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(thread),
+    foreground: { async detect() { return { bundleId: "com.openai.codex", name: "Codex", windowTitle: "另一个任务 — Codex" }; } },
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+
+  assert.equal((await service.getPetView()).currentConversation, null);
+  assert.equal((await service.recordCurrentContext()).selectedWork, null);
+  service.close();
+});
+
+test("Codex 没有应用生成标题时不把首次消息 preview 显示成气泡标题", async () => {
+  const thread: NormalizedThread = {
+    threadId: "unnamed-thread", title: "内部读取回退标题", cwd: "/tmp",
+    createdAt: "2026-09-03T01:00:00.000Z", updatedAt: new Date().toISOString(), events: []
+  };
+  const codex: CodexSource = {
+    async listRecentThreads() {
+      return [{ id: thread.threadId, title: null, preview: "首次用户消息", cwd: thread.cwd, updatedAt: thread.updatedAt, status: "working" }];
+    },
+    async readThread() { return thread; },
+    close() {}
+  };
+  const service = new AppService({
+    databasePath: ":memory:", codex,
+    foreground: { async detect() { return { bundleId: "DOVE.tauri", name: "DOVE", windowTitle: null }; } },
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+
+  assert.equal((await service.getPetView()).currentConversation, null);
+  service.close();
+});
+
 test("桌宠无法识别受支持的前台应用时返回提示而不抛出 IPC 错误", async () => {
   const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
   const service = new AppService({
@@ -160,4 +202,25 @@ test("WorkBuddy 取得真实 session 后默认生成 Work State", async () => {
 
   assert.equal(service.core().getWork(workId)?.state.objective[0]?.text, "整理这个客户需求的下一步");
   service.close();
+});
+
+test("WorkBuddy 真实会话绑定在重启后仍能由窗口定位并显示打开", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "workpet-workbuddy-locator-"));
+  const databasePath = join(directory, "workpet.sqlite");
+  const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
+  const foreground = { async detect() { return { bundleId: "com.tencent.workbuddy.mac", name: "WorkBuddy", windowTitle: "持久化定位测试" }; } };
+  const options = { databasePath, codex: new FakeCodexSource(emptyThread), foreground, launcher: { async openNewConversation() { return "opened"; } } };
+  const first = new AppService(options);
+  const recorded = await first.recordCurrentContext();
+  const workId = recorded.selectedWorkId;
+  assert.ok(workId);
+  await first.syncWorkBuddyHook({
+    hook_event_name: "UserPromptSubmit", session_id: "persistent-session", workpet_window_title: "持久化定位测试", prompt: "继续这个工作"
+  });
+  first.close();
+
+  const reopened = new AppService({ ...options, codex: new FakeCodexSource(emptyThread) });
+  assert.equal((await reopened.getPetView()).currentConversation?.workId, workId);
+  assert.equal((await reopened.recordCurrentContext()).works.length, 1);
+  reopened.close();
 });

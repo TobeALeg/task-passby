@@ -2,9 +2,31 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 
 import { createWorkCore } from "../../dist/core/index.js";
+import { createSchema } from "../../dist/core/schema.js";
+
+test("旧数据库启动时为 CaptureBinding 补充 sourceLocator 列", () => {
+  const database = new DatabaseSync(":memory:");
+  database.exec(`
+    CREATE TABLE capture_bindings (
+      id TEXT PRIMARY KEY,
+      work_instance_id TEXT NOT NULL,
+      episode_id TEXT NOT NULL,
+      adapter TEXT NOT NULL,
+      conversation_id TEXT NOT NULL,
+      status TEXT NOT NULL
+    ) STRICT;
+  `);
+
+  createSchema(database);
+
+  const columns = database.prepare("PRAGMA table_info(capture_bindings)").all() as Array<{ name: string }>;
+  assert.ok(columns.some((column) => column.name === "source_locator"));
+  database.close();
+});
 
 test("创建工作时一次建立定义、实例、记录、执行片段和来源绑定", () => {
   const core = createWorkCore({ databasePath: ":memory:" });

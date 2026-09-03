@@ -46,7 +46,7 @@ Work Core ─────────────── Local Persistence
 
 ### Foreground Context Detector
 
-通过随应用构建的原生 macOS Helper 读取前台应用 bundle ID 与窗口标题，且不持久化窗口标题或内容，不依赖 `osascript` 的辅助功能授权。若桌宠点击时 WorkPet 面板本身仍是前台，Helper 只在确认前台 PID 是自己的父进程后，向后选择最近的受支持工作窗口；其他不受支持的前台应用不会被跳过。它先把应用归类为 Adapter（同时支持 Codex 的 `com.openai.codex` 与 DOVE 桌面容器），再由 Adapter 解析会话身份：Codex 优先接受窗口标题与 App Server 中唯一任务标题的精确匹配；没有窗口标题时，只在最近任务处于五分钟活动窗口且领先第二新任务至少五秒时绑定，否则拒绝猜测；WorkBuddy 在用户明确发起记录后的短时等待窗口中，以该聊天下一次官方 Hook 提供的 `session_id` 加同一窗口标题校验后绑定。
+通过随应用构建的原生 macOS Helper 读取前台应用 bundle ID 与窗口标题，且不持久化窗口标题或内容，不依赖 `osascript` 的辅助功能授权。若桌宠点击时 WorkPet 面板本身仍是前台，Helper 只在确认前台 PID 是自己的父进程后，向后选择最近的受支持工作窗口；其他不受支持的前台应用不会被跳过。它先把应用归类为 Adapter（同时支持 Codex 的 `com.openai.codex` 与 DOVE 桌面容器），再由 Adapter 解析会话身份：Codex 有窗口标题时只接受与 App Server 应用任务标题的唯一精确匹配，匹配失败不得回退到最近任务；只有容器不提供窗口标题时，才在最近任务处于五分钟活动窗口且领先第二新任务至少五秒、并且存在应用生成标题时绑定。WorkBuddy 在用户明确发起记录后的短时等待窗口中，以该聊天下一次官方 Hook 提供的 `session_id` 加同一窗口标题校验后绑定；CaptureBinding 只持久化窗口标题的不可逆 SHA-256 短指纹作为 `sourceLocator`，用于应用重启后恢复“打开”状态，不保存标题明文。
 
 ### Codex Adapter
 
@@ -68,7 +68,7 @@ Work Core ─────────────── Local Persistence
 
 ### WorkStateExtractor
 
-隐藏具体模型实现的 seam。输入为上一版 Work State 与新增 Source Event，输出八部分 Work State 变更。它不得覆盖 `USER_EDITED` 内容或重新创建已有 tombstone 的内容。
+隐藏具体模型实现的 seam。输入为上一版 Work State 与新增 Source Event，输出八部分 Work State 变更。当前 UI 只读展示结果；为兼容早期数据库，它仍不得覆盖历史 `USER_EDITED` 内容或重新创建已有 tombstone 的内容。
 
 ### ArtifactTracker 与 ArtifactResolver
 
@@ -76,7 +76,7 @@ Work Core ─────────────── Local Persistence
 
 ### Local Persistence
 
-只在本机持久化 WorkDefinition、WorkInstance、WorkRecord、Source Archive、Work State 版本、Capture Binding、ExecutionEpisode、Handoff Package、ArtifactRef、同步游标和 tombstone。实现阶段优先选择单机事务数据库；MVP 不需要云数据库。Handoff Package 是不可变快照，交接完成后 MCP 读取最近一次已提交版本；目标应用启动失败时，来源 Binding 与 Episode 在同一补偿流程中恢复。
+只在本机持久化 WorkDefinition、WorkInstance、WorkRecord、Source Archive、Work State 版本、Capture Binding、ExecutionEpisode、Handoff Package、ArtifactRef、同步游标，以及早期版本可能已有的 tombstone。实现阶段优先选择单机事务数据库；MVP 不需要云数据库。Handoff Package 是不可变快照，交接完成后 MCP 读取最近一次已提交版本；目标应用启动失败时，来源 Binding 与 Episode 在同一补偿流程中恢复。
 
 ## Data flow
 
@@ -151,7 +151,7 @@ INACTIVE ──继续原工作──> ACTIVE
 - 核心领域模型不得依赖 Codex、WorkBuddy 或模型供应商字段；
 - Source Archive 与 Work State 必须分层保存；
 - 每条结构化信息必须保存 origin 与 sourceMessageIds；
-- `USER_EDITED` 和用户删除 tombstone 不得被模型覆盖；
+- 早期版本已有的 `USER_EDITED` 和 tombstone 不得被模型覆盖，新版 UI 不得新增二者；
 - Handoff 主 Prompt 不默认包含完整 Source Archive；
 - WorkBuddy 首次接手必须使用全新对话；
 - WorkBuddy 用户级 Hook 必须先校验 marker 与 OPEN binding，未绑定会话不得落盘；

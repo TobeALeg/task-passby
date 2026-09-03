@@ -31,7 +31,7 @@
 - 搬运：正在同步或交接；
 - 提醒：同步失败或需要用户处理。
 
-侧边面板至少提供：当前 Work 标题与状态、八部分 Work State、Source Archive 与资料数量、刷新、编辑、从当前消息新建 Work、交给 WorkBuddy、完成、归档，以及按 `OPEN`、`COMPLETED`、`ARCHIVED` 查看全部 Work。
+侧边面板至少提供：当前 Work 标题与状态、只读八部分 Work State、每条提取内容的来源数量、Source Archive 与资料数量、刷新、从当前消息新建 Work、交给 WorkBuddy、完成、归档，以及按 `OPEN`、`COMPLETED`、`ARCHIVED` 查看全部 Work。
 
 用户可以对 WorkInstance 执行永久删除。删除必须经过二次确认，并删除本工具持有的 WorkRecord、Source Archive、Work State、Capture Binding、ExecutionEpisode、Handoff 和相关本地元数据。不得删除用户原始文件，也不得删除 Codex 或 WorkBuddy 中的原对话。删除后不可恢复。
 
@@ -94,7 +94,7 @@ Work State 中每一条目标、约束、事实、决定和偏好都必须保存
 
 MVP 自动生成 Work State，不要求用户逐条确认。来源信息用于核验、重新提炼以及防止后续 Work Pattern 把 Agent 建议误判为用户习惯。
 
-用户可以在桌宠面板编辑或删除 Work State 内容。人工修改使用 `USER_EDITED` 来源类型并保存编辑时间；后续自动提炼不得覆盖。用户删除的内容保留 tombstone，防止模型再次从历史中提取同一内容。
+用户不能在桌宠面板编辑或删除 Work State 内容。提取结果是来源事实的只读投影；内容有误时，用户回到来源对话修正后再刷新记录。早期版本已经写入的 `USER_EDITED` 和 tombstone 继续受 Work Core 保护，但新版 UI 与 preload 不再暴露新增这类数据的入口。
 
 ## 工作身份规则
 
@@ -209,4 +209,4 @@ WorkPattern 不修改 WorkDefinition，不反向修改历史 WorkRecord，也不
 - WorkBuddy 用户级 MCP 能连接 WorkPet localhost Bridge；`get_work_context` 不含完整 Source Archive，`get_work_archive` 必须显式调用；
 - 早期 CLI 验收曾因拒绝回复复述了验收口令而产生假阳性；复核真实 transcript 后已撤销该证据。当前验证器必须同时观察到精确成功结果、真实 Conversation Binding、同一 Binding/ExecutionEpisode 内成对的 `get_work_context` 成功审计、MCP 随机 proof token 和可见回复 Hook 回写，缺一即失败；
 - `qa:desktop-roundtrip` 使用临时 WorkPet 数据库，强制检查二十轮用户输入、两份不同附件、Codex 增量、全新 WorkBuddy 桌面对话、MCP 审计、Hook 回写和完成后停止捕获；运行前必须取得用户对本次具体数据的外发授权；
-- 自动测试覆盖领域生命周期、去重、人工编辑保护、tombstone、ArtifactRef 复核、隐藏思维过滤、持久化接力投影、失败恢复、从指定消息新建工作、MCP 调用审计、WorkBuddy marker 绑定与回写、接入配置幂等性，以及拒绝回复不能冒充验收成功。
+- 自动测试覆盖领域生命周期、去重、历史人工编辑与 tombstone 兼容保护、ArtifactRef 复核、隐藏思维过滤、持久化接力投影、失败恢复、从指定消息新建工作、MCP 调用审计、WorkBuddy marker 绑定与回写、接入配置幂等性，以及拒绝回复不能冒充验收成功。

@@ -106,22 +106,13 @@ function revealApp(): void {
 
 function registerIpc(): void {
   ipcMain.handle("panel:toggle", () => togglePanel());
-  ipcMain.handle("panel:show-for-current-context", async () => {
-    const context = await requireService().captureForegroundContext();
-    showPanel();
-    return context;
-  });
   ipcMain.handle("panel:record-current-context", async () => {
-    const context = await requireService().captureForegroundContext();
-    const dashboard = context ? await requireService().createWorkFromCurrentContext(context) : requireService().dashboard();
+    const dashboard = await requireService().recordCurrentContext();
     showPanel();
     return dashboard;
   });
   ipcMain.handle("panel:close", () => panelWindow?.hide());
   ipcMain.handle("dashboard:get", (_event, workId?: string) => requireService().dashboardWithVerification(workId));
-  ipcMain.handle("context:capture", () => requireService().captureForegroundContext());
-  ipcMain.handle("context:get", () => requireService().currentContext());
-  ipcMain.handle("work:create-from-current-context", () => requireService().createWorkFromCurrentContext());
   ipcMain.handle("codex:list", () => requireService().listCodexThreads());
   ipcMain.handle("codex:preview", (_event, threadId: string) => requireService().previewCodexThread(threadId));
   ipcMain.handle("work:create-from-codex", (_event, request) => requireService().createWorkFromCodex(request));

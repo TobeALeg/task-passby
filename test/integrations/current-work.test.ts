@@ -14,6 +14,45 @@ class FakeCodexSource implements CodexSource {
   close() {}
 }
 
+test("桌宠用一次服务调用检测并记录当前工作，不依赖预先缓存的上下文", async () => {
+  const thread: NormalizedThread = {
+    threadId: "current-codex-thread", title: "当前客户提案", cwd: "/tmp",
+    createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T02:00:00.000Z",
+    events: [{
+      id: "prompt", externalId: "prompt", sequence: 1, kind: "user.prompt", content: "整理客户提案",
+      timestamp: "2026-09-03T01:00:00.000Z", executorType: "HUMAN", environmentType: "CODEX_DESKTOP"
+    }]
+  };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(thread),
+    foreground: { async detect() { return { bundleId: "com.openai.codex", name: "ChatGPT", windowTitle: "当前客户提案 — Codex" }; } },
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+
+  const result = await service.recordCurrentContext();
+
+  assert.equal(result.selectedWork?.title, "整理客户提案");
+  assert.match(result.notice ?? "", /当前 Codex 对话/u);
+  service.close();
+});
+
+test("桌宠无法识别受支持的前台应用时返回提示而不抛出 IPC 错误", async () => {
+  const emptyThread: NormalizedThread = { threadId: "unused", title: "unused", cwd: "/tmp", createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T01:00:00.000Z", events: [] };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(emptyThread),
+    foreground: { async detect() { return { bundleId: "dev.workpet.desktop", name: "WorkPet", windowTitle: "我的工作" }; } },
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+
+  const result = await service.recordCurrentContext();
+
+  assert.equal(result.selectedWork, null);
+  assert.match(result.notice ?? "", /未识别到受支持的前台应用/u);
+  service.close();
+});
+
 test("从已识别的当前 Codex 对话创建工作时默认启用提炼，不需要应用选择器", async () => {
   const thread: NormalizedThread = {
     threadId: "current-codex-thread", title: "当前客户提案", cwd: "/tmp",

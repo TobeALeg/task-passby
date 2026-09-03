@@ -121,11 +121,6 @@ async function openSplit(workId: string): Promise<void> {
   splitDialog.showModal();
 }
 
-required("#record-current-work").addEventListener("click", async () => {
-  dashboard = await window.workpet.createWorkFromCurrentContext();
-  filter = "OPEN";
-  render();
-});
 required("#close-panel").addEventListener("click", () => void window.workpet.closePanel());
 required<HTMLButtonElement>("#confirm-split").addEventListener("click", async (event) => {
   event.preventDefault();

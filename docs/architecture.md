@@ -42,7 +42,7 @@ Work Core ─────────────── Local Persistence
 
 ### Desktop Pet Interface
 
-只调用 Work Core Interface，不承担领域判断。负责桌宠状态、轻量侧边面板、Work 列表、编辑、交接、完成、归档和永久删除。MVP 保留 macOS Dock 入口；单实例锁拦截重复进程后，重复启动事件必须恢复并聚焦已有窗口，不能静默退出。
+只调用 Work Core Interface，不承担领域判断。点击桌宠是检测并记录当前工作的唯一入口；检测与创建由同一个服务操作完成，检测失败只返回可见提示，不留下可被面板误用的缓存上下文。侧边面板只负责 Work 列表、编辑、交接、完成、归档和永久删除。MVP 保留 macOS Dock 入口；单实例锁拦截重复进程后，重复启动事件必须恢复并聚焦已有窗口，不能静默退出。
 
 ### Foreground Context Detector
 

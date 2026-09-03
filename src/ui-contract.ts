@@ -93,13 +93,8 @@ export interface CreateWorkFromCodexMessageRequest {
 }
 
 export interface WorkPetApi {
-  togglePanel(): Promise<void>;
-  showPanelForCurrentContext(): Promise<unknown>;
   recordCurrentContextFromPet(): Promise<DashboardView>;
   getDashboard(workId?: string): Promise<DashboardView>;
-  captureForegroundContext(): Promise<CurrentApplicationContext | null>;
-  getCurrentContext(): Promise<CurrentApplicationContext | null>;
-  createWorkFromCurrentContext(): Promise<DashboardView>;
   listCodexThreads(): Promise<CodexThreadView[]>;
   previewCodexThread(threadId: string): Promise<CodexImportPreview>;
   createWorkFromCodex(request: CreateWorkRequest): Promise<DashboardView>;
@@ -122,4 +117,3 @@ declare global {
     workpet: WorkPetApi;
   }
 }
-import type { CurrentApplicationContext } from "./adapters/foreground/context.js";

@@ -60,7 +60,6 @@ export class AppService {
   #petState: DashboardView["petState"] = "sleeping";
   #notice: string | null = null;
   readonly #cloudExtractionWorkIds = new Set<string>();
-  #currentContext: CurrentApplicationContext | null = null;
 
   constructor(options: AppServiceOptions) {
     this.#core = createWorkCore({ databasePath: options.databasePath });
@@ -79,7 +78,6 @@ export class AppService {
     const application = await this.#foreground.detect();
     const context = application ? classifyForegroundApplication(application) : null;
     if (!context) {
-      this.#currentContext = null;
       this.#notice = "未识别到受支持的前台应用。请先聚焦 Codex 或 WorkBuddy。";
       return null;
     }
@@ -88,25 +86,22 @@ export class AppService {
       const thread = resolveCodexThreadFromWindowTitle(context.windowTitle, threads)
         ?? resolveCodexThreadFromRecentActivity(threads);
       if (!thread) {
-        this.#currentContext = null;
         this.#notice = "已识别 Codex，但当前没有唯一的近期任务可安全绑定。请在目标聊天继续一次后重试。";
         return null;
       }
-      this.#currentContext = { ...context, conversationId: thread.id };
       this.#notice = `已识别当前 Codex 任务：${thread.title}`;
-      return this.#currentContext;
+      return { ...context, conversationId: thread.id };
     }
-    this.#currentContext = context;
     this.#notice = "已识别 WorkBuddy。点击记录后，下一次在当前聊天提交消息时会自动确认会话身份。";
     return context;
   }
 
-  currentContext(): CurrentApplicationContext | null {
-    return this.#currentContext;
+  async recordCurrentContext(): Promise<DashboardView> {
+    const context = await this.captureForegroundContext();
+    return context ? this.createWorkFromCurrentContext(context) : this.dashboard();
   }
 
-  async createWorkFromCurrentContext(context = this.#currentContext): Promise<DashboardView> {
-    if (!context) throw new Error("未识别到当前聊天；请先聚焦 Codex 或 WorkBuddy，再点击桌宠。");
+  async createWorkFromCurrentContext(context: CurrentApplicationContext): Promise<DashboardView> {
     if (context.adapter === "codex") {
       if (!context.conversationId) throw new Error("当前 Codex 聊天尚未确认，不能用最近任务代替。");
       const dashboard = await this.createWorkFromCodex({ threadId: context.conversationId });

@@ -64,6 +64,8 @@ export interface CurrentConversationView {
   applicationName: "Codex" | "WorkBuddy";
   title: string;
   workId: string | null;
+  workStatus: WorkStatus | null;
+  isRecording: boolean;
 }
 
 export interface PetView {

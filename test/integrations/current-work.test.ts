@@ -106,7 +106,9 @@ test("桌宠预览使用应用生成的会话标题，并在同一会话记录�
     adapter: "codex",
     applicationName: "Codex",
     title: "应用总结的任务标题",
-    workId: null
+    workId: null,
+    workStatus: null,
+    isRecording: false
   });
 
   const recorded = await service.recordCurrentContext();
@@ -116,6 +118,34 @@ test("桌宠预览使用应用生成的会话标题，并在同一会话记录�
   const reopened = await service.recordCurrentContext();
   assert.equal(reopened.selectedWorkId, recorded.selectedWorkId);
   assert.equal(reopened.works.length, 1);
+  service.close();
+});
+
+test("当前工作完成后保留打开入口，但不再把气泡标记为正在记录", async () => {
+  const thread: NormalizedThread = {
+    threadId: "completed-codex-thread", title: "完成状态气泡", cwd: "/tmp",
+    createdAt: "2026-09-03T01:00:00.000Z", updatedAt: "2026-09-03T02:00:00.000Z",
+    events: [{
+      id: "prompt", externalId: "prompt", sequence: 1, kind: "user.prompt", content: "完成这个任务",
+      timestamp: "2026-09-03T01:00:00.000Z", executorType: "HUMAN", environmentType: "CODEX_DESKTOP"
+    }]
+  };
+  const service = new AppService({
+    databasePath: ":memory:",
+    codex: new FakeCodexSource(thread),
+    foreground: { async detect() { return { bundleId: "com.openai.codex", name: "ChatGPT", windowTitle: "完成状态气泡 — Codex" }; } },
+    launcher: { async openNewConversation() { return "opened"; } }
+  });
+  const recorded = await service.recordCurrentContext();
+  assert.ok(recorded.selectedWorkId);
+
+  service.completeWork(recorded.selectedWorkId);
+  const after = await service.getPetView();
+
+  assert.equal(after.petState, "sleeping");
+  assert.equal(after.currentConversation?.workId, recorded.selectedWorkId);
+  assert.equal(after.currentConversation?.workStatus, "COMPLETED");
+  assert.equal(after.currentConversation?.isRecording, false);
   service.close();
 });
 
@@ -222,7 +252,8 @@ test("从 WorkBuddy 当前窗口发起记录时等待下一次真实提交来绑
   });
 
   assert.deepEqual((await service.getPetView()).currentConversation, {
-    adapter: "workbuddy", applicationName: "WorkBuddy", title: "当前工作", workId: null
+    adapter: "workbuddy", applicationName: "WorkBuddy", title: "当前工作", workId: null,
+    workStatus: null, isRecording: false
   });
 
   const result = await service.createWorkFromCurrentContext({

@@ -12,6 +12,7 @@ const outputDirectory = join(root, "output", "playwright");
 const testDirectory = await mkdtemp(join(tmpdir(), "workpet-current-context-"));
 const screenshotPath = join(outputDirectory, "current-context-panel.png");
 const petScreenshotPath = join(outputDirectory, "current-context-pet-hover.png");
+const completedPetScreenshotPath = join(outputDirectory, "current-context-pet-completed.png");
 
 await mkdir(outputDirectory, { recursive: true });
 
@@ -92,6 +93,17 @@ try {
   if (await panel.locator("textarea[data-item-id], [data-remove-item]").count()) {
     throw new Error("只读 Work State 中仍存在编辑或删除控件");
   }
+  await pet.evaluate((workId) => window.workpet.completeWork(workId), dashboard.selectedWork.id);
+  await pet.waitForFunction(() => {
+    const label = document.querySelector("#context-label")?.textContent;
+    const paper = document.querySelector("#paper-action");
+    return label === "已完成 · Codex"
+      && document.querySelector("#paper-label")?.textContent === "打开"
+      && paper?.getAttribute("data-action") === "open"
+      && document.querySelector("#pet")?.classList.contains("sleeping")
+      && !document.querySelector("#pet-root")?.classList.contains("recording-context");
+  }, undefined, { timeout: 10_000 });
+  await pet.screenshot({ path: completedPetScreenshotPath });
 
   console.log(JSON.stringify({
     passed: true,
@@ -101,7 +113,7 @@ try {
     conversationTitle,
     hoverMetrics,
     binding: dashboard.selectedWork.bindings[0],
-    screenshots: [petScreenshotPath, screenshotPath],
+    screenshots: [petScreenshotPath, screenshotPath, completedPetScreenshotPath],
     database: join(testDirectory, "workpet.sqlite")
   }, null, 2));
 } finally {

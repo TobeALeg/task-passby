@@ -23,7 +23,7 @@ function render(state: PetView): void {
   currentConversation = state.currentConversation;
   const hasConversation = Boolean(currentConversation);
   root.classList.toggle("has-context", hasConversation);
-  root.classList.toggle("recording-context", Boolean(currentConversation?.workId));
+  root.classList.toggle("recording-context", Boolean(currentConversation?.isRecording));
   bubble.hidden = !currentConversation;
   paperAction.disabled = !currentConversation || busy;
   if (!currentConversation) {
@@ -33,14 +33,23 @@ function render(state: PetView): void {
     paperAction.setAttribute("aria-label", "当前没有可记录的对话");
     return;
   }
-  const isOpen = Boolean(currentConversation.workId);
+  const hasWork = Boolean(currentConversation.workId);
+  const contextState = currentConversation.isRecording
+    ? "正在记录"
+    : currentConversation.workStatus === "COMPLETED"
+      ? "已完成"
+      : currentConversation.workStatus === "ARCHIVED"
+        ? "已归档"
+        : hasWork
+          ? "已记录"
+          : "当前聚焦";
   applicationMark.textContent = currentConversation.adapter === "codex" ? "⌘" : "W";
   applicationMark.className = `application-mark ${currentConversation.adapter}`;
-  contextLabel.textContent = `${isOpen ? "正在记录" : "当前聚焦"} · ${currentConversation.applicationName}`;
+  contextLabel.textContent = `${contextState} · ${currentConversation.applicationName}`;
   contextTitle.textContent = currentConversation.title;
-  paperLabel.textContent = isOpen ? "打开" : "记录";
-  paperAction.dataset.action = isOpen ? "open" : "record";
-  paperAction.setAttribute("aria-label", `${isOpen ? "打开" : "记录"}当前工作：${currentConversation.title}`);
+  paperLabel.textContent = hasWork ? "打开" : "记录";
+  paperAction.dataset.action = hasWork ? "open" : "record";
+  paperAction.setAttribute("aria-label", `${hasWork ? "打开" : "记录"}当前工作：${currentConversation.title}`);
   petBody.title = `打开 WorkPet · ${currentConversation.title}`;
 }
 

@@ -99,13 +99,16 @@ export class AppService {
       return { petState: this.#petState, currentConversation: null };
     }
     const workId = this.#workIdForContext(context);
+    const work = workId ? this.#core.getWork(workId) : null;
     return {
       petState: this.#petState,
       currentConversation: {
         adapter: context.adapter,
         applicationName: context.adapter === "codex" ? "Codex" : "WorkBuddy",
         title: conversationTitle,
-        workId
+        workId,
+        workStatus: work?.instance.status ?? null,
+        isRecording: work ? this.#isContextActivelyRecorded(work, context) : false
       }
     };
   }
@@ -539,6 +542,18 @@ export class AppService {
       "workbuddy",
       createWorkBuddyWindowLocator(context.windowTitle)
     )?.instance.id ?? null;
+  }
+
+  #isContextActivelyRecorded(work: WorkSnapshot, context: CurrentApplicationContext): boolean {
+    const binding = work.activeBinding;
+    if (work.instance.status !== "OPEN" || !binding || binding.adapter !== context.adapter) return false;
+    if (context.adapter === "codex") {
+      return Boolean(context.conversationId && binding.conversationId === context.conversationId);
+    }
+    return Boolean(
+      context.windowTitle?.trim()
+      && binding.sourceLocator === createWorkBuddyWindowLocator(context.windowTitle)
+    );
   }
 
   #synchronizeCodexObjective(workId: string, threadId: string, applicationTitle: string): void {

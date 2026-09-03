@@ -12,46 +12,57 @@ button { font: inherit; }
 .context-copy { min-width: 0; display: grid; gap: 3px; }
 .context-copy small { color: #d9a980; font-size: 9px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
 .context-copy strong { overflow: hidden; font: 600 13px/1.25 Georgia, "Songti SC", serif; text-overflow: ellipsis; white-space: nowrap; }
-.pet { position: relative; width: 88px; height: 88px; }
+.pet {
+  --pet-light: #ffdc75;
+  --pet-base: #f4c867;
+  --pet-deep: #dfa642;
+  position: relative;
+  width: 104px;
+  height: 94px;
+}
 .pet-body {
   position: relative;
-  width: 88px;
-  height: 88px;
+  width: 104px;
+  height: 90px;
   border: 0;
-  border-radius: 31px 31px 36px 36px;
-  background: #f4c867;
-  box-shadow: 0 12px 30px rgba(56, 39, 18, .22), inset 0 -7px 0 rgba(112, 71, 24, .11);
+  border-radius: 52% 52% 45% 45% / 58% 58% 39% 39%;
+  background:
+    radial-gradient(circle at 35% 28%, var(--pet-light), transparent 40%),
+    linear-gradient(155deg, var(--pet-light) 4%, var(--pet-base) 56%, var(--pet-deep) 100%);
+  box-shadow: 0 11px 24px rgba(82, 48, 9, .24), inset 0 -7px 10px rgba(157, 83, 4, .16), inset 0 2px 5px rgba(255, 231, 130, .4);
   cursor: pointer;
   -webkit-app-region: no-drag;
   transition: transform .18s ease, background .2s ease;
 }
 .pet:hover .pet-body, .pet:focus-within .pet-body { transform: translateY(-2px); }
 .pet-body:active { transform: translateY(0) scale(.98); }
-.face { position: absolute; left: 0; right: 0; bottom: 18px; height: 24px; }
-.eye { position: absolute; top: 2px; width: 8px; height: 11px; border-radius: 8px; background: #31271d; transition: height .18s ease; }
-.eye.left { left: 25px; }
-.eye.right { right: 25px; }
-.mouth { position: absolute; left: 39px; top: 15px; width: 10px; height: 5px; border-bottom: 2px solid #31271d; border-radius: 0 0 10px 10px; }
-.paper-action { position: absolute; z-index: 3; left: 28px; top: -5px; width: 34px; height: 35px; margin: 0; padding: 0; overflow: hidden; border: 1px solid rgba(129,102,63,.08); border-radius: 5px 5px 8px 5px; background: #fffaf0; color: #75462b; box-shadow: 0 4px 10px rgba(53,40,20,.15); cursor: pointer; transform: rotate(-3deg); transform-origin: 50% 100%; -webkit-app-region: no-drag; transition: left .18s ease, top .18s ease, width .18s ease, height .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease; }
+.face { position: absolute; left: 0; right: 0; bottom: 17px; height: 28px; }
+.eye { position: absolute; top: 2px; width: 7px; height: 10px; border-radius: 50%; background: #31271d; transition: width .18s ease, height .18s ease, border-radius .18s ease, transform .18s ease; }
+.eye.left { left: 31px; }
+.eye.right { right: 31px; }
+.mouth { position: absolute; left: 45px; top: 16px; width: 15px; height: 9px; border-bottom: 3px solid #31271d; border-radius: 0 0 15px 15px; }
+.paper-action { position: absolute; z-index: 3; left: 65px; top: 8px; width: 34px; height: 31px; margin: 0; padding: 0; overflow: hidden; border: 1px solid rgba(129,102,63,.08); border-radius: 6px 6px 9px 6px; background: #fffaf0; color: #75462b; box-shadow: 0 4px 10px rgba(53,40,20,.15); cursor: pointer; transform: rotate(6deg); transform-origin: 50% 100%; -webkit-app-region: no-drag; transition: left .18s ease, top .18s ease, width .18s ease, height .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease; }
 .paper-action::after { content: ""; position: absolute; right: 0; bottom: 0; width: 8px; height: 8px; background: linear-gradient(135deg, rgba(215,199,166,.1) 50%, #e6d8bc 51%); }
 .paper-lines { position: absolute; inset: 8px 7px; transition: opacity .12s ease, transform .18s ease; }
 .paper-lines i { display: block; height: 2px; margin: 4px 0; border-radius: 2px; background: #d7c7a6; }
 .paper-lines i:last-child { width: 65%; }
 .paper-action strong { position: absolute; inset: 0; display: grid; place-items: center; padding-right: 2px; font-size: 10px; font-weight: 800; letter-spacing: .06em; opacity: 0; transform: translateY(4px); transition: opacity .12s ease .04s, transform .18s ease; }
 .paper-action:disabled { cursor: default; }
-.pet:hover .paper-action:not(:disabled), .paper-action:focus-visible { left: 13px; top: -12px; width: 62px; height: 36px; border-color: rgba(139,91,51,.22); background: #fff4d9; box-shadow: 0 7px 14px rgba(53,40,20,.2); outline: none; transform: rotate(0) translateY(-2px); }
+.pet:hover .paper-action:not(:disabled), .paper-action:focus-visible { left: 40px; top: -8px; width: 62px; height: 36px; border-color: rgba(139,91,51,.22); background: #fff4d9; box-shadow: 0 7px 14px rgba(53,40,20,.2); outline: none; transform: rotate(0) translateY(-2px); }
 .pet:hover .paper-action:not(:disabled) .paper-lines, .paper-action:focus-visible .paper-lines { opacity: 0; transform: translateY(-4px); }
 .pet:hover .paper-action:not(:disabled) strong, .paper-action:focus-visible strong { opacity: 1; transform: translateY(0); }
 .recording-context .paper-action { background: #f4fae9; }
 .recording-context .paper-lines i { background: #a8c39a; }
-.status-dot { position: absolute; right: 1px; bottom: 5px; width: 16px; height: 16px; border: 3px solid #fff9e9; border-radius: 50%; background: #a6a093; }
-.pet.sleeping .eye { top: 8px; height: 2px; border-radius: 2px; }
-.pet.sleeping .mouth { border-bottom: 0; border-top: 2px solid #31271d; border-radius: 10px 10px 0 0; }
-.pet.awake .pet-body { background: #f2be4f; animation: breathe 2.4s ease-in-out infinite; }
+.status-dot { position: absolute; right: 2px; bottom: 5px; width: 16px; height: 16px; border: 3px solid #fff9e9; border-radius: 50%; background: #a6a093; }
+.pet.sleeping .eye { top: 7px; width: 12px; height: 3px; border-radius: 3px; }
+.pet.awake { --pet-light: #ffd45f; --pet-base: #f2be4f; --pet-deep: #d99a2d; }
+.pet.awake .pet-body { animation: breathe 2.4s ease-in-out infinite; }
 .pet.awake .status-dot { background: #3f9d70; }
-.pet.carrying .pet-body { background: #e99252; animation: carry .7s ease-in-out infinite alternate; }
+.pet.carrying { --pet-light: #f5b878; --pet-base: #e99252; --pet-deep: #c96b38; }
+.pet.carrying .pet-body { animation: carry .7s ease-in-out infinite alternate; }
 .pet.carrying .status-dot { background: #377fd2; }
-.pet.alert .pet-body { background: #e8735d; animation: nudge .35s ease-in-out 3; }
+.pet.alert { --pet-light: #f69a86; --pet-base: #e8735d; --pet-deep: #c94b42; }
+.pet.alert .pet-body { animation: nudge .35s ease-in-out 3; }
 .pet.alert .status-dot { background: #b6262e; }
 @keyframes breathe { 50% { transform: translateY(-2px); } }
 @keyframes carry { to { transform: translateY(-5px) rotate(2deg); } }

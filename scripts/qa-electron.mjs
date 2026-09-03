@@ -52,6 +52,62 @@ try {
     paper: document.querySelector("#paper-action")?.getBoundingClientRect().toJSON(),
     bubble: document.querySelector("#context-bubble")?.getBoundingClientRect().toJSON()
   }));
+  const characterVisuals = await pet.evaluate(() => {
+    const character = document.querySelector("#pet");
+    const body = document.querySelector("#pet-body");
+    const eye = document.querySelector(".eye");
+    const mouth = document.querySelector(".mouth");
+    const statusDot = document.querySelector(".status-dot");
+    if (!character || !body || !eye || !mouth || !statusDot) throw new Error("桌宠角色元素不完整");
+    const originalClassName = character.className;
+    const originalEyeTransition = eye.style.transition;
+    eye.style.transition = "none";
+    const states = ["sleeping", "awake", "carrying", "alert"].map((state) => {
+      character.className = `pet ${state}`;
+      const bodyStyle = getComputedStyle(body);
+      const eyeStyle = getComputedStyle(eye);
+      const mouthStyle = getComputedStyle(mouth);
+      return {
+        state,
+        bodyBackground: bodyStyle.backgroundImage,
+        bodyRadius: bodyStyle.borderRadius,
+        animationName: bodyStyle.animationName,
+        eyeWidth: Number.parseFloat(eyeStyle.width),
+        eyeHeight: Number.parseFloat(eyeStyle.height),
+        mouthBorderTop: Number.parseFloat(mouthStyle.borderTopWidth),
+        mouthBorderBottom: Number.parseFloat(mouthStyle.borderBottomWidth),
+        mouthRadius: mouthStyle.borderRadius,
+        statusDotBackground: getComputedStyle(statusDot).backgroundColor
+      };
+    });
+    character.className = originalClassName;
+    eye.style.transition = originalEyeTransition;
+    return { states, statusDotCount: character.querySelectorAll(".status-dot").length };
+  });
+  const sleepingVisual = characterVisuals.states[0];
+  const activeVisuals = characterVisuals.states.slice(1);
+  if (!sleepingVisual || sleepingVisual.eyeWidth < 10 || sleepingVisual.eyeHeight > 4) {
+    throw new Error(`空闲状态没有闭眼：${JSON.stringify(characterVisuals)}`);
+  }
+  if (activeVisuals.some((state) => state.eyeWidth > 9 || state.eyeHeight < 8)) {
+    throw new Error(`工作状态没有统一睁眼：${JSON.stringify(characterVisuals)}`);
+  }
+  if (characterVisuals.states.some((state) => state.mouthBorderTop !== 0 || state.mouthBorderBottom < 2)) {
+    throw new Error(`所有状态都应保持笑嘴：${JSON.stringify(characterVisuals)}`);
+  }
+  const characterGeometry = new Set(characterVisuals.states.map((state) => `${state.bodyRadius}|${state.mouthRadius}`));
+  const bodyColors = new Set(characterVisuals.states.map((state) => state.bodyBackground));
+  const statusColors = new Set(characterVisuals.states.map((state) => state.statusDotBackground));
+  const expectedAnimations = ["none", "breathe", "carry", "nudge"];
+  if (characterGeometry.size !== 1 || bodyColors.size !== 4 || statusColors.size !== 4 || characterVisuals.statusDotCount !== 1) {
+    throw new Error(`桌宠应保持同一轮廓，并保留原有状态颜色与状态点：${JSON.stringify(characterVisuals)}`);
+  }
+  if (characterVisuals.states.some((state, index) => state.animationName !== expectedAnimations[index])) {
+    throw new Error(`桌宠没有保留原有状态动作：${JSON.stringify(characterVisuals)}`);
+  }
+  if (!petMetrics.body || !petMetrics.paper || petMetrics.body.width <= petMetrics.body.height || petMetrics.paper.x < petMetrics.body.x + petMetrics.body.width * .55) {
+    throw new Error(`桌宠轮廓或便利贴位置没有对齐 Logo：${JSON.stringify(petMetrics)}`);
+  }
   await pet.locator("#pet-body").click();
   await panel.waitForTimeout(250);
   const panelVisible = await electronApp.evaluate(({ BrowserWindow }) =>
@@ -77,6 +133,7 @@ try {
     dockVisible,
     secondInstanceRestored,
     petMetrics,
+    characterVisuals,
     panelMetrics,
     editableControlCount,
     screenshots: ["01-pet.png", "02-panel-empty.png"]

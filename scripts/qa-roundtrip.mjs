@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
@@ -24,7 +24,7 @@ const proofToken = randomBytes(16).toString("hex");
 const expectedReply = `${ROUNDTRIP_SENTINEL}:${proofToken}`;
 const sharedEnvironment = {
   ...process.env,
-  CODEBUDDY_CONFIG_DIR: "/Users/dandi/.workbuddy",
+  CODEBUDDY_CONFIG_DIR: join(homedir(), ".workbuddy"),
   WORKPET_BRIDGE_CONFIG: bridgePath,
   WORKPET_DATA_DIR: testDirectory
 };

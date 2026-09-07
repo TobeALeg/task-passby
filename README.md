@@ -17,7 +17,7 @@ Worket 每次启动都会静默、幂等地安装 Codex Hook 与 WorkBuddy 用�
 
 接入安装是启动前提：自动安装失败时 Worket 会显示错误并退出，不会在半接入状态下开始记录。
 
-开发中的最新版本固定从 [scripts/run-latest.command](/Users/dandi/YanGuan/scripts/run-latest.command) 启动：双击它，或在终端运行该路径。它会先停止本项目已运行的开发版，再构建最新源码并启动名为 `Worket` 的 macOS 应用包，不会再以 `Electron` 的名称出现在系统界面中。
+开发中的最新版本固定从 [scripts/run-latest.command](scripts/run-latest.command) 启动：双击它，或在终端运行该路径。它会先停止本项目已运行的开发版，再构建最新源码并启动名为 `Worket` 的 macOS 应用包，不会再以 `Electron` 的名称出现在系统界面中。
 
 日常使用时，先聚焦目标聊天。识别成功后，桌宠上方会显示来源应用生成的会话标题；悬浮小土豆，让头顶便利贴展开为“记录”，再点击便利贴。记录后同一张便利贴变为“打开”，点击桌宠身体也可以打开面板。即使 Worket 面板仍在前台，桌宠也会识别它后方最近的受支持工作窗口；侧边面板只读展示和管理已有工作，不是新的记录入口。
 

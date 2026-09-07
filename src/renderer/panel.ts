@@ -6,6 +6,7 @@ import {
   type WorkStateField,
   type WorkStatus
 } from "../ui-contract.js";
+import { setupRecordingSources } from "./recording-sources.js";
 
 const list = required<HTMLElement>("#work-list");
 const detail = required<HTMLElement>("#work-detail");
@@ -33,6 +34,7 @@ function formatDate(value: string): string {
 }
 
 function render(): void {
+  document.querySelectorAll<HTMLElement>(".filter").forEach((button) => button.classList.toggle("active", button.dataset.filter === filter));
   notice.hidden = !dashboard.notice;
   notice.textContent = dashboard.notice ?? "";
   const works = dashboard.works.filter((work) => work.status === filter);
@@ -135,9 +137,31 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(".filter")) {
   });
 }
 
-dashboard = await window.workpet.getDashboard();
-render();
-window.workpet.onPanelShown(async () => {
-  dashboard = await window.workpet.getDashboard(dashboard.selectedWorkId ?? undefined);
+const refreshSources = setupRecordingSources((result) => {
+  dashboard = result;
+  filter = result.selectedWork?.status ?? "OPEN";
   render();
 });
+let refreshing = false;
+async function refreshPanel(): Promise<void> {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    const [result] = await Promise.allSettled([
+      window.workpet.getDashboard(),
+      refreshSources()
+    ]);
+    if (result.status === "fulfilled") {
+      dashboard = result.value;
+      render();
+    } else {
+      notice.hidden = false;
+      notice.textContent = String(result.reason);
+    }
+  } finally {
+    refreshing = false;
+  }
+}
+void refreshPanel();
+window.workpet.onPanelShown(() => void refreshPanel());
+setInterval(() => { if (!document.hidden) void refreshPanel(); }, 5_000);

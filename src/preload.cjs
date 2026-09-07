@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld("workpet", {
   setPetMousePassthrough: (ignored) => ipcRenderer.send("pet:mouse-passthrough", ignored),
   getDashboard: (workId) => ipcRenderer.invoke("dashboard:get", workId),
   listCodexThreads: () => ipcRenderer.invoke("codex:list"),
+  listCodexHistory: (cursor) => ipcRenderer.invoke("codex:history", cursor),
   previewCodexThread: (threadId) => ipcRenderer.invoke("codex:preview", threadId),
   createWorkFromCodex: (request) => ipcRenderer.invoke("work:create-from-codex", request),
   listCodexSplitPoints: (workId) => ipcRenderer.invoke("work:split-points", workId),

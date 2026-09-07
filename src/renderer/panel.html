@@ -13,6 +13,11 @@
     </header>
 
     <main>
+      <section class="recording-sources" aria-label="可记录的工作">
+        <div class="source-heading"><h2>最近活动</h2><button id="record-history" class="secondary">记录沉睡工作</button></div>
+        <div id="source-error" class="notice" role="alert" hidden></div>
+        <div id="recent-sources"><p class="source-empty">正在查找活动聊天…</p></div>
+      </section>
       <section class="toolbar">
         <div class="filters" role="tablist">
           <button class="filter active" data-filter="OPEN">进行中</button>
@@ -25,6 +30,16 @@
       <section id="work-list" class="work-list"></section>
       <section id="work-detail" class="work-detail" hidden></section>
     </main>
+
+    <dialog id="history-dialog" aria-labelledby="history-title">
+      <div class="dialog-card">
+        <div class="source-heading"><h2 id="history-title">记录沉睡工作</h2><button id="history-close" class="icon-button" aria-label="关闭历史聊天">×</button></div>
+        <label class="field">搜索已加载的聊天<input id="history-search" type="search" placeholder="聊天标题或项目" /></label>
+        <div id="history-error" class="notice" role="alert" hidden></div>
+        <div id="history-sources" class="history-sources"></div>
+        <div class="dialog-actions"><button id="history-retry" class="secondary">刷新列表</button><button id="history-more" class="secondary" hidden>加载更早的聊天</button></div>
+      </div>
+    </dialog>
 
     <dialog id="split-dialog">
       <form method="dialog" class="dialog-card">

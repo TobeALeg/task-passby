@@ -84,6 +84,12 @@ export interface CodexThreadView {
   cwd: string;
   updatedAt: string;
   status: unknown;
+  workId?: string;
+}
+
+export interface CodexThreadPage {
+  threads: CodexThreadView[];
+  nextCursor: string | null;
 }
 
 export interface CodexImportPreview extends CodexThreadView {
@@ -117,6 +123,7 @@ export interface WorkPetApi {
   setPetMousePassthrough(ignored: boolean): void;
   getDashboard(workId?: string): Promise<DashboardView>;
   listCodexThreads(): Promise<CodexThreadView[]>;
+  listCodexHistory(cursor?: string): Promise<CodexThreadPage>;
   previewCodexThread(threadId: string): Promise<CodexImportPreview>;
   createWorkFromCodex(request: CreateWorkRequest): Promise<DashboardView>;
   listCodexSplitPoints(workId: string): Promise<CodexSplitPointView[]>;

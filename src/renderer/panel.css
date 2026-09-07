@@ -56,3 +56,14 @@ dialog::backdrop { background: rgba(42,36,29,.32); backdrop-filter: blur(3px); }
 .consent { display: grid; grid-template-columns: auto 1fr; gap: 8px; color: #6f675d; font-size: 11px; line-height: 1.45; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .danger-card p { color: #766c62; font-size: 12px; line-height: 1.5; }
+.recording-sources { margin-bottom: 22px; border-bottom: 1px solid #d8d0c2; padding-bottom: 14px; }
+.source-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.source-heading h2 { font-size: 19px; }
+.source-heading button, .source-row button { font-size: 12px; flex-shrink: 0; }
+.source-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid #ded6c9; }
+.source-row > div { min-width: 0; }
+.source-row h3 { font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.source-row p, .source-empty { color: #82786b; font-size: 11px; line-height: 1.5; margin-top: 6px; overflow-wrap: anywhere; }
+.source-empty { padding: 12px 0; }
+.history-sources { max-height: 48vh; overflow-y: auto; }
+button:disabled { cursor: wait; opacity: .55; }

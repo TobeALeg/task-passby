@@ -39,7 +39,7 @@
 
 1. 用户在 Codex 或 WorkBuddy 中进行工作。
 2. 用户点击桌宠，请求记录当前前台对话。
-3. 系统自动识别应用与会话身份，不显示应用或任务选择器；Codex 只接受唯一窗口标题匹配，WorkBuddy 以当前聊天下一次 Hook 的真实 `session_id` 加同一窗口标题校验后绑定。
+3. 系统识别应用与会话身份；也可在面板逐项记录最近活动的聊天，或通过“记录沉睡工作”选择历史聊天；Codex 只接受唯一窗口标题匹配，WorkBuddy 以当前聊天下一次 Hook 的真实 `session_id` 加同一窗口标题校验后绑定。
 4. 系统依据 WorkDefinition 创建 WorkInstance 及其 WorkRecord。
 5. Codex 从第一轮导入完整可见历史；WorkBuddy 在首个 Stop Hook 从 transcript 导入完整可见历史。
 6. 系统建立 Codex 对话到 WorkInstance 的 Capture Binding，并保存增量同步位置。

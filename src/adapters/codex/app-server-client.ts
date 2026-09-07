@@ -101,21 +101,26 @@ export class CodexAppServerClient {
   }
 
   async listRecentThreads(limit = 20): Promise<CodexThreadSummary[]> {
+    return (await this.listThreadPage(limit)).threads;
+  }
+
+  async listThreadPage(limit = 30, cursor?: string): Promise<{ threads: CodexThreadSummary[]; nextCursor: string | null }> {
     await this.connect();
     const response = await this.#request<ThreadListResponse>("thread/list", {
       limit,
+      ...(cursor ? { cursor } : {}),
       archived: false,
       sortKey: "updated_at",
       sortDirection: "desc"
     });
-    return response.data.map((thread) => ({
+    return { threads: response.data.map((thread) => ({
       id: thread.id,
       title: thread.name?.trim() || null,
       preview: thread.preview ?? "",
       cwd: thread.cwd,
       updatedAt: new Date(thread.updatedAt * 1_000).toISOString(),
       status: thread.status
-    }));
+    })), nextCursor: response.nextCursor ?? null };
   }
 
   async readThread(threadId: string): Promise<NormalizedThread> {

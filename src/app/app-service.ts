@@ -32,6 +32,8 @@ import { OpenAICompatibleExtractor } from "../extractor/openai-compatible-extrac
 import type { WorkStateExtractor } from "../extractor/types.js";
 import type {
   CodexImportPreview,
+  CodexThreadPage,
+  CodexThreadView,
   CodexSplitPointView,
   CreateWorkFromCodexMessageRequest,
   CreateWorkRequest,
@@ -62,6 +64,7 @@ export interface AppServiceOptions {
 
 export interface CodexSource {
   listRecentThreads(limit?: number): Promise<CodexThreadSummary[]>;
+  listThreadPage?(limit?: number, cursor?: string): Promise<{ threads: CodexThreadSummary[]; nextCursor: string | null }>;
   readThread(threadId: string): Promise<NormalizedThread>;
   close(): void;
 }
@@ -98,8 +101,20 @@ export class AppService {
     this.#workBuddyHooks = new WorkBuddyHookIngestor(this.#core);
   }
 
-  async listCodexThreads(): Promise<CodexThreadSummary[]> {
-    return this.#codex.listRecentThreads(30);
+  async listCodexThreads(): Promise<CodexThreadView[]> {
+    return (await this.#codex.listRecentThreads(30)).map((thread) => this.#recordingSource(thread));
+  }
+
+  async listCodexHistory(cursor?: string): Promise<CodexThreadPage> {
+    const page = this.#codex.listThreadPage
+      ? await this.#codex.listThreadPage(30, cursor)
+      : { threads: cursor ? [] : await this.#codex.listRecentThreads(100), nextCursor: null };
+    return { ...page, threads: page.threads.map((thread) => this.#recordingSource(thread)) };
+  }
+
+  #recordingSource(thread: CodexThreadSummary): CodexThreadView {
+    const work = this.#core.findWorkByBinding("codex", thread.id);
+    return { ...thread, ...(work ? { workId: work.instance.id } : {}) };
   }
 
   async captureForegroundContext(): Promise<CurrentApplicationContext | null> {
@@ -374,15 +389,32 @@ export class AppService {
   async syncCodexHook(payload: Record<string, unknown>): Promise<{ accepted: boolean; appendedCount: number }> {
     const threadId = typeof payload.session_id === "string" ? payload.session_id : null;
     if (!threadId) return { accepted: false, appendedCount: 0 };
-    const current = this.#core.findWorkByBinding("codex", threadId);
+    let current = this.#core.findWorkByBinding("codex", threadId);
     if (!current || current.instance.status !== "OPEN" || current.activeBinding?.adapter !== "codex") {
       return { accepted: false, appendedCount: 0 };
     }
     const thread = await this.#codex.readThread(threadId);
+    const bindingId = current.activeBinding.id;
+    current = this.#core.getWork(current.instance.id);
+    if (!current || current.instance.status !== "OPEN" || current.activeBinding?.id !== bindingId) {
+      return { accepted: false, appendedCount: 0 };
+    }
     const { work, newEvents } = await this.#ingestCodexDelta(current, thread);
     if (!newEvents.length) return { accepted: true, appendedCount: 0 };
     this.#notice = `Codex 已增量归档 ${newEvents.length} 条记录；Work State 将在查看、刷新或交接时更新。`;
     return { accepted: true, appendedCount: newEvents.length };
+  }
+
+  async syncRecordedCodexWorks(): Promise<void> {
+    const bindings = this.#core.listWorks("OPEN")
+      .flatMap((work) => work.activeBinding?.adapter === "codex" ? [work.activeBinding] : []);
+    for (const binding of bindings) {
+      try {
+        await this.syncCodexHook({ session_id: binding.conversationId });
+      } catch (error) {
+        this.#notice = `部分 Codex 记录暂未同步，将自动重试：${error instanceof Error ? error.message : String(error)}`;
+      }
+    }
   }
 
   async syncWorkBuddyHook(payload: Record<string, unknown>): Promise<HookIngestResult> {
@@ -422,7 +454,7 @@ export class AppService {
 
   async dashboardWithVerification(workId?: string): Promise<DashboardView> {
     if (workId) this.#selectedWorkId = workId;
-    const { context } = await this.#resolveForegroundContext();
+    const { context } = await this.#resolveForegroundContext().catch(() => ({ context: null }));
     if (context?.adapter === "codex" && context.conversationId && context.applicationTitle) {
       const currentWorkId = this.#workIdForContext(context);
       if (currentWorkId) {

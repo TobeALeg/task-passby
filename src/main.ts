@@ -12,6 +12,15 @@ let petWindow: BrowserWindow | null = null;
 let panelWindow: BrowserWindow | null = null;
 let service: AppService | null = null;
 let bridge: WorkPetHttpBridge | null = null;
+let captureTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function syncRecordedWorks(): Promise<void> {
+  try {
+    await service?.syncRecordedCodexWorks();
+  } finally {
+    if (service) captureTimer = setTimeout(() => void syncRecordedWorks(), 5_000);
+  }
+}
 const PET_WINDOW_WIDTH = 304;
 const PET_WINDOW_HEIGHT = 206;
 
@@ -150,6 +159,7 @@ function registerIpc(): void {
   ipcMain.handle("panel:close", () => panelWindow?.hide());
   ipcMain.handle("dashboard:get", (_event, workId?: string) => requireService().dashboardWithVerification(workId));
   ipcMain.handle("codex:list", () => requireService().listCodexThreads());
+  ipcMain.handle("codex:history", (_event, cursor?: string) => requireService().listCodexHistory(cursor));
   ipcMain.handle("codex:preview", (_event, threadId: string) => requireService().previewCodexThread(threadId));
   ipcMain.handle("work:create-from-codex", (_event, request) => requireService().createWorkFromCodex(request));
   ipcMain.handle("work:split-points", (_event, workId: string) => requireService().listCodexSplitPoints(workId));
@@ -201,11 +211,13 @@ app.whenReady().then(async () => {
   }
   createWindows();
   registerIpc();
+  void syncRecordedWorks();
 });
 
 app.on("activate", () => revealApp());
 
 app.on("before-quit", () => {
+  if (captureTimer) clearTimeout(captureTimer);
   void bridge?.close();
   service?.close();
   service = null;

@@ -11,7 +11,9 @@ export const WORK_STATE_LABELS = {
 
 export type WorkStateField = keyof typeof WORK_STATE_LABELS;
 export type WorkStatus = "OPEN" | "COMPLETED" | "ARCHIVED";
-export type PetState = "sleeping" | "awake" | "carrying" | "alert";
+export type PetState = "sleeping" | "awake" | "waiting" | "carrying" | "alert";
+export type CaptureStatus = "recording" | "waiting" | "stopped";
+export const CAPTURE_STATUS_LABELS = { recording: "正在记录", waiting: "等待绑定", stopped: "已停止记录" } as const;
 
 export interface StateItemView {
   id: string;
@@ -26,6 +28,7 @@ export interface WorkSummaryView {
   id: string;
   title: string;
   status: WorkStatus;
+  captureStatus: CaptureStatus;
   updatedAt: string;
   eventCount: number;
   artifactCount: number;
@@ -66,6 +69,7 @@ export interface CurrentConversationView {
   workId: string | null;
   workStatus: WorkStatus | null;
   isRecording: boolean;
+  captureStatus?: CaptureStatus;
 }
 
 export interface PetView {

@@ -58,6 +58,7 @@ button { font: inherit; }
 .pet.awake { --pet-light: #ffd45f; --pet-base: #f2be4f; --pet-deep: #d99a2d; }
 .pet.awake .pet-body { animation: breathe 2.4s ease-in-out infinite; }
 .pet.awake .status-dot { background: #3f9d70; }
+.pet.waiting .status-dot { background: #d49b22; }
 .pet.carrying { --pet-light: #f5b878; --pet-base: #e99252; --pet-deep: #c96b38; }
 .pet.carrying .pet-body { animation: carry .7s ease-in-out infinite alternate; }
 .pet.carrying .status-dot { background: #377fd2; }

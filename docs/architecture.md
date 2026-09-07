@@ -42,6 +42,8 @@ Work Core ─────────────── Local Persistence
 
 ### Desktop Pet Interface
 
+采集状态由 OPEN 工作的活动绑定统一推导：真实会话为 recording，WorkBuddy 的 pending: 交接和有效 waiting: 授权为 waiting，过期授权或无活动绑定为 stopped。PetView 与 Dashboard 使用同一全局状态计算，recording 优先于 waiting；瞬时 carrying/alert 反馈保持原有行为。选中工作和进程重启不改变全局采集状态。待绑定不再视为当前会话正在记录。
+
 只调用 Work Core Interface，不承担领域判断。PetView 轮询只返回受支持前台聊天的 Adapter、App Server 应用总结标题、已绑定 WorkInstance、`workStatus` 与记录状态，不写入 notice 或持久数据；`workId` 只表达“可以打开历史工作”，不能代替活动记录状态。Helper 原始窗口标题只用于识别，二者在 Context 类型中分开表达。未识别到唯一聊天时隐藏气泡并禁用便利贴操作。用户点击便利贴后重新检测并创建记录，避免使用可能过期的预览缓存；便利贴在已有绑定时改为打开对应工作。Codex 气泡只在当前聊天拥有匹配的 ACTIVE CaptureBinding 时显示“正在记录”；不提供聊天标题的 WorkBuddy 则明确采用应用级单一活动记录，不能伪装成会话级匹配。完成与归档分别显示“已完成”“已归档”。`PetState` 保留四种反馈：`sleeping` 闭眼静止，`awake` 睁眼呼吸，`carrying` 睁眼跳动，`alert` 睁眼摇晃，并继续用体色与状态点辅助区分；四种状态共用与 Dock 图标一致的圆土豆轮廓、右上便利贴和微笑嘴型。透明桌宠窗口固定使用与定位共用的 `304 × 206` 画布，右侧和底部保留足以容纳主体阴影及状态动画的安全区，并通过鼠标穿透避免遮挡来源应用。侧边面板只负责 Work 列表、只读 Work State、重新整理、交接、完成、归档和永久删除；面板读取已有工作时会幂等同步当前 Codex 聊天的应用总结标题，用于纠正早期版本以首条 Prompt 生成的目标。MVP 保留 macOS Dock 入口；开发与发布都从打包后的 `Worket.app` 启动，以确保 macOS 使用产品名而不是底层 `Electron` 运行时名称；`assets/WorkPet.png` 与 `assets/WorkPet.icns` 仍作为稳定内部资源名提供同一品牌图标。显示名称变更不迁移内部 `workpet` 标识、bundle ID 或原 `WorkPet` 用户数据目录，已有接入配置与本地记录保持兼容。单实例锁拦截重复进程后，重复启动事件必须恢复并聚焦已有窗口，不能静默退出。
 
 ### Foreground Context Detector

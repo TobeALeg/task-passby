@@ -18,6 +18,40 @@ class FakeCodexSource implements CodexSource {
   close() {}
 }
 
+test("重启后从全部绑定恢复桌宠状态，前台和选中工作不影响后台记录", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "workpet-status-"));
+  const options = {
+    databasePath: join(directory, "workpet.sqlite"),
+    codex: { async listRecentThreads() { return []; }, async readThread() { throw new Error("不应读取会话"); }, close() {} },
+    foreground: { async detect() { return { bundleId: "com.apple.finder", name: "Finder", windowTitle: "" }; } },
+    launcher: { async openNewConversation() { return "opened" as const; } }
+  };
+  const first = new AppService(options);
+  const create = (adapter: string, conversationId: string) => first.core().createWork({
+    definition: { key: "general-work", name: "通用工作", version: 1 },
+    executor: { type: "AGENT", name: "Codex" },
+    environment: { type: "CODEX_DESKTOP", name: "Codex" },
+    source: { adapter, conversationId }
+  }).instance.id;
+  const waiting = create("workbuddy", "pending:handoff");
+  const a = create("codex", "a");
+  const b = create("codex", "b");
+  first.close();
+  const reopened = new AppService(options);
+  assert.deepEqual(await reopened.getPetView(), { petState: "awake", currentConversation: null });
+  reopened.completeWork(a);
+  assert.equal(reopened.dashboard(a).petState, "awake");
+  reopened.completeWork(b);
+  assert.equal((await reopened.getPetView()).petState, "waiting");
+  assert.equal(reopened.dashboard(waiting).selectedWork?.captureStatus, "waiting");
+  reopened.core().bindConversation(waiting, "workbuddy", "pending:handoff", "real-session");
+  assert.equal((await reopened.getPetView()).petState, "awake");
+  reopened.core().stopCapture(waiting);
+  assert.equal((await reopened.getPetView()).petState, "sleeping");
+  assert.equal(reopened.dashboard(waiting).selectedWork?.captureStatus, "stopped");
+  reopened.close();
+});
+
 test("桌宠用一次服务调用检测并记录当前工作，不依赖预先缓存的上下文", async () => {
   const thread: NormalizedThread = {
     threadId: "current-codex-thread", title: "修复当前聊天识别失败", cwd: "/tmp",

@@ -1,5 +1,6 @@
 import {
   WORK_STATE_LABELS,
+  CAPTURE_STATUS_LABELS,
   type DashboardView,
   type WorkDetailView,
   type WorkStateField,
@@ -37,7 +38,7 @@ function render(): void {
   const works = dashboard.works.filter((work) => work.status === filter);
   list.innerHTML = works.length
     ? works.map((work) => `<button class="work-row ${work.id === dashboard.selectedWorkId ? "selected" : ""}" data-work-id="${work.id}">
-        <h3>${escapeHtml(work.title)}</h3><span class="status">${work.status}</span>
+        <h3>${escapeHtml(work.title)}</h3><span class="status">${work.status === "OPEN" ? CAPTURE_STATUS_LABELS[work.captureStatus] : work.status === "COMPLETED" ? "已完成" : "已归档"}</span>
         <span class="counts">${work.eventCount} 条记录 · ${work.artifactCount} 份资料 · ${work.episodeCount} 段执行</span>
         <time>${formatDate(work.updatedAt)}</time>
       </button>`).join("")

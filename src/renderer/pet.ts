@@ -34,7 +34,9 @@ function render(state: PetView): void {
     return;
   }
   const hasWork = Boolean(currentConversation.workId);
-  const contextState = currentConversation.isRecording
+  const contextState = currentConversation.captureStatus === "waiting"
+    ? "等待绑定"
+    : currentConversation.isRecording
     ? "正在记录"
     : currentConversation.workStatus === "COMPLETED"
       ? "已完成"

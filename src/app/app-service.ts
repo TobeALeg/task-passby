@@ -40,6 +40,18 @@ import type {
   WorkDetailView,
   WorkSummaryView
 } from "../ui-contract.js";
+import type { CaptureStatus } from "../ui-contract.js";
+
+function captureStatus(work: WorkSnapshot): CaptureStatus {
+  const binding = work.activeBinding;
+  if (work.instance.status !== "OPEN" || !binding) return "stopped";
+  if (binding.adapter === "workbuddy") {
+    const pending = workBuddyPendingCaptureState(binding.conversationId);
+    if (pending === "EXPIRED") return "stopped";
+    if (pending === "ACTIVE" || binding.conversationId.startsWith("pending:")) return "waiting";
+  }
+  return "recording";
+}
 
 export interface AppServiceOptions {
   databasePath: string;
@@ -97,6 +109,7 @@ export class AppService {
   }
 
   async getPetView(): Promise<PetView> {
+    const petState = this.#globalPetState();
     const { context } = await this.#resolveForegroundContext();
     const conversationTitle = context?.adapter === "codex"
       ? context.applicationTitle?.trim()
@@ -104,19 +117,20 @@ export class AppService {
         ? context.windowTitle?.trim() || "当前 WorkBuddy 对话"
         : null;
     if (!context || !conversationTitle) {
-      return { petState: this.#petState, currentConversation: null };
+      return { petState, currentConversation: null };
     }
     const workId = this.#workIdForContext(context);
     const work = workId ? this.#core.getWork(workId) : null;
     return {
-      petState: this.#petState,
+      petState,
       currentConversation: {
         adapter: context.adapter,
         applicationName: context.adapter === "codex" ? "Codex" : "WorkBuddy",
         title: conversationTitle,
         workId,
         workStatus: work?.instance.status ?? null,
-        isRecording: work ? this.#isContextActivelyRecorded(work, context) : false
+        isRecording: work ? this.#isContextActivelyRecorded(work, context) : false,
+        ...(work && captureStatus(work) === "waiting" ? { captureStatus: "waiting" as const } : {})
       }
     };
   }
@@ -397,11 +411,8 @@ export class AppService {
       this.#selectedWorkId = works[0]?.instance.id ?? null;
     }
     const selected = this.#selectedWorkId ? this.#core.getWork(this.#selectedWorkId) : null;
-    if (selected && this.#petState !== "carrying" && this.#petState !== "alert") {
-      this.#petState = selected.instance.status === "OPEN" ? "awake" : "sleeping";
-    }
     return {
-      petState: this.#petState,
+      petState: this.#globalPetState(),
       selectedWorkId: this.#selectedWorkId,
       works: works.map((work) => this.#summary(work)),
       selectedWork: selected ? this.#detail(selected) : null,
@@ -568,6 +579,7 @@ export class AppService {
   }
 
   #isContextActivelyRecorded(work: WorkSnapshot, context: CurrentApplicationContext): boolean {
+    if (captureStatus(work) !== "recording") return false;
     const binding = work.activeBinding;
     if (work.instance.status !== "OPEN" || !binding || binding.adapter !== context.adapter) return false;
     if (context.adapter === "codex") {
@@ -674,11 +686,20 @@ export class AppService {
     return work;
   }
 
+  #globalPetState(): DashboardView["petState"] {
+    if (this.#petState === "carrying" || this.#petState === "alert") return this.#petState;
+    const statuses = this.#core.listWorks("OPEN").map(captureStatus);
+    if (statuses.includes("recording")) return "awake";
+    if (statuses.includes("waiting")) return "waiting";
+    return "sleeping";
+  }
+
   #summary(work: WorkSnapshot): WorkSummaryView {
     return {
       id: work.instance.id,
       title: work.state.objective[0]?.text ?? "未命名工作",
       status: work.instance.status,
+      captureStatus: captureStatus(work),
       updatedAt: work.instance.updatedAt,
       eventCount: work.sourceArchive.length,
       artifactCount: work.artifactRefs.length,

@@ -1,6 +1,7 @@
 import {
   WORK_STATE_LABELS,
   CAPTURE_STATUS_LABELS,
+  CAPTURE_WAITING_GUIDANCE,
   type DashboardView,
   type WorkDetailView,
   type WorkStateField,
@@ -40,7 +41,9 @@ function render(): void {
   const works = dashboard.works.filter((work) => work.status === filter);
   list.innerHTML = works.length
     ? works.map((work) => `<button class="work-row ${work.id === dashboard.selectedWorkId ? "selected" : ""}" data-work-id="${work.id}">
-        <h3>${escapeHtml(work.title)}</h3><span class="status">${work.status === "OPEN" ? CAPTURE_STATUS_LABELS[work.captureStatus] : work.status === "COMPLETED" ? "已完成" : "已归档"}</span>
+        <h3>${escapeHtml(work.title)}</h3><span class="status ${work.captureStatus === "waiting" ? "status-waiting" : ""}">${work.status === "OPEN" ? CAPTURE_STATUS_LABELS[work.captureStatus] : work.status === "COMPLETED" ? "已完成" : "已归档"}</span>
+        <span class="work-agent agent-label">${escapeHtml(work.agentName)}</span>
+        ${work.captureStatus === "waiting" ? `<span class="capture-guidance">${CAPTURE_WAITING_GUIDANCE}</span>` : ""}
         <span class="counts">${work.eventCount} 条记录 · ${work.artifactCount} 份资料 · ${work.episodeCount} 段执行</span>
         <time>${formatDate(work.updatedAt)}</time>
       </button>`).join("")
@@ -61,7 +64,7 @@ function renderDetail(work: WorkDetailView | null): void {
       ? `<button data-action="resume">继续原工作</button><button data-action="split">从消息新建</button><button data-action="archive">归档</button>`
       : `<button data-action="resume">恢复为进行中</button>`;
   detail.innerHTML = `
-    <div class="detail-head"><span class="eyebrow">${work.id.slice(0, 8)}</span><h2>${escapeHtml(work.title)}</h2><p class="detail-meta">${work.eventCount} 条来源记录 · ${work.episodeCount} 个 Execution Episode</p></div>
+    <div class="detail-head"><span class="eyebrow">${escapeHtml(work.agentName)}</span><h2>${escapeHtml(work.title)}</h2><p class="detail-meta">${work.eventCount} 条来源记录 · ${work.episodeCount} 段执行</p>${work.captureStatus === "waiting" ? `<p class="capture-guidance">${CAPTURE_WAITING_GUIDANCE}</p>` : ""}</div>
     <div class="detail-actions">${actions}<button data-action="delete">永久删除</button></div>
     ${Object.entries(WORK_STATE_LABELS).map(([field, label]) => stateSection(work, field as WorkStateField, label)).join("")}
     <section class="state-section"><h3>执行片段</h3>${work.episodes.map((episode) => `<div class="episode"><span>${escapeHtml(episode.environment)} · ${escapeHtml(episode.executor)}</span><strong>${episode.status}</strong></div>`).join("")}</section>`;

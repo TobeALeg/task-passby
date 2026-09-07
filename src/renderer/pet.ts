@@ -35,7 +35,7 @@ function render(state: PetView): void {
   }
   const hasWork = Boolean(currentConversation.workId);
   const contextState = currentConversation.captureStatus === "waiting"
-    ? "等待绑定"
+    ? "等待发送消息"
     : currentConversation.isRecording
     ? "正在记录"
     : currentConversation.workStatus === "COMPLETED"
@@ -47,7 +47,9 @@ function render(state: PetView): void {
           : "当前聚焦";
   applicationMark.textContent = currentConversation.adapter === "codex" ? "⌘" : "W";
   applicationMark.className = `application-mark ${currentConversation.adapter}`;
-  contextLabel.textContent = `${contextState} · ${currentConversation.applicationName}`;
+  contextLabel.textContent = currentConversation.captureStatus === "waiting"
+    ? "请在 WorkBuddy 发送消息"
+    : `${contextState} · ${currentConversation.applicationName}`;
   contextTitle.textContent = currentConversation.title;
   paperLabel.textContent = hasWork ? "打开" : "记录";
   paperAction.dataset.action = hasWork ? "open" : "record";

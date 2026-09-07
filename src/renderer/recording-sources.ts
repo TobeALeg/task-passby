@@ -36,7 +36,11 @@ export function setupRecordingSources(onRecorded: (dashboard: DashboardView) => 
       const title = document.createElement("h3");
       title.textContent = source.title || "等待 Codex 生成标题";
       const meta = document.createElement("p");
-      meta.textContent = `${source.cwd.split("/").filter(Boolean).at(-1) || "Codex"} · ${new Date(source.updatedAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+      meta.className = "source-meta";
+      const agent = document.createElement("span");
+      agent.className = "agent-label";
+      agent.textContent = source.agentName;
+      meta.append(agent, document.createTextNode(`${source.cwd.split("/").filter(Boolean).at(-1) || "无项目"} · ${new Date(source.updatedAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}`));
       text.append(title, meta);
       const button = document.createElement("button");
       button.className = "secondary";

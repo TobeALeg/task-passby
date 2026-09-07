@@ -114,7 +114,7 @@ export class AppService {
 
   #recordingSource(thread: CodexThreadSummary): CodexThreadView {
     const work = this.#core.findWorkByBinding("codex", thread.id);
-    return { ...thread, ...(work ? { workId: work.instance.id } : {}) };
+    return { ...thread, agentName: "Codex", ...(work ? { workId: work.instance.id } : {}) };
   }
 
   async captureForegroundContext(): Promise<CurrentApplicationContext | null> {
@@ -227,7 +227,7 @@ export class AppService {
     this.#selectedWorkId = work.instance.id;
     if (this.#cloudExtractionIsEnabled()) this.#cloudExtractionWorkIds.add(work.instance.id);
     this.#petState = "awake";
-    this.#notice = "已准备记录当前 WorkBuddy 对话；请在该对话提交下一条消息，Worket 会用真实 session ID 自动绑定并归档完整可见 transcript。";
+    this.#notice = "尚未开始记录。请在对应的 WorkBuddy 聊天中提交下一条消息，识别到聊天后会开始记录并导入已有内容。";
     return this.dashboard(work.instance.id);
   }
 
@@ -238,6 +238,7 @@ export class AppService {
     const messageCount = userPromptCount + agentResponseCount;
     return {
       id: thread.threadId,
+      agentName: "Codex",
       title: thread.title,
       preview: thread.events.find((event) => event.kind === "user.prompt")?.content ?? "",
       cwd: thread.cwd,
@@ -418,13 +419,19 @@ export class AppService {
   }
 
   async syncWorkBuddyHook(payload: Record<string, unknown>): Promise<HookIngestResult> {
+    const works = this.#core.listWorks();
     const knownEventIds = new Map(
-      this.#core.listWorks().map((work) => [work.instance.id, new Set(work.sourceArchive.map((event) => event.externalId))])
+      works.map((work) => [work.instance.id, new Set(work.sourceArchive.map((event) => event.externalId))])
     );
     const result = await this.#workBuddyHooks.ingest(payload);
-    if (!result.accepted || !result.workInstanceId || !result.appendedCount) return result;
+    if (!result.accepted || !result.workInstanceId) return result;
     const work = this.#core.getWork(result.workInstanceId);
     if (!work) return result;
+    const previous = works.find((candidate) => candidate.instance.id === result.workInstanceId);
+    if (previous && captureStatus(previous) === "waiting" && captureStatus(work) === "recording") {
+      this.#notice = "已识别 WorkBuddy 聊天，正在记录。";
+    }
+    if (!result.appendedCount) return result;
     const known = knownEventIds.get(result.workInstanceId) ?? new Set<string>();
     const newEvents = work.sourceArchive.filter((event) => !known.has(event.externalId));
     if (!newEvents.length) return result;
@@ -540,7 +547,7 @@ export class AppService {
       return this.dashboard(workId);
     }
     this.#petState = "awake";
-    this.#notice = "已唤起 WorkBuddy 接力任务；正在等待 MCP/Hook 确认真实会话。";
+    this.#notice = "已唤起 WorkBuddy 接力任务。请在对应聊天中发送一条消息，识别到聊天后会开始记录。";
     return this.dashboard(workId);
   }
 
@@ -729,6 +736,7 @@ export class AppService {
   #summary(work: WorkSnapshot): WorkSummaryView {
     return {
       id: work.instance.id,
+      agentName: (work.activeEpisode ?? work.episodes.at(-1))?.executor.name ?? "未知 Agent",
       title: work.state.objective[0]?.text ?? "未命名工作",
       status: work.instance.status,
       captureStatus: captureStatus(work),

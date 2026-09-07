@@ -13,7 +13,8 @@ export type WorkStateField = keyof typeof WORK_STATE_LABELS;
 export type WorkStatus = "OPEN" | "COMPLETED" | "ARCHIVED";
 export type PetState = "sleeping" | "awake" | "waiting" | "carrying" | "alert";
 export type CaptureStatus = "recording" | "waiting" | "stopped";
-export const CAPTURE_STATUS_LABELS = { recording: "正在记录", waiting: "等待绑定", stopped: "已停止记录" } as const;
+export const CAPTURE_STATUS_LABELS = { recording: "正在记录", waiting: "等待发送消息", stopped: "已停止记录" } as const;
+export const CAPTURE_WAITING_GUIDANCE = "尚未开始记录。请在对应的 WorkBuddy 聊天中发送一条消息，识别到该聊天后会自动开始记录。";
 
 export interface StateItemView {
   id: string;
@@ -26,6 +27,7 @@ export type WorkStateView = Record<WorkStateField, StateItemView[]>;
 
 export interface WorkSummaryView {
   id: string;
+  agentName: string;
   title: string;
   status: WorkStatus;
   captureStatus: CaptureStatus;
@@ -79,6 +81,7 @@ export interface PetView {
 
 export interface CodexThreadView {
   id: string;
+  agentName: string;
   title: string | null;
   preview: string;
   cwd: string;

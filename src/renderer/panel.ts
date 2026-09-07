@@ -16,7 +16,8 @@ const splitDialog = required<HTMLDialogElement>("#split-dialog");
 const deleteDialog = required<HTMLDialogElement>("#delete-dialog");
 const splitPointSelect = required<HTMLSelectElement>("#split-point");
 let dashboard: DashboardView;
-let filter: WorkStatus = "OPEN";
+type PanelTab = WorkStatus | "RECENT";
+let filter: PanelTab = "OPEN";
 let pendingDeleteWorkId: string | null = null;
 let pendingSplitWorkId: string | null = null;
 
@@ -35,7 +36,16 @@ function formatDate(value: string): string {
 }
 
 function render(): void {
-  document.querySelectorAll<HTMLElement>(".filter").forEach((button) => button.classList.toggle("active", button.dataset.filter === filter));
+  document.querySelectorAll<HTMLElement>(".filter").forEach((button) => {
+    const selected = button.dataset.filter === filter;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-selected", String(selected));
+    button.tabIndex = selected ? 0 : -1;
+    if (selected && filter !== "RECENT") required("#works-panel").setAttribute("aria-labelledby", button.id);
+  });
+  required<HTMLElement>("#sources-panel").hidden = filter !== "RECENT";
+  required<HTMLElement>("#works-panel").hidden = filter === "RECENT";
+  if (filter === "RECENT" || !dashboard) return;
   notice.hidden = !dashboard.notice;
   notice.textContent = dashboard.notice ?? "";
   const works = dashboard.works.filter((work) => work.status === filter);
@@ -99,6 +109,7 @@ async function runAction(workId: string, action: string): Promise<void> {
   }[action];
   if (!operation) return;
   dashboard = await operation();
+  filter = dashboard.selectedWork?.status ?? filter;
   render();
 }
 
@@ -134,9 +145,19 @@ required<HTMLButtonElement>("#confirm-delete").addEventListener("click", async (
 });
 for (const button of document.querySelectorAll<HTMLButtonElement>(".filter")) {
   button.addEventListener("click", () => {
-    filter = button.dataset.filter as WorkStatus;
-    document.querySelectorAll(".filter").forEach((candidate) => candidate.classList.toggle("active", candidate === button));
+    filter = button.dataset.filter as PanelTab;
     render();
+  });
+  button.addEventListener("keydown", (event) => {
+    const tabs = [...document.querySelectorAll<HTMLButtonElement>(".filter")];
+    const index = tabs.indexOf(button);
+    const next = event.key === "ArrowRight" ? (index + 1) % tabs.length
+      : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length
+      : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : -1;
+    if (next < 0) return;
+    event.preventDefault();
+    tabs[next]!.focus();
+    tabs[next]!.click();
   });
 }
 

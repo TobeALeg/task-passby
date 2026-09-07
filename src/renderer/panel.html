@@ -13,22 +13,24 @@
     </header>
 
     <main>
-      <section class="recording-sources" aria-label="可记录的工作">
-        <div class="source-heading"><h2>最近活动</h2><button id="record-history" class="secondary">记录沉睡工作</button></div>
+      <section class="toolbar">
+        <div class="filters" role="tablist" aria-label="工作阶段">
+          <button id="tab-recent" class="filter" role="tab" aria-selected="false" aria-controls="sources-panel" tabindex="-1" data-filter="RECENT">最近活动</button>
+          <button id="tab-open" class="filter active" role="tab" aria-selected="true" aria-controls="works-panel" data-filter="OPEN">进行中</button>
+          <button id="tab-completed" class="filter" role="tab" aria-selected="false" aria-controls="works-panel" tabindex="-1" data-filter="COMPLETED">已完成</button>
+          <button id="tab-archived" class="filter" role="tab" aria-selected="false" aria-controls="works-panel" tabindex="-1" data-filter="ARCHIVED">已归档</button>
+        </div>
+      </section>
+      <section id="sources-panel" class="recording-sources" role="tabpanel" aria-labelledby="tab-recent" hidden>
+        <div class="source-actions"><button id="record-history" class="secondary">记录沉睡工作</button></div>
         <div id="source-error" class="notice" role="alert" hidden></div>
         <div id="recent-sources"><p class="source-empty">正在查找活动聊天…</p></div>
       </section>
-      <section class="toolbar">
-        <div class="filters" role="tablist">
-          <button class="filter active" data-filter="OPEN">进行中</button>
-          <button class="filter" data-filter="COMPLETED">已完成</button>
-          <button class="filter" data-filter="ARCHIVED">已归档</button>
-        </div>
+      <section id="works-panel" role="tabpanel" aria-labelledby="tab-open">
+        <div id="notice" class="notice" hidden></div>
+        <section id="work-list" class="work-list"></section>
+        <section id="work-detail" class="work-detail" hidden></section>
       </section>
-
-      <div id="notice" class="notice" hidden></div>
-      <section id="work-list" class="work-list"></section>
-      <section id="work-detail" class="work-detail" hidden></section>
     </main>
 
     <dialog id="history-dialog" aria-labelledby="history-title">

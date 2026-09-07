@@ -51,7 +51,9 @@ try {
       "pet:get-view": () => service.getPetView(),
       "codex:list": () => service.listCodexThreads(),
       "codex:history": (_event, cursor) => service.listCodexHistory(cursor),
-      "work:create-from-codex": (_event, request) => service.createWorkFromCodex(request)
+      "work:create-from-codex": (_event, request) => service.createWorkFromCodex(request),
+      "work:complete": (_event, id) => service.completeWork(id),
+      "work:archive": (_event, id) => service.archiveWork(id)
     };
     for (const [name, handler] of Object.entries(handlers)) { ipcMain.removeHandler(name); ipcMain.handle(name, handler); }
     globalThis.recordingQa = { service, threads, setHistoryError(value) { failHistory = value; }, useWorkBuddy() { foreground = { bundleId: "com.tencent.workbuddy.mac", name: "WorkBuddy", windowTitle: null }; } };
@@ -60,12 +62,18 @@ try {
   await page.reload();
   await page.waitForFunction(() => document.querySelectorAll("#recent-sources .source-row").length === 2);
   assert.deepEqual(await page.locator("#recent-sources .agent-label").allTextContents(), ["Codex", "Codex"]);
+  assert.equal(await page.locator("#sources-panel").isVisible(), false);
+  assert.equal(await page.locator("#works-panel").isVisible(), true);
+  await page.locator("#tab-recent").click();
+  assert.equal(await page.locator("#works-panel").isVisible(), false);
   await page.screenshot({ path: join(output, "parallel-01-discovery.png") });
   for (const id of ["qa-0", "qa-1"]) {
+    await page.locator("#tab-recent").click();
     await page.locator(`#recent-sources [data-thread-id='${id}'] button`).click();
     await page.waitForFunction((id) => !document.querySelector(`#recent-sources [data-thread-id='${id}']`), id);
   }
   assert.equal(await page.locator("#work-list .work-row").count(), 2);
+  await page.locator("#tab-recent").click();
   await page.locator("#record-history").click();
   await page.locator("#history-more").click();
   await page.locator("#history-search").fill("沉睡");
@@ -81,16 +89,19 @@ try {
   });
   await page.waitForFunction(() => [...document.querySelectorAll("#work-list .counts")].every((element) => element.textContent.startsWith("3 条记录")), undefined, { timeout: 15_000 });
   await page.screenshot({ path: join(output, "parallel-03-recording.png") });
+  await page.locator("#tab-recent").click();
   await page.locator("#record-history").click();
   await page.locator("#history-sources [data-thread-id='qa-0'] button").click();
   assert.equal(await page.locator("#work-list .work-row").count(), 3, "重复选择不创建新记录");
   await application.evaluate(() => globalThis.recordingQa.setHistoryError(true));
+  await page.locator("#tab-recent").click();
   await page.locator("#record-history").click();
   await page.waitForFunction(() => !document.querySelector("#history-error").hidden);
   await application.evaluate(() => globalThis.recordingQa.setHistoryError(false));
   await page.locator("#history-retry").click();
   await page.waitForFunction(() => document.querySelector("#history-error").hidden && document.querySelectorAll("#history-sources .source-row").length === 2);
   await page.locator("#history-close").click();
+  await page.locator("#tab-open").click();
   const waitingId = await application.evaluate(async () => {
     const qa = globalThis.recordingQa;
     qa.useWorkBuddy();
@@ -113,6 +124,21 @@ try {
   await pet.waitForFunction(() => document.querySelector("#context-label")?.textContent === "正在记录 · WorkBuddy");
   assert.equal(await page.locator("#notice").innerText(), "已识别 WorkBuddy 聊天，正在记录。");
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "面板无横向溢出");
+  await page.locator('#work-detail [data-action="complete"]').click();
+  await page.waitForFunction(() => document.querySelector('#tab-completed').getAttribute('aria-selected') === 'true');
+  assert.equal(await page.locator('#work-list .work-row').count(), 1);
+  assert.equal(await page.locator('#sources-panel').isVisible(), false);
+  await page.locator('#work-detail [data-action="archive"]').click();
+  await page.waitForFunction(() => document.querySelector('#tab-archived').getAttribute('aria-selected') === 'true');
+  assert.equal(await page.locator('#work-list .work-row').count(), 1);
+  await page.locator('#tab-recent').click();
+  await page.waitForTimeout(5500);
+  assert.equal(await page.locator('#works-panel').isVisible(), false, '刷新不会把工作列表混入最近活动');
+  await page.locator('#tab-recent').focus();
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await page.locator('#tab-open').getAttribute('aria-selected'), 'true');
+  assert.equal(await page.locator('#work-list .work-row').count(), 3);
+  await page.screenshot({ path: join(output, 'parallel-05-tabs.png') });
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ passed: true, parallelWorks: 3, automaticPanelRefresh: true, historyPagination: true, errorRecovery: true, agentLabels: true, waitingGuidanceAndTransition: true, screenshots: ["parallel-01-discovery.png", "parallel-02-history.png", "parallel-03-recording.png", "parallel-04-waiting.png"] }, null, 2));
 } finally {

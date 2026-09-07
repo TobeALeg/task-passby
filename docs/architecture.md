@@ -178,3 +178,7 @@ INACTIVE ──继续原工作──> ACTIVE
 来源目录的 agentName 由 Adapter 在 AppService 中声明，当前 Codex 来源固定为 Codex，不从项目目录或标题猜测。WorkSummaryView 的 agentName 来自活动 ExecutionEpisode，结束后取最后片段。waiting 领域状态保持原义，展示层统一转为“等待发送消息”，面板列表和详情共用 CAPTURE_WAITING_GUIDANCE，桌宠提示发送消息；样式与 recording 区分。
 
 面板以 PanelTab（RECENT 或 WorkStatus）控制两个互斥 tabpanel：sources-panel 只负责来源选择，works-panel 展示当前生命周期的列表、通知和详情。Tab 是 UI 状态，不引入新的工作生命周期；刷新保留 Tab，用户执行记录或生命周期操作后跟随目标工作状态。
+
+### 待实现的归档语义（2026-09-07）
+
+用户将归档的后续目标定义为“抽象工作为可重复执行的副本”。现有 `ARCHIVED` 生命周期状态暂时保留，不代表已实现该能力。未来与 WorkDefinition、WorkInstance、WorkPattern 的实体关系及副本执行方式留待专项设计，本次不调整数据模型、接口或运行行为。

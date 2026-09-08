@@ -1,3 +1,4 @@
+import { setupDistillation, renderDefinitions, workDefinitionAction } from './distillation.js';
 import {
   WORK_STATE_LABELS,
   CAPTURE_STATUS_LABELS,
@@ -16,8 +17,9 @@ const splitDialog = required<HTMLDialogElement>("#split-dialog");
 const deleteDialog = required<HTMLDialogElement>("#delete-dialog");
 const splitPointSelect = required<HTMLSelectElement>("#split-point");
 let dashboard: DashboardView;
-type PanelTab = WorkStatus | "RECENT";
+type PanelTab = WorkStatus | "RECENT" | "DEFINITIONS";
 let filter: PanelTab = "OPEN";
+const selectedDistillationIds = new Set<string>();
 let pendingDeleteWorkId: string | null = null;
 let pendingSplitWorkId: string | null = null;
 
@@ -44,13 +46,18 @@ function render(): void {
     if (selected && filter !== "RECENT") required("#works-panel").setAttribute("aria-labelledby", button.id);
   });
   required<HTMLElement>("#sources-panel").hidden = filter !== "RECENT";
-  required<HTMLElement>("#works-panel").hidden = filter === "RECENT";
+  required<HTMLElement>("#works-panel").hidden = filter === "RECENT" || filter === "DEFINITIONS";
+  required<HTMLElement>("#definitions-panel").hidden = filter !== "DEFINITIONS";
+  if (filter === "DEFINITIONS") { void renderDefinitions(); return; }
   if (filter === "RECENT" || !dashboard) return;
   notice.hidden = !dashboard.notice;
   notice.textContent = dashboard.notice ?? "";
   const works = dashboard.works.filter((work) => work.status === filter);
+  const checkedIds = selectedDistillationIds;
+  for (const id of checkedIds) if (!dashboard.works.some(work => work.id === id)) checkedIds.delete(id);
+  required("#distill-selected").textContent = `沉淀所选工作（${checkedIds.size}）`;
   list.innerHTML = works.length
-    ? works.map((work) => `<button class="work-row ${work.id === dashboard.selectedWorkId ? "selected" : ""}" data-work-id="${work.id}">
+    ? works.map((work) => `<label class="distill-choice"><input type="checkbox" data-distill-work value="${escapeHtml(work.id)}">选择沉淀：${escapeHtml(work.title)}</label><button class="work-row ${work.id === dashboard.selectedWorkId ? "selected" : ""}" data-work-id="${work.id}">
         <h3>${escapeHtml(work.title)}</h3><span class="status ${work.captureStatus === "waiting" ? "status-waiting" : ""}">${work.status === "OPEN" ? CAPTURE_STATUS_LABELS[work.captureStatus] : work.status === "COMPLETED" ? "已完成" : "已归档"}</span>
         <span class="work-agent agent-label">${escapeHtml(work.agentName)}</span>
         ${work.captureStatus === "waiting" ? `<span class="capture-guidance">${CAPTURE_WAITING_GUIDANCE}</span>` : ""}
@@ -59,6 +66,10 @@ function render(): void {
       </button>`).join("")
     : `<div class="empty">${filter === "OPEN" ? "还没有正在记录的工作" : filter === "COMPLETED" ? "还没有已完成的工作" : "还没有已归档的工作"}</div>`;
 
+  for (const input of list.querySelectorAll<HTMLInputElement>("[data-distill-work]")) {
+    input.checked = checkedIds.has(input.value);
+    input.addEventListener("change", () => { if (input.checked) checkedIds.add(input.value); else checkedIds.delete(input.value); required("#distill-selected").textContent = `沉淀所选工作（${checkedIds.size}）`; });
+  }
   for (const row of list.querySelectorAll<HTMLElement>("[data-work-id]")) {
     row.addEventListener("click", () => void selectWork(row.dataset.workId ?? ""));
   }
@@ -69,13 +80,13 @@ function renderDetail(work: WorkDetailView | null): void {
   detail.hidden = !work;
   if (!work) { detail.innerHTML = ""; return; }
   const actions = work.status === "OPEN"
-    ? `<button data-action="refresh">刷新记录</button><button data-action="split">从消息新建</button><button data-action="handoff" class="handoff">交给 WorkBuddy</button><button data-action="complete">完成</button><button data-action="archive">归档</button>`
+    ? `<button data-action="refresh">刷新记录</button><button data-action="split">从消息新建</button><button data-action="handoff" class="handoff">交给 WorkBuddy</button><button data-action="complete">完成</button><details class="secondary-menu"><summary>更多</summary><button data-action="archive">归档</button></details>`
     : work.status === "COMPLETED"
-      ? `<button data-action="resume">继续原工作</button><button data-action="split">从消息新建</button><button data-action="archive">归档</button>`
+      ? `<button data-action="resume">继续原工作</button><button data-action="split">从消息新建</button><details class="secondary-menu"><summary>更多</summary><button data-action="archive">归档</button></details>`
       : `<button data-action="resume">恢复为进行中</button>`;
   detail.innerHTML = `
-    <div class="detail-head"><span class="eyebrow">${escapeHtml(work.agentName)}</span><h2>${escapeHtml(work.title)}</h2><p class="detail-meta">${work.eventCount} 条来源记录 · ${work.episodeCount} 段执行</p>${work.captureStatus === "waiting" ? `<p class="capture-guidance">${CAPTURE_WAITING_GUIDANCE}</p>` : ""}</div>
-    <div class="detail-actions">${actions}<button data-action="delete">永久删除</button></div>
+    <div class="detail-head">${work.reusableDefinitionId ? `<p class="notice">${work.dispatchStatus === "NOT_DISPATCHED" ? "尚未交给执行者" : work.dispatchStatus === "FAILED" ? "启动失败，可重试" : work.dispatchStatus === "BOUND" && work.dispatchReadAt ? "已绑定本次对话，工作包已读取" : "等待执行端确认接手"}</p>` : ""}<span class="eyebrow">${escapeHtml(work.agentName)}</span><h2>${escapeHtml(work.title)}</h2><p class="detail-meta">${work.eventCount} 条来源记录 · ${work.episodeCount} 段执行</p>${work.captureStatus === "waiting" ? `<p class="capture-guidance">${CAPTURE_WAITING_GUIDANCE}</p>` : ""}</div>
+    <div class="detail-actions">${actions}${work.reusableDefinitionId && ["STARTING","WAITING"].includes(work.dispatchStatus??"")?'<button data-action="reset-dispatch">检查未确认交付</button>':''}<button data-action="distill">沉淀</button><button data-action="copy">复制工作包</button><button data-action="export">导出工作包</button><button data-action="delete">永久删除</button></div>
     ${Object.entries(WORK_STATE_LABELS).map(([field, label]) => stateSection(work, field as WorkStateField, label)).join("")}
     <section class="state-section"><h3>执行片段</h3>${work.episodes.map((episode) => `<div class="episode"><span>${escapeHtml(episode.environment)} · ${escapeHtml(episode.executor)}</span><strong>${episode.status}</strong></div>`).join("")}</section>`;
 
@@ -98,6 +109,8 @@ async function selectWork(workId: string): Promise<void> {
 }
 
 async function runAction(workId: string, action: string): Promise<void> {
+  const selected = dashboard.selectedWork;
+  if (selected && await workDefinitionAction(selected, action)) return;
   if (action === "delete") { pendingDeleteWorkId = workId; deleteDialog.showModal(); return; }
   if (action === "split") { await openSplit(workId); return; }
   const operation = {
@@ -121,6 +134,8 @@ async function openSplit(workId: string): Promise<void> {
   splitDialog.showModal();
 }
 
+setupDistillation((result) => { if (result) { dashboard = result; filter = result.selectedWork?.status ?? "OPEN"; } else { filter = "DEFINITIONS"; } render(); }, () => [...selectedDistillationIds]);
+required("#archive-records").addEventListener("click", () => { filter = "ARCHIVED"; render(); });
 required("#close-panel").addEventListener("click", () => void window.workpet.closePanel());
 required<HTMLButtonElement>("#confirm-split").addEventListener("click", async (event) => {
   event.preventDefault();

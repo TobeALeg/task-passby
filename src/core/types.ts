@@ -1,3 +1,5 @@
+import type { DefinitionRepository, CreateFromDefinition } from '../definitions/repository.js';
+import type { WorkPackage } from '../definitions/work-package.js';
 export const WORK_STATE_FIELDS = [
   "objective",
   "successCriteria",
@@ -49,6 +51,7 @@ export interface ExecutionEnvironment {
 }
 
 export interface WorkDefinition {
+  kind?: "GENERAL" | "REUSABLE";
   id: string;
   key: string;
   name: string;
@@ -112,6 +115,8 @@ export type ArtifactRefInput = Omit<
 > & { episodeId?: string | null };
 
 export type SourceEventKind =
+  | "work.definition_applied"
+  | "work.input_provided"
   | "conversation.title"
   | "user.prompt"
   | "agent.response"
@@ -142,6 +147,7 @@ export type SourceEventInput = Omit<
 > & { episodeId?: string };
 
 export interface WorkSnapshot {
+  packageReadAt?: string | null;
   definition: WorkDefinition;
   instance: WorkInstance;
   record: WorkRecord;
@@ -156,6 +162,7 @@ export interface WorkSnapshot {
 }
 
 export interface HandoffPackage {
+  workPackage?: WorkPackage;
   id: string;
   workInstanceId: string;
   workDefinition: { key: string; version: number };
@@ -196,6 +203,8 @@ export interface WorkCoreOptions {
 }
 
 export interface WorkCore {
+  readonly definitions: DefinitionRepository;
+  createWorkFromDefinition(input: CreateFromDefinition): WorkSnapshot;
   createWork(input: CreateWorkInput): WorkSnapshot;
   getWork(workInstanceId: string): WorkSnapshot | null;
   listWorks(status?: WorkStatus): WorkSnapshot[];

@@ -1,5 +1,6 @@
 export interface WorkBuddyBootstrapInput {
   workId: string;
+  purpose?: "START" | "CONTINUE";
   title: string;
   currentTask: string;
   nextStep: string;
@@ -12,7 +13,7 @@ export function buildWorkBuddyBootstrap(input: WorkBuddyBootstrapInput): string 
     : "- 无";
   return [
     `[WORKPET:${input.workId}]`,
-    `你正在接手同一项工作：${input.title}`,
+    input.purpose === "START" ? `请开展一项新工作：${input.title}` : `你正在接手同一项工作：${input.title}`,
     "",
     `当前任务：${input.currentTask || "请先读取工作记录确认当前状态"}`,
     `下一步：${input.nextStep || "调用 Worket MCP 获取工作上下文"}`,

@@ -11,3 +11,8 @@ output/
 .env
 .env.*
 !.env.example
+
+*.sqlite
+*.sqlite-*
+*.bak
+definition-materials/

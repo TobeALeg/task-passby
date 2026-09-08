@@ -1,7 +1,11 @@
+import { writeFileSync } from 'node:fs';
+import { DistillationDesktop } from './distillation/desktop.js';
+import { WorketAIClient } from './ai-service/client.js';
+import { ServiceCredentials } from './ai-service/credentials.js';
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen, clipboard } from "electron";
 
 import { ElectronWorkBuddyLauncher } from "./adapters/workbuddy/launcher.js";
 import { AppService } from "./app/app-service.js";
@@ -17,6 +21,10 @@ let petWindow: BrowserWindow | null = null;
 let panelWindow: BrowserWindow | null = null;
 let service: AppService | null = null;
 let bridge: WorkPetHttpBridge | null = null;
+let distillation: DistillationDesktop;
+let credentials: ServiceCredentials;
+let distillationTimer: ReturnType<typeof setTimeout> | null = null;
+async function syncDistillations(): Promise<void> { await distillation.service.tick(); if (!quitting) distillationTimer = setTimeout(() => void syncDistillations(), 2000); }
 let captureTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function syncRecordedWorks(): Promise<void> {
@@ -159,6 +167,29 @@ function revealApp(): void {
 }
 
 function registerIpc(): void {
+  ipcMain.handle("distillation:command", (event, action, input) => {
+    if (event.sender !== panelWindow?.webContents) throw new Error("INVALID_SENDER");
+    return distillation.call(action, input);
+  });
+  ipcMain.handle("distillation:configure", (event, input) => {
+    if (event.sender !== panelWindow?.webContents) throw new Error("INVALID_SENDER");
+    credentials.save(input);
+  });
+  ipcMain.handle("distillation:choose-file", async (event) => {
+    if (event.sender !== panelWindow?.webContents) throw new Error("INVALID_SENDER");
+    return (await dialog.showOpenDialog({properties:['openFile']})).filePaths[0] ?? null;
+  });
+  ipcMain.handle("distillation:copy", async (event, workId) => {
+    if (event.sender !== panelWindow?.webContents) throw new Error("INVALID_SENDER");
+    const result = await distillation.call('package',{workId}) as {markdown:string}; clipboard.writeText(result.markdown);
+  });
+  ipcMain.handle("distillation:export", async (event, workId) => {
+    if (event.sender !== panelWindow?.webContents) throw new Error("INVALID_SENDER");
+    const result = await distillation.call('package',{workId}) as {json:unknown;markdown:string};
+    const target=await dialog.showSaveDialog({defaultPath:'work-package.md',filters:[{name:'Markdown',extensions:['md']}]});
+    if(target.canceled || !target.filePath)return null;
+    writeFileSync(target.filePath,result.markdown,{mode:0o600}); writeFileSync(target.filePath.replace(/\.md$/i,'')+'.json',JSON.stringify(result.json,null,2),{mode:0o600});return target.filePath;
+  });
   ipcMain.handle("panel:toggle", () => togglePanel());
   ipcMain.handle("pet:get-view", () => requireService().getPetView());
   ipcMain.handle("panel:record-current-context", async () => {
@@ -210,6 +241,8 @@ app.whenReady().then(async () => {
     databasePath: join(dataDirectory, "workpet.sqlite"),
     launcher: new ElectronWorkBuddyLauncher()
   });
+  credentials = new ServiceCredentials(join(dataDirectory, 'worket-service.enc'), !app.isPackaged || process.argv.includes('--dev'));
+  distillation = new DistillationDesktop(service, new WorketAIClient(() => credentials.read()), new ElectronWorkBuddyLauncher());
   bridge = new WorkPetHttpBridge({
     configPath: process.env.WORKPET_BRIDGE_CONFIG ?? join(homedir(), ".workpet", "bridge.json"),
     mcp: new WorkPetMcpHandler(
@@ -242,6 +275,7 @@ app.whenReady().then(async () => {
   createWindows();
   registerIpc();
   void syncRecordedWorks();
+  void syncDistillations();
 });
 
 app.on("activate", () => revealApp());
@@ -249,6 +283,8 @@ app.on("activate", () => revealApp());
 app.on("before-quit", () => {
   quitting = true;
   if (captureTimer) clearTimeout(captureTimer);
+  if (distillationTimer) clearTimeout(distillationTimer);
+  distillation?.service.close();
   void bridge?.close();
   service?.close();
   service = null;

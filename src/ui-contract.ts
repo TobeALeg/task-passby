@@ -38,6 +38,9 @@ export interface WorkSummaryView {
 }
 
 export interface WorkDetailView extends WorkSummaryView {
+  reusableDefinitionId?: string;
+  dispatchStatus?: string;
+  dispatchReadAt?: string | null;
   state: WorkStateView;
   episodes: Array<{
     id: string;
@@ -120,6 +123,11 @@ export interface CreateWorkFromCodexMessageRequest {
 }
 
 export interface WorkPetApi {
+  distillation(action: string, input?: unknown): Promise<any>;
+  chooseDefinitionFile(): Promise<string | null>;
+  exportWorkPackage(workId: string): Promise<string | null>;
+  copyWorkPackage(workId: string): Promise<void>;
+  configureWorketService(input: {url:string;token:string}): Promise<void>;
   recordCurrentContextFromPet(): Promise<DashboardView>;
   getPetView(): Promise<PetView>;
   togglePanelFromPet(): Promise<void>;

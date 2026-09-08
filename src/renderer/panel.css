@@ -74,3 +74,25 @@ button:disabled { cursor: wait; opacity: .55; }
 .status-waiting { color: #80551b; background: #f4e4c4; }
 .capture-guidance { grid-column: 1 / -1; color: #80551b; font-size: 12px; line-height: 1.6; font-weight: 400; }
 .detail-head .capture-guidance { margin-top: 10px; }
+
+.secondary-menu { margin: 12px 0; }
+.secondary-menu summary { cursor: pointer; color: var(--muted, #706b61); }
+.definition-card { max-height: 85vh; overflow-y: auto; width: min(560px, calc(100vw - 64px)); }
+.definition-item { border-bottom: 1px solid #d9d3c7; padding: 12px 0; }
+.definition-item textarea { min-height: 76px; resize: vertical; width: 100%; box-sizing: border-box; }
+.definition-item details { margin: 8px 0; overflow-wrap: anywhere; font-size: 12px; }
+.file-choice, .distill-choice { display: block; padding: 8px 0; font-size: 12px; overflow-wrap: anywhere; }
+.file-choice input, .distill-choice input { width: auto; }
+#definitions-panel p, .definition-card p { overflow-wrap: anywhere; }
+#definitions-panel .work-row { width: 100%; text-align: left; }
+.definition-card label { font-size: 13px; }
+.consent { line-height: 1.7; font-size: 12px; }
+
+.definition-card button, #distill-selected, .secondary-menu button { border: 1px solid #cfc6b7; border-radius: 8px; padding: 8px 12px; background: #fffaf1; color: #493e31; cursor: pointer; font: inherit; font-size: 13px; }
+.definition-card button.primary { background: #875336; color: white; border-color: #875336; }
+.definition-card button:disabled { opacity: .5; cursor: wait; }
+.definition-card textarea { border: 1px solid #cfc6b7; border-radius: 8px; padding: 10px; color: #302a24; background: #fffdf8; font: inherit; line-height: 1.55; }
+.definition-card h3 { font-size: 16px; }
+.definition-card .source-heading h2 { font-size: 23px; }
+.source-evidence { white-space: pre-wrap; max-height: 220px; overflow: auto; padding: 8px; background: #eee8db; }
+.distill-choice { margin-top: 12px; color: #74695b; }

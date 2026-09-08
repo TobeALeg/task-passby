@@ -189,7 +189,7 @@ INACTIVE ──继续原工作──> ACTIVE
 
 角色尺寸由 .pet 的 zoom: .75 统一控制，布局与命中区域同步缩放，内部动画继续使用原有 transform；透明窗口保留气泡和阴影所需空间。
 
-## 下一阶段：沉淀与复用（Spec，未实现）
+## 沉淀与复用（已开发，真实验收待完成）
 
 “沉淀”取代此前将复用能力混入归档的方向。沉淀产生定义对象；ARCHIVED 仍属于原工作生命周期，历史记录保留，主要入口调整为定义视图，归档退到次级区域。
 
@@ -225,3 +225,15 @@ Worket AI Service 负责固定的提取、比较、泛化与校验流程，不�
 沉淀任务、候选编辑与 WorkInstance 生命周期分别保存。沉淀任务从 PREPARED 经 RUNNING、AWAITING_REVIEW 到 SAVED；无关多选进入 NEEDS_SELECTION，失败和取消有独立状态。“已沉淀”查询定义集合，不新增 WorkStatus，也不将旧 ARCHIVED 数据解释为定义。
 
 work_definitions 现有一行对应一个 key/version 的形式继续作为固定版本存储，扩展定义内容与确认来源；general-work 保持旧语义。模型结果先进入草稿，用户确认后才发布，运行中的实例固定引用原版本。详细契约、迁移、错误与验收见 [Spec](specs/work-distillation-v1.md)。
+
+### 本次代码与持久化
+
+`src/contracts/definition.ts` 为运行时内容/引用/覆盖契约；`src/distillation/service.ts` 固定来源、驱动异步请求并在后台轮询，模型不在 SQLite 事务内运行。`src/definitions/repository.ts` 与 Work Core 共用连接，保存候选 revision、用户审阅、定义版本、输入和命令幂等结果。`storage.ts` 写临时文件后校验并原子落位固定副本。
+
+`server/workflow.mjs` 仅串行调用 Provider 做分块提取和聚合；`server/service.mjs` 负责主体验证、预占调用额度、元数据以及短时结果。服务器源码排除在桌面发布包外。客户端 `WorketAIClient` 只发请求内 source key、顺序、文本和显式附件范围，safeStorage 保护 Worket 访问令牌。正式身份签发/登录与 HTTPS 部署仍为外部接入阻塞。
+
+`createWorkFromDefinition` 在单个事务里创建无执行片段/无绑定的新工作，写入本地采用定义与输入事件。`pending_dispatches` 只表达交付意图，真实 Hook 到达后才建立 ExecutionEpisode/CaptureBinding；MCP 读取独立记证。`WorkPackageBuilder` 保留旧 Handoff 字段，以 `workPackage.packageVersion=1` 扩展 START/CONTINUE、固定定义、本次输入与本地资料。
+
+数据库 `user_version=2` 升级前保存 `.before-distillation-v1.bak`。旧实例及 GENERAL 定义不改身份。未来更高版本的库被本应用拒绝；真实采集绑定表迁至 `capture_bindings_v2`，原表名保留升级屏障，使基线旧二进制初始化失败，回滚必须恢复备份。永久删除来源时一并移除工具管理的迁移备份，避免备份保留已删正文。取消和发布在本地事务串行裁决；删除来源还清理快照文件文本、来源摘录与失效草稿，并排队取消远端。
+
+验证证据和未通过项见 [沉淀验收记录](acceptance/work-distillation-v1.md)。

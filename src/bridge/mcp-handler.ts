@@ -75,6 +75,7 @@ export class WorkPetMcpHandler {
 
   #recordToolReadSuccess(workId: string, toolName: string, requestId: string | number | null): void {
     const work = this.#core.getWork(workId);
+    if (toolName === "get_work_context" && work?.instance.status === "OPEN") this.#core.definitions.db.prepare("UPDATE pending_dispatches SET read_at=? WHERE work_id=?").run(new Date().toISOString(),workId);
     if (
       work?.instance.status !== "OPEN"
       || work.activeBinding?.adapter !== "workbuddy"

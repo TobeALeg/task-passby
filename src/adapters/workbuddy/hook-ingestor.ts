@@ -54,6 +54,15 @@ export class WorkBuddyHookIngestor {
     if (!work && prompt) {
       const workId = marker(prompt);
       const candidate = workId ? this.#core.getWork(workId) : null;
+      const dispatch = candidate?.definition.kind === "REUSABLE" && candidate.instance.status === "OPEN" && !candidate.activeBinding
+        ? this.#core.definitions.db.prepare("SELECT * FROM pending_dispatches WHERE work_id=? AND status IN ('WAITING','STARTING')").get(candidate.instance.id) : null;
+      if (candidate && dispatch && eventName === "UserPromptSubmit") {
+        work = this.#core.startExecutionEpisode(candidate.instance.id, {
+          executor: { type: "AGENT", name: "WorkBuddy" }, environment: { type: "WORKBUDDY_DESKTOP", name: "WorkBuddy Desktop" },
+          source: { adapter: "workbuddy", conversationId: sessionId, ...(sourceLocator ? { sourceLocator } : {}) }
+        });
+        this.#core.definitions.db.prepare("UPDATE pending_dispatches SET status='BOUND' WHERE work_id=?").run(candidate.instance.id);
+      }
       const pending = candidate?.activeBinding?.adapter === "workbuddy" && candidate.activeBinding.conversationId.startsWith("pending:")
         ? candidate.activeBinding
         : null;

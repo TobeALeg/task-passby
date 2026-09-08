@@ -1,3 +1,9 @@
+import { existsSync, unlinkSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { migrateDefinitions } from '../definitions/migration.js';
+import { DefinitionRepository, type CreateFromDefinition } from '../definitions/repository.js';
+import { transaction } from '../definitions/storage.js';
+import { buildWorkPackage } from '../definitions/work-package.js';
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
@@ -60,14 +66,25 @@ function emptyWorkState(): WorkState {
 
 export class SqliteWorkCore implements WorkCore {
   readonly #database: DatabaseSync;
+  readonly #databasePath: string;
+  readonly definitions: DefinitionRepository;
   readonly #now: () => string;
   readonly #id: () => string;
 
   constructor(options: WorkCoreOptions) {
+    this.#databasePath = options.databasePath;
     this.#database = new DatabaseSync(options.databasePath);
     this.#now = options.now ?? (() => new Date().toISOString());
     this.#id = options.id ?? randomUUID;
-    createSchema(this.#database);
+    this.#database.exec("PRAGMA foreign_keys = ON");
+    const storageVersion = Number(this.#database.prepare("PRAGMA user_version").get()?.user_version ?? 0);
+    if (storageVersion === 0) createSchema(this.#database);
+    migrateDefinitions(this.#database, options.databasePath);
+    this.definitions = new DefinitionRepository(this.#database, join(dirname(options.databasePath), "definition-materials"));
+  }
+
+  createWorkFromDefinition(input: CreateFromDefinition): WorkSnapshot {
+    return this.#requireWork(this.definitions.create(input));
   }
 
   createWork(input: CreateWorkInput): WorkSnapshot {
@@ -189,7 +206,7 @@ export class SqliteWorkCore implements WorkCore {
     const instanceRow = this.#database
       .prepare(
         `SELECT i.id, i.definition_id, i.status, i.created_at, i.updated_at,
-                d.id AS d_id, d.definition_key, d.name, d.version,
+                d.id AS d_id, d.definition_key, d.name, d.version, d.kind,
                 r.id AS r_id, r.state_json
          FROM work_instances i
          JOIN work_definitions d ON d.id = i.definition_id
@@ -213,7 +230,7 @@ export class SqliteWorkCore implements WorkCore {
     const bindings = this.#database
       .prepare(
         `SELECT id, work_instance_id, episode_id, adapter, conversation_id, source_locator, status
-         FROM capture_bindings
+         FROM capture_bindings_v2
          WHERE work_instance_id = ?
          ORDER BY rowid`,
       )
@@ -252,6 +269,7 @@ export class SqliteWorkCore implements WorkCore {
 
     const definition: WorkDefinition = {
       id: instanceRow.d_id as string,
+      kind: instanceRow.kind as "GENERAL" | "REUSABLE",
       key: instanceRow.definition_key as string,
       name: instanceRow.name as string,
       version: Number(instanceRow.version),
@@ -270,6 +288,7 @@ export class SqliteWorkCore implements WorkCore {
       definition,
       instance,
       record: { id: instanceRow.r_id as string, workInstanceId },
+      ...(definition.kind === "REUSABLE" ? { packageReadAt: this.#database.prepare("SELECT read_at FROM pending_dispatches WHERE work_id=?").get(workInstanceId)?.read_at as string | null ?? null } : {}),
       episodes,
       bindings,
       activeEpisode,
@@ -298,7 +317,7 @@ export class SqliteWorkCore implements WorkCore {
     const row = this.#database
       .prepare(
         `SELECT work_instance_id
-         FROM capture_bindings
+         FROM capture_bindings_v2
          WHERE adapter = ? AND conversation_id = ?
          ORDER BY rowid DESC LIMIT 1`,
       )
@@ -310,7 +329,7 @@ export class SqliteWorkCore implements WorkCore {
     const row = this.#database
       .prepare(
         `SELECT work_instance_id
-         FROM capture_bindings
+         FROM capture_bindings_v2
          WHERE adapter = ? AND source_locator = ?
          ORDER BY (status = 'ACTIVE') DESC, rowid DESC LIMIT 1`,
       )
@@ -381,6 +400,7 @@ export class SqliteWorkCore implements WorkCore {
     const tombstones = this.#loadTombstones(workInstanceId);
 
     for (const field of WORK_STATE_FIELDS) {
+      if (work.definition.kind === "REUSABLE" && field === "objective") continue;
       const incomingItems = patch[field];
       if (!incomingItems) continue;
 
@@ -427,6 +447,7 @@ export class SqliteWorkCore implements WorkCore {
 
   completeWork(workInstanceId: string): WorkSnapshot {
     const work = this.#requireWork(workInstanceId);
+    if (work.definition.kind === "REUSABLE") throw new Error("USER_ACCEPTANCE_REQUIRED");
     if (work.instance.status !== "OPEN") throw new Error("WORK_NOT_OPEN");
     const endedAt = this.#now();
 
@@ -441,7 +462,7 @@ export class SqliteWorkCore implements WorkCore {
         .run(endedAt, workInstanceId);
       this.#database
         .prepare(
-          `UPDATE capture_bindings
+          `UPDATE capture_bindings_v2
            SET status = 'INACTIVE'
            WHERE work_instance_id = ? AND status = 'ACTIVE'`,
         )
@@ -579,7 +600,7 @@ export class SqliteWorkCore implements WorkCore {
   ): WorkSnapshot {
     const result = this.#database
       .prepare(
-        `UPDATE capture_bindings
+        `UPDATE capture_bindings_v2
          SET conversation_id = ?, source_locator = COALESCE(?, source_locator)
          WHERE work_instance_id = ? AND adapter = ? AND conversation_id = ? AND status = 'ACTIVE'`,
       )
@@ -595,6 +616,7 @@ export class SqliteWorkCore implements WorkCore {
     const handoff: HandoffPackage = {
       id: this.#id(),
       workInstanceId,
+      ...(work.definition.kind === "REUSABLE" ? { workPackage: buildWorkPackage(work, this.definitions) } : {}),
       workDefinition: {
         key: work.definition.key,
         version: work.definition.version,
@@ -685,9 +707,16 @@ export class SqliteWorkCore implements WorkCore {
       throw new Error("PERMANENT_DELETE_CONFIRMATION_MISMATCH");
     }
 
-    this.#database
-      .prepare("DELETE FROM work_instances WHERE id = ?")
-      .run(workInstanceId);
+    transaction(this.#database, () => {
+      // A retained pre-migration database would otherwise keep deleted source text.
+      // Explicit permanent deletion also revokes these tool-managed rollback copies.
+      for (const suffix of [".before-distillation-v1.bak", ".before-storage-v2.bak"]) {
+        const backup = this.#databasePath + suffix;
+        if (this.#databasePath !== ":memory:" && existsSync(backup)) unlinkSync(backup);
+      }
+      this.definitions.redactSource(workInstanceId);
+      this.#database.prepare("DELETE FROM work_instances WHERE id = ?").run(workInstanceId);
+    });
   }
 
   #loadTombstones(workInstanceId: string): WorkStateTombstone[] {
@@ -721,7 +750,7 @@ export class SqliteWorkCore implements WorkCore {
       .run(endedAt, workInstanceId);
     this.#database
       .prepare(
-        `UPDATE capture_bindings SET status = 'INACTIVE'
+        `UPDATE capture_bindings_v2 SET status = 'INACTIVE'
          WHERE work_instance_id = ? AND status = 'ACTIVE'`,
       )
       .run(workInstanceId);
@@ -765,7 +794,7 @@ export class SqliteWorkCore implements WorkCore {
   ): void {
     this.#database
       .prepare(
-        `INSERT INTO capture_bindings
+        `INSERT INTO capture_bindings_v2
          (id, work_instance_id, episode_id, adapter, conversation_id, source_locator, status)
          VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')`,
       )

@@ -18,9 +18,11 @@
           <button id="tab-recent" class="filter" role="tab" aria-selected="false" aria-controls="sources-panel" tabindex="-1" data-filter="RECENT">最近活动</button>
           <button id="tab-open" class="filter active" role="tab" aria-selected="true" aria-controls="works-panel" data-filter="OPEN">进行中</button>
           <button id="tab-completed" class="filter" role="tab" aria-selected="false" aria-controls="works-panel" tabindex="-1" data-filter="COMPLETED">已完成</button>
-          <button id="tab-archived" class="filter" role="tab" aria-selected="false" aria-controls="works-panel" tabindex="-1" data-filter="ARCHIVED">已归档</button>
+          <button id="tab-definitions" class="filter" role="tab" aria-selected="false" aria-controls="definitions-panel" tabindex="-1" data-filter="DEFINITIONS">已沉淀</button>
         </div>
       </section>
+      <details class="secondary-menu"><summary>更多</summary><button id="archive-records" data-filter="ARCHIVED">归档记录</button><button id="service-settings">Worket 服务</button></details>
+      <section id="definitions-panel" role="tabpanel" aria-labelledby="tab-definitions" hidden></section>
       <section id="sources-panel" class="recording-sources" role="tabpanel" aria-labelledby="tab-recent" hidden>
         <div class="source-actions"><button id="record-history" class="secondary">记录沉睡工作</button></div>
         <div id="source-error" class="notice" role="alert" hidden></div>
@@ -28,6 +30,7 @@
       </section>
       <section id="works-panel" role="tabpanel" aria-labelledby="tab-open">
         <div id="notice" class="notice" hidden></div>
+        <button id="distill-selected">沉淀所选工作</button>
         <section id="work-list" class="work-list"></section>
         <section id="work-detail" class="work-detail" hidden></section>
       </section>
@@ -58,7 +61,7 @@
     <dialog id="delete-dialog">
       <form method="dialog" class="dialog-card danger-card">
         <div class="dialog-heading"><span class="eyebrow">永久删除</span><h2>这份本地记录将无法恢复</h2></div>
-        <p>原始文件、Codex 与 WorkBuddy 对话不会被删除。请输入“永久删除”继续。</p>
+        <p>原始文件、Codex 与 WorkBuddy 对话不会被删除。已确认定义仍保留；本工具保存的来源正文、快照与证据摘录将清除，相关未保存候选失效；含历史正文的迁移备份也会移除。请输入“永久删除”继续。</p>
         <label class="field">确认文字<input id="delete-confirmation" autocomplete="off" /></label>
         <div class="dialog-actions"><button value="cancel" class="secondary">取消</button><button id="confirm-delete" value="default" class="danger">永久删除</button></div>
       </form>

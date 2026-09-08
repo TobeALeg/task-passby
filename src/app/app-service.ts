@@ -45,6 +45,7 @@ import type {
 import type { CaptureStatus } from "../ui-contract.js";
 
 function captureStatus(work: WorkSnapshot): CaptureStatus {
+  if (work.definition.kind === "REUSABLE" && work.activeBinding?.adapter === "workbuddy" && !work.packageReadAt && !work.sourceArchive.some(e => e.kind === "tool.result" && e.metadata.toolName === "get_work_context")) return "waiting";
   const binding = work.activeBinding;
   if (work.instance.status !== "OPEN" || !binding) return "stopped";
   if (binding.adapter === "workbuddy") {
@@ -505,7 +506,9 @@ export class AppService {
 
   async handoffToWorkBuddy(workId: string): Promise<DashboardView> {
     let current = await this.#artifacts.verify(this.#requireWork(workId));
-    if (current.activeBinding?.adapter === "codex") await this.refreshWork(workId);
+    if (current.activeBinding?.adapter === "codex") {
+      try { await this.refreshWork(workId); } catch { this.#notice = "最新整理不可用；交接使用已保存状态，可能不含最新消息。"; }
+    }
     current = this.#requireWork(workId);
     const sourceEpisode = current.activeEpisode;
     const sourceBinding = current.activeBinding;
@@ -635,6 +638,7 @@ export class AppService {
 
   #synchronizeCodexObjective(workId: string, threadId: string, applicationTitle: string): void {
     let work = this.#requireWork(workId);
+    if (work.definition.kind === "REUSABLE") return;
     const existingTitleEvent = work.sourceArchive.findLast((event) => event.kind === "conversation.title");
     const firstPromptSequence = work.sourceArchive
       .filter((event) => event.kind === "user.prompt")
@@ -736,7 +740,7 @@ export class AppService {
   #summary(work: WorkSnapshot): WorkSummaryView {
     return {
       id: work.instance.id,
-      agentName: (work.activeEpisode ?? work.episodes.at(-1))?.executor.name ?? "未知 Agent",
+      agentName: (work.activeEpisode ?? work.episodes.at(-1))?.executor.name ?? (work.definition.kind === "REUSABLE" ? "尚未交给执行者" : "未知 Agent"),
       title: work.state.objective[0]?.text ?? "未命名工作",
       status: work.instance.status,
       captureStatus: captureStatus(work),
@@ -748,7 +752,9 @@ export class AppService {
   }
 
   #detail(work: WorkSnapshot): WorkDetailView {
+    const dispatch = this.#core.definitions.db.prepare("SELECT status,read_at FROM pending_dispatches WHERE work_id=?").get(work.instance.id);
     return {
+      ...(work.definition.kind === "REUSABLE" ? { reusableDefinitionId: work.definition.id, dispatchStatus: String(dispatch?.status ?? "NOT_DISPATCHED"), dispatchReadAt: dispatch?.read_at as string | null ?? null } : {}),
       ...this.#summary(work),
       state: work.state,
       episodes: work.episodes.map((episode) => ({

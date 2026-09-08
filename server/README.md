@@ -10,7 +10,7 @@
 npm run ai:serve
 ```
 
-macOS 也可双击 `scripts/run-ai-backend.command`。打开 **http://127.0.0.1:8788/admin/**，首次设置至少 12 字符的管理员密码。后台运行期间保持启动它的终端打开；重新运行同一命令恢复配置。
+macOS 也可双击 `scripts/run-ai-backend.command`。打开 **http://127.0.0.1:8788/admin/**，首次设置至少 6 字符的管理员密码，本机使用支持简单数字密码。后台运行期间保持启动它的终端打开；重新运行同一命令恢复配置。
 
 1. 在“模型配置”填写 API 基地址、模型名称和 API Key。支持 OpenAI-compatible Chat Completions JSON 输出；基地址例如 `https://供应商域名/v1`，不包含 `/chat/completions`。供应商名称与数据政策链接用于向使用者说明处理方，公开使用前应填写准确内容。
 2. 点击“测试连接”。只向当前填写的供应商发送固定检测文本，会产生一次模型调用，不发送工作记录，也不会自动保存。此检测只验证可访问和 JSON 输出，不代表沉淀质量通过。

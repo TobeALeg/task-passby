@@ -7,7 +7,7 @@ import { createServer, request as httpRequest } from "node:http";
 import { createManagedService } from "../../server/managed.mjs";
 import { AdminStore } from "../../server/admin/store.mjs";
 import { result } from "./fixtures.ts";
-const password = "test-admin-password-2026",
+const password = "123456",
   secret = "synthetic-provider-secret";
 const request = {
   schemaVersion: 1,

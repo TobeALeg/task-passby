@@ -130,10 +130,10 @@ export class AdminStore {
     ensure(!this.initialized(), "ALREADY_INITIALIZED");
     ensure(
       typeof password === "string" &&
-        password.length >= 12 &&
+        password.length >= 6 &&
         password.length <= 200,
       "INVALID_INPUT",
-      "管理员密码至少 12 个字符",
+      "管理员密码至少 6 个字符",
     );
     const salt = randomBytes(16).toString("hex");
     this.write({

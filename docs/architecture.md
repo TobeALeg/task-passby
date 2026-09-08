@@ -242,7 +242,7 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 
 `server/start.mjs → createManagedService → AdminStore + createAdminHandler + createAIService` 在同一个本机监听端口提供管理页面与模型服务。`build:server` 单独编译共享契约和存储序列化代码，服务器启动不依赖 Electron。旧环境变量部署入口保留为 `server/start-env.mjs`。
 
-`/admin/` 页面通过密码会话及 CSRF 访问管理 API；管理入口校验 loopback 地址、Host、Origin 和转发来源头。`AdminStore` 原子保存配置、scrypt 密码哈希与接入元数据，供应商 Key 经 AES-256-GCM 加密。密钥与配置在同一私有目录，保护边界是系统账户权限，不能宣称系统账户失守后仍安全。
+本机管理员密码最少 6 位；`/admin/` 页面通过密码会话及 CSRF 访问管理 API；管理入口校验 loopback 地址、Host、Origin 和转发来源头。`AdminStore` 原子保存配置、scrypt 密码哈希与接入元数据，供应商 Key 经 AES-256-GCM 加密。密钥与配置在同一私有目录，保护边界是系统账户权限，不能宣称系统账户失守后仍安全。
 
 模型配置从未配置变为已配置；测试连接使用未保存表单和固定文本，单次调用不自动保存。保存用 revision 拒绝旧页面覆盖，并在没有运行中请求或连接测试时热更新 Provider 和限额。后台签发有期限的 RS256 令牌，客户端仅获取一次；运行服务每次验证已登记主体及撤销状态，接收完整上传后再次复核，避免撤销期间的迟到请求启动模型。撤销会取消任务并清理内存结果。
 

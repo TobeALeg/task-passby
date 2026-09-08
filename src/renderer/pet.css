@@ -1,7 +1,7 @@
 :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif; }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
-body { -webkit-app-region: drag; }
+body { -webkit-app-region: no-drag; user-select: none; }
 button { font: inherit; }
 .pet-root { display: grid; justify-items: end; align-content: end; gap: 18px; width: 100%; height: 100%; padding: 20px 34px 36px 16px; }
 .context-bubble { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px; width: 238px; min-height: 52px; padding: 9px 11px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; background: rgba(41,37,33,.93); color: #fff; box-shadow: 0 14px 38px rgba(47,39,29,.22); backdrop-filter: blur(16px); pointer-events: none; }
@@ -30,7 +30,8 @@ button { font: inherit; }
     radial-gradient(circle at 35% 28%, var(--pet-light), transparent 40%),
     linear-gradient(155deg, var(--pet-light) 4%, var(--pet-base) 56%, var(--pet-deep) 100%);
   box-shadow: 0 11px 24px rgba(82, 48, 9, .24), inset 0 -7px 10px rgba(157, 83, 4, .16), inset 0 2px 5px rgba(255, 231, 130, .4);
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
   -webkit-app-region: no-drag;
   transition: transform .18s ease, background .2s ease;
 }
@@ -68,3 +69,5 @@ button { font: inherit; }
 @keyframes breathe { 50% { transform: translateY(-2px); } }
 @keyframes carry { to { transform: translateY(-5px) rotate(2deg); } }
 @keyframes nudge { 33% { transform: rotate(-5deg); } 66% { transform: rotate(5deg); } }
+
+.dragging .pet-body { cursor: grabbing; animation: none; transition: none; transform: none; }

@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("workpet", {
   getPetView: () => ipcRenderer.invoke("pet:get-view"),
   togglePanelFromPet: () => ipcRenderer.invoke("panel:toggle"),
   setPetMousePassthrough: (ignored) => ipcRenderer.send("pet:mouse-passthrough", ignored),
+  dragPet: (phase, cursor) => ipcRenderer.send("pet:drag", phase, cursor),
   getDashboard: (workId) => ipcRenderer.invoke("dashboard:get", workId),
   listCodexThreads: () => ipcRenderer.invoke("codex:list"),
   listCodexHistory: (cursor) => ipcRenderer.invoke("codex:history", cursor),

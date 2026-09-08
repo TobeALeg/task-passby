@@ -124,6 +124,7 @@ export interface WorkPetApi {
   getPetView(): Promise<PetView>;
   togglePanelFromPet(): Promise<void>;
   setPetMousePassthrough(ignored: boolean): void;
+  dragPet(phase: "start" | "move" | "end", cursor?: { x: number; y: number }): void;
   getDashboard(workId?: string): Promise<DashboardView>;
   listCodexThreads(): Promise<CodexThreadView[]>;
   listCodexHistory(cursor?: string): Promise<CodexThreadPage>;

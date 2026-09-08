@@ -182,3 +182,9 @@ INACTIVE ──继续原工作──> ACTIVE
 ### 待实现的归档语义（2026-09-07）
 
 用户将归档的后续目标定义为“抽象工作为可重复执行的副本”。现有 `ARCHIVED` 生命周期状态暂时保留，不代表已实现该能力。未来与 WorkDefinition、WorkInstance、WorkPattern 的实体关系及副本执行方式留待专项设计，本次不调整数据模型、接口或运行行为。
+
+### 桌宠自由移动
+
+桌宠 pointer capture 区分点击与拖动，经 preload 的 pet:drag IPC 通知主进程。主进程校验发送窗口，校验事件携带的有限桌面坐标，使用按下点与当前点的坐标差移动 BrowserWindow，拖动期间禁用鼠标穿透。desktop/pet-position.ts 负责工作区边界与本地 pet-position.json 的保存恢复；该偏好不进入工作记录。显示器变更触发可见性修正。
+
+窗口 closed 事件清空引用；退出期间以及窗口已销毁时，activate / second-instance 不再调用窗口方法，避免 Object has been destroyed。

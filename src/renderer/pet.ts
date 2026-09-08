@@ -62,7 +62,41 @@ async function refresh(): Promise<void> {
   render(await window.workpet.getPetView());
 }
 
-petBody.addEventListener("click", () => void window.workpet.togglePanelFromPet());
+let gesture: { pointerId: number; x: number; y: number; moved: boolean } | null = null;
+let suppressClick = false;
+petBody.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0 || gesture) return;
+  suppressClick = false;
+  gesture = { pointerId: event.pointerId, x: event.screenX, y: event.screenY, moved: false };
+  petBody.setPointerCapture(event.pointerId);
+  window.workpet.dragPet("start", { x: event.screenX, y: event.screenY });
+});
+document.addEventListener("pointermove", (event) => {
+  if (!gesture || event.pointerId !== gesture.pointerId) return;
+  if (Math.hypot(event.screenX - gesture.x, event.screenY - gesture.y) >= 5) gesture.moved = true;
+  if (gesture.moved) {
+    root.classList.add("dragging");
+    window.workpet.dragPet("move", { x: event.screenX, y: event.screenY });
+  }
+});
+function finishDrag(): void {
+  if (!gesture) return;
+  suppressClick = gesture.moved;
+  gesture = null;
+  root.classList.remove("dragging");
+  window.workpet.dragPet("end");
+}
+document.addEventListener("pointerup", finishDrag);
+document.addEventListener("pointercancel", finishDrag);
+petBody.addEventListener("lostpointercapture", finishDrag);
+window.addEventListener("blur", finishDrag);
+petBody.addEventListener("click", (event) => {
+  if (suppressClick && event.detail !== 0) {
+    suppressClick = false;
+    return;
+  }
+  void window.workpet.togglePanelFromPet();
+});
 
 paperAction.addEventListener("click", async () => {
   if (!currentConversation || busy) return;
@@ -77,10 +111,11 @@ paperAction.addEventListener("click", async () => {
 });
 
 document.addEventListener("mousemove", (event) => {
+  if (gesture) return;
   const target = event.target instanceof Element ? event.target : null;
   window.workpet.setPetMousePassthrough(!target?.closest("#pet"));
 });
-document.addEventListener("mouseleave", () => window.workpet.setPetMousePassthrough(true));
+document.addEventListener("mouseleave", () => { if (!gesture) window.workpet.setPetMousePassthrough(true); });
 
 setInterval(() => void refresh().catch(() => undefined), 2_000);
 void refresh();

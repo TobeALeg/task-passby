@@ -8,6 +8,11 @@ import { AppService } from "./app/app-service.js";
 import { WorkPetHttpBridge } from "./bridge/http-bridge.js";
 import { WorkPetMcpHandler } from "./bridge/mcp-handler.js";
 import { IntegrationInstaller } from "./integrations/installer.js";
+import { keepPetVisible, restorePetPosition, savePetPosition } from "./desktop/pet-position.js";
+
+let quitting = false;
+let petDrag: { cursor: { x: number; y: number }; x: number; y: number } | null = null;
+const petPositionPath = () => join(process.env.WORKPET_DATA_DIR ?? app.getPath("userData"), "pet-position.json");
 let petWindow: BrowserWindow | null = null;
 let panelWindow: BrowserWindow | null = null;
 let service: AppService | null = null;
@@ -77,15 +82,19 @@ function createWindows(): void {
     focusable: false,
     webPreferences: { preload, contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
+  petWindow.on("closed", () => { petWindow = null; petDrag = null; });
   petWindow.setAlwaysOnTop(true, "floating");
   petWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   petWindow.setIgnoreMouseEvents(true, { forward: true });
   petWindow.loadFile(join(app.getAppPath(), "dist", "renderer", "pet.html"));
-  const workArea = screen.getPrimaryDisplay().workArea;
-  petWindow.setPosition(
-    workArea.x + workArea.width - PET_WINDOW_WIDTH,
-    workArea.y + workArea.height - PET_WINDOW_HEIGHT
-  );
+  restorePetPosition(petWindow, petPositionPath());
+  const recoverPosition = () => {
+    if (!petWindow || petWindow.isDestroyed()) return;
+    keepPetVisible(petWindow);
+    savePetPosition(petWindow, petPositionPath());
+  };
+  screen.on("display-removed", recoverPosition);
+  screen.on("display-metrics-changed", recoverPosition);
 
   panelWindow = new BrowserWindow({
     width: 448,
@@ -98,6 +107,7 @@ function createWindows(): void {
     backgroundColor: "#f6f2e9",
     webPreferences: { preload, contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
+  panelWindow.on("closed", () => { panelWindow = null; });
   panelWindow.setAlwaysOnTop(true, "floating");
   panelWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   panelWindow.loadFile(join(app.getAppPath(), "dist", "renderer", "panel.html"));
@@ -111,13 +121,13 @@ function createWindows(): void {
 }
 
 function togglePanel(): void {
-  if (!petWindow || !panelWindow) return;
+  if (quitting || !petWindow || petWindow.isDestroyed() || !panelWindow || panelWindow.isDestroyed()) return;
   if (panelWindow.isVisible()) { panelWindow.hide(); return; }
   showPanel();
 }
 
 function showPanel(): void {
-  if (!petWindow || !panelWindow) return;
+  if (quitting || !petWindow || petWindow.isDestroyed() || !panelWindow || panelWindow.isDestroyed()) return;
   const petBounds = petWindow.getBounds();
   const panelBounds = panelWindow.getBounds();
   const display = screen.getDisplayNearestPoint({ x: petBounds.x, y: petBounds.y });
@@ -129,14 +139,18 @@ function showPanel(): void {
     Math.max(display.workArea.y + 8, petBounds.y - panelBounds.height + petBounds.height),
     display.workArea.y + display.workArea.height - panelBounds.height - 8
   );
-  panelWindow.setPosition(x, y);
+  panelWindow.setPosition(
+    Math.max(display.workArea.x, Math.min(x, display.workArea.x + Math.max(0, display.workArea.width - panelBounds.width))),
+    Math.max(display.workArea.y, y)
+  );
   panelWindow.show();
   panelWindow.focus();
   panelWindow.webContents.send("panel:shown");
 }
 
 function revealApp(): void {
-  petWindow?.show();
+  if (quitting || !petWindow || petWindow.isDestroyed() || !panelWindow || panelWindow.isDestroyed()) return;
+  petWindow.show();
   if (panelWindow?.isVisible()) {
     panelWindow.focus();
   } else {
@@ -154,7 +168,23 @@ function registerIpc(): void {
   });
   ipcMain.on("pet:mouse-passthrough", (event, ignored: boolean) => {
     if (event.sender !== petWindow?.webContents) return;
-    petWindow.setIgnoreMouseEvents(Boolean(ignored), { forward: true });
+    petWindow.setIgnoreMouseEvents(petDrag ? false : Boolean(ignored), { forward: true });
+  });
+  ipcMain.on("pet:drag", (event, phase: string, cursor?: { x: number; y: number }) => {
+    if (event.sender !== petWindow?.webContents) return;
+    if ((phase === "start" || phase === "move") && (!cursor || !Number.isFinite(cursor.x) || !Number.isFinite(cursor.y))) return;
+    if (phase === "start" && cursor) {
+      const { x, y } = petWindow.getBounds();
+      petDrag = { cursor, x, y };
+      petWindow.setIgnoreMouseEvents(false);
+    } else if (phase === "move" && petDrag && cursor) {
+      petWindow.setPosition(Math.round(petDrag.x + cursor.x - petDrag.cursor.x), Math.round(petDrag.y + cursor.y - petDrag.cursor.y));
+    } else if (phase === "end" && petDrag) {
+      petDrag = null;
+      keepPetVisible(petWindow);
+      savePetPosition(petWindow, petPositionPath());
+      petWindow.setIgnoreMouseEvents(true, { forward: true });
+    }
   });
   ipcMain.handle("panel:close", () => panelWindow?.hide());
   ipcMain.handle("dashboard:get", (_event, workId?: string) => requireService().dashboardWithVerification(workId));
@@ -217,6 +247,7 @@ app.whenReady().then(async () => {
 app.on("activate", () => revealApp());
 
 app.on("before-quit", () => {
+  quitting = true;
   if (captureTimer) clearTimeout(captureTimer);
   void bridge?.close();
   service?.close();

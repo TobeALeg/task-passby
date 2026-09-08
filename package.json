@@ -20,8 +20,10 @@
     "qa:desktop-roundtrip:list": "node scripts/qa-desktop-roundtrip.mjs --list",
     "qa:desktop-roundtrip": "node scripts/qa-desktop-roundtrip.mjs",
     "qa:package": "WORKPET_EXECUTABLE_PATH=$PWD/release/Worket-darwin-arm64/Worket.app/Contents/MacOS/Worket node scripts/qa-electron.mjs",
-    "package:mac": "npm run build && electron-packager . Worket --platform=darwin --arch=arm64 --app-bundle-id=dev.workpet.desktop --icon=assets/WorkPet.icns --extra-resource=assets/WorkPet.png --asar.unpackDir=integrations --out=release --overwrite --ignore='^/research($|/)' --ignore='^/test($|/)' --ignore='^/output($|/)' --ignore='^/release($|/)' --ignore='^/server($|/)'",
-    "ai:serve": "npm run build && node server/start.mjs"
+    "package:mac": "npm run build && electron-packager . Worket --platform=darwin --arch=arm64 --app-bundle-id=dev.workpet.desktop --icon=assets/WorkPet.icns --extra-resource=assets/WorkPet.png --asar.unpackDir=integrations --out=release --overwrite --ignore='^/research($|/)' --ignore='^/test($|/)' --ignore='^/output($|/)' --ignore='^/release($|/)' --ignore='^/server($|/)' --ignore='^/.worket-server($|/)'",
+    "ai:serve": "npm run build:server && node server/start.mjs",
+    "build:server": "tsc -p server/tsconfig.json",
+    "ai:serve:env": "npm run build:server && node server/start-env.mjs"
   },
   "devDependencies": {
     "@electron/packager": "19.0.1",

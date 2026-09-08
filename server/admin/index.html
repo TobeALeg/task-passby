@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Worket 后台</title>
+    <link rel="stylesheet" href="/admin/admin.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/admin/">Worket<span>模型服务后台</span></a>
+      <div class="header-status">
+        <span id="service-state" class="badge">正在连接</span
+        ><button id="logout" class="quiet" hidden>退出登录</button>
+      </div>
+    </header>
+    <main>
+      <section id="login-panel" class="login" hidden>
+        <span class="eyebrow">WORKET ADMIN</span>
+        <h1 id="login-title">登录后台</h1>
+        <p id="login-intro"></p>
+        <form id="login-form">
+          <label
+            >管理员密码<input
+              id="admin-password"
+              type="password"
+              required
+              autocomplete="current-password"
+              minlength="12"
+              maxlength="200" /></label
+          ><label id="confirm-password-label" hidden
+            >确认密码<input
+              id="confirm-password"
+              type="password"
+              autocomplete="new-password"
+              maxlength="200" /></label
+          ><button id="login-submit" class="primary">进入后台</button>
+        </form>
+      </section>
+      <div id="workspace" hidden>
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">MODEL SERVICE</span>
+            <h1>连接模型，让工作继续。</h1>
+            <p>填好模型配置，保存后即可接收 Worket 的沉淀请求。</p>
+          </div>
+          <div class="stats">
+            <span><strong id="daily-calls">0</strong>近 24 小时调用</span
+            ><span><strong id="running-count">0</strong>正在处理</span>
+          </div>
+        </div>
+        <nav aria-label="后台页面">
+          <button class="tab active" data-tab="model" aria-pressed="true">
+            模型配置</button
+          ><button class="tab" data-tab="clients" aria-pressed="false">
+            Worket 接入</button
+          ><button class="tab" data-tab="activity" aria-pressed="false">
+            运行记录
+          </button>
+        </nav>
+        <section id="model-panel" class="tab-panel">
+          <form id="config-form">
+            <div class="config-layout">
+              <article class="card">
+                <div class="section-heading">
+                  <span class="step">01</span>
+                  <div>
+                    <h2>模型供应商</h2>
+                    <p>当前支持 OpenAI-compatible Chat Completions 接口。</p>
+                  </div>
+                </div>
+                <label
+                  >API 基地址 <span class="required">必填</span
+                  ><input
+                    id="provider-url"
+                    type="url"
+                    required
+                    placeholder="https://你的供应商地址/v1"
+                    autocomplete="off"
+                  /><small
+                    >填写基地址，不要包含 /chat/completions。</small
+                  ></label
+                >
+                <div class="field-pair">
+                  <label
+                    >模型名称 <span class="required">必填</span
+                    ><input
+                      id="provider-model"
+                      required
+                      placeholder="供应商提供的模型 ID"
+                      autocomplete="off" /></label
+                  ><label
+                    >供应商名称<input
+                      id="provider-name"
+                      placeholder="显示给使用者的数据处理方"
+                  /></label>
+                </div>
+                <label
+                  >API Key <span id="key-status" class="required">未设置</span
+                  ><input
+                    id="provider-key"
+                    type="password"
+                    placeholder="填写供应商 API Key"
+                    autocomplete="new-password"
+                  /><small id="key-help"
+                    >密钥只保存在后台，不会返回给桌面 App。</small
+                  ></label
+                >
+                <label
+                  >供应商数据政策链接<input
+                    id="provider-policy"
+                    type="url"
+                    placeholder="https://…"
+                  /><small>用于向使用者说明数据处理与留存规则。</small></label
+                >
+                <div class="form-actions">
+                  <button id="test-connection" type="button" class="secondary">
+                    测试连接</button
+                  ><button id="save-config" type="submit" class="primary">
+                    保存并启用
+                  </button>
+                </div>
+                <p class="form-note">
+                  测试只发送一段固定检测文本，会产生一次模型调用。测试通过不会自动保存配置。
+                </p>
+                <div
+                  id="test-result"
+                  class="inline-result"
+                  role="status"
+                  hidden
+                ></div>
+              </article>
+              <aside>
+                <article class="card">
+                  <div class="section-heading">
+                    <span class="step">02</span>
+                    <div>
+                      <h2>调用额度</h2>
+                      <p>按使用者控制成本和并发。</p>
+                    </div>
+                  </div>
+                  <label
+                    >每个使用者每日最多调用次数<input
+                      id="limit-daily"
+                      type="number"
+                      min="1"
+                      max="100000"
+                      required
+                    /><small
+                      >按滚动 24 小时统计。一次沉淀可能调用模型多次。</small
+                    ></label
+                  >
+                  <div class="field-pair">
+                    <label
+                      >单用户并发<input
+                        id="limit-user"
+                        type="number"
+                        min="1"
+                        max="10"
+                        required /></label
+                    ><label
+                      >后台总并发<input
+                        id="limit-global"
+                        type="number"
+                        min="1"
+                        max="32"
+                        required
+                    /></label>
+                  </div>
+                  <div class="field-pair">
+                    <label
+                      >单次最多来源数<input
+                        id="limit-sources"
+                        type="number"
+                        min="1"
+                        max="5"
+                        required /></label
+                    ><label
+                      >处理超时（秒）<input
+                        id="limit-timeout"
+                        type="number"
+                        min="10"
+                        max="600"
+                        required
+                    /></label>
+                  </div>
+                </article>
+                <article class="card">
+                  <h2>接入地址</h2>
+                  <label
+                    >对外 HTTPS 服务地址（可选）<input
+                      id="public-url"
+                      type="url"
+                      placeholder="https://worket.example.com"
+                    /><small
+                      >本机使用可留空。填写地址不会完成域名或服务器部署。</small
+                    ></label
+                  >
+                </article>
+                <article class="data-note">
+                  <h3>材料如何处理</h3>
+                  <p>
+                    只处理用户主动选择的记录。原始正文不写入后台数据库或运行日志。
+                  </p>
+                  <p>
+                    候选结果在内存中最多暂存 10
+                    分钟；客户端收取或取消后清除。无正文的运行记录保留 30 天。
+                  </p>
+                </article>
+              </aside>
+            </div>
+          </form>
+        </section>
+        <section id="clients-panel" class="tab-panel" hidden>
+          <div class="two-columns">
+            <article class="card">
+              <div class="section-heading">
+                <span class="step">01</span>
+                <div>
+                  <h2>连接桌面 Worket</h2>
+                  <p>
+                    在桌面 App 打开“更多 → Worket 服务”，填入地址和接入凭据。
+                  </p>
+                </div>
+              </div>
+              <label
+                >本次服务地址<input id="connection-url" readonly /><small
+                  >本机服务需以开发模式启动 Worket；远程使用时填写已部署的 HTTPS
+                  地址。</small
+                ></label
+              >
+              <form id="client-form">
+                <label
+                  >接入名称<input
+                    id="client-name"
+                    required
+                    maxlength="100"
+                    placeholder="例如：我的 Mac" /></label
+                ><label
+                  >凭据有效期（天）<input
+                    id="client-days"
+                    type="number"
+                    min="1"
+                    max="90"
+                    value="30"
+                    required /></label
+                ><button class="primary">生成接入凭据</button>
+              </form>
+              <div id="issued-client" class="credential" hidden>
+                <strong>接入凭据已生成</strong>
+                <p>仅本次显示，请复制到桌面 Worket。</p>
+                <textarea
+                  id="client-token"
+                  readonly
+                  aria-label="新接入凭据"
+                ></textarea
+                ><button id="copy-client" type="button" class="secondary">
+                  复制凭据
+                </button>
+              </div>
+            </article>
+            <article class="card">
+              <h2>已授权的接入</h2>
+              <div id="clients-list"></div>
+            </article>
+          </div>
+        </section>
+        <section id="activity-panel" class="tab-panel" hidden>
+          <article class="card">
+            <div class="section-heading">
+              <div>
+                <h2>运行记录</h2>
+                <p>这里只显示时间、状态和调用次数，不显示工作正文。</p>
+              </div>
+              <button id="refresh-activity" class="secondary">刷新</button>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>开始时间</th>
+                    <th>接入</th>
+                    <th>状态</th>
+                    <th>调用次数</th>
+                  </tr>
+                </thead>
+                <tbody id="activity-list"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </div>
+      <div id="message" role="status" hidden></div>
+    </main>
+    <footer>Worket · 工作记录留在本机，模型配置留在后台。</footer>
+    <script src="/admin/admin.js" type="module"></script>
+  </body>
+</html>

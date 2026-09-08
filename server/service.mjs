@@ -56,6 +56,10 @@ export function authenticate(token, config) {
     "AUTH_REQUIRED",
   );
   ensure(!config.revokedSubjects?.includes(claims.sub), "AUTH_EXPIRED");
+  ensure(
+    !config.authorizeSubject || config.authorizeSubject(claims.sub),
+    "AUTH_EXPIRED",
+  );
   return claims.sub;
 }
 export function createAIService(config) {
@@ -185,6 +189,13 @@ export function createAIService(config) {
     res.setHeader("Cache-Control", "no-store");
     try {
       expire();
+      if (config.adminHandler && (await config.adminHandler(req, res))) return;
+      if (req.method === "GET" && req.url === "/health") {
+        res.end(
+          JSON.stringify({ ok: true, configured: config.configured !== false }),
+        );
+        return;
+      }
       const subject = authenticate(
         req.headers.authorization?.replace(/^Bearer /, ""),
         config,
@@ -206,6 +217,11 @@ export function createAIService(config) {
         return;
       }
       if (req.method === "POST" && req.url === "/v1/definition-extractions") {
+        ensure(
+          config.configured !== false,
+          "MODEL_UNAVAILABLE",
+          "后台尚未配置模型",
+        );
         const key = req.headers["idempotency-key"];
         ensure(
           typeof key === "string" && key.length > 0 && key.length < 200,
@@ -225,7 +241,13 @@ export function createAIService(config) {
           throw new ContractError("INVALID_INPUT");
         }
         validateRequest(input);
+        // A client may have been revoked while its request body was arriving.
+        authenticate(
+          req.headers.authorization?.replace(/^Bearer /, ""),
+          config,
+        );
         ensure(input.sources.length <= limits.maxSources, "INPUT_TOO_LARGE");
+        ensure(!config.isAdminBusy?.(), "CONCURRENCY_LIMIT");
         const budget = chunksFor(input).length + 1;
         ensure(budget <= limits.maxCalls, "INPUT_TOO_LARGE");
         const digest = createHash("sha256")
@@ -328,6 +350,47 @@ export function createAIService(config) {
   return {
     server,
     db,
+    status() {
+      return {
+        configured: config.configured !== false,
+        model: config.provider.model,
+        running: running.size,
+        resultCount: results.size,
+      };
+    },
+    configure(next) {
+      ensure(running.size === 0, "CONFIG_BUSY");
+      Object.assign(config, next);
+      Object.assign(limits, LIMITS, next.limits ?? {});
+    },
+    revokeSubject(subject) {
+      for (const row of db
+        .prepare(
+          "SELECT id FROM requests WHERE subject=? AND status IN ('RUNNING','SUCCEEDED')",
+        )
+        .all(subject)) {
+        running.get(row.id)?.abort();
+        results.delete(row.id);
+        db.prepare(
+          "UPDATE requests SET status='CANCELLED',updated=? WHERE id=?",
+        ).run(Date.now(), row.id);
+      }
+    },
+    activity() {
+      return {
+        running: running.size,
+        requests: db
+          .prepare(
+            "SELECT id,subject,status,created,updated,calls,error FROM requests ORDER BY created DESC LIMIT 30",
+          )
+          .all(),
+        rolling24h: db
+          .prepare(
+            "SELECT COUNT(*) AS requests,COALESCE(SUM(calls),0) AS calls FROM requests WHERE created>?",
+          )
+          .get(Date.now() - 86400000),
+      };
+    },
     async close() {
       clearInterval(cleanup);
       for (const controller of running.values()) controller.abort();

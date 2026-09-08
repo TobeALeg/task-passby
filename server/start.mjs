@@ -1,33 +1,29 @@
-import { readFileSync } from "node:fs";
-import { createAIService } from "./service.mjs";
-import { ModelProvider } from "./workflow.mjs";
-const mode =
-  process.env.NODE_ENV === "production" ? "production" : "development";
-const provider = new ModelProvider({
-  baseUrl: process.env.WORKET_PROVIDER_URL,
-  apiKey: process.env.WORKET_PROVIDER_KEY,
-  model: process.env.WORKET_PROVIDER_MODEL,
-});
-if (mode === "production" && !process.env.WORKET_AUTH_PUBLIC_KEY_FILE)
-  throw new Error("生产身份未配置");
-const service = createAIService({
-  mode,
-  databasePath:
-    process.env.WORKET_AI_METADATA_DB ?? "worket-ai-metadata.sqlite",
-  devSecret: process.env.WORKET_DEV_AUTH_SECRET,
-  publicKey: process.env.WORKET_AUTH_PUBLIC_KEY_FILE
-    ? readFileSync(process.env.WORKET_AUTH_PUBLIC_KEY_FILE, "utf8")
-    : undefined,
-  issuer: process.env.WORKET_AUTH_ISSUER ?? "worket-local",
-  audience: process.env.WORKET_AUTH_AUDIENCE ?? "worket-ai",
-  provider,
-  providerName: process.env.WORKET_PROVIDER_NAME,
-  providerPolicyUrl: process.env.WORKET_PROVIDER_POLICY_URL,
-});
-service.server.listen(Number(process.env.PORT ?? 8788), "127.0.0.1", () =>
-  console.log(
-    "Worket AI Service listening on loopback; TLS terminates at configured proxy.",
-  ),
+import { resolve } from "node:path";
+import { createManagedService } from "./managed.mjs";
+const port = Number(process.env.PORT ?? 8788);
+if (!Number.isInteger(port) || port < 1 || port > 65535)
+  throw new Error("PORT 必须是有效端口");
+const directory = resolve(
+  process.env.WORKET_SERVER_DATA_DIR ?? ".worket-server",
 );
+const service = createManagedService({ directory });
+service.server.on("error", (error) => {
+  console.error(
+    error.code === "EADDRINUSE"
+      ? `端口 ${port} 已在使用；可通过 PORT 指定其他端口。`
+      : "后台启动失败，请检查监听端口与目录权限。",
+  );
+  process.exitCode = 1;
+  void service.close();
+});
+service.server.listen(port, "127.0.0.1", () => {
+  console.log(`Worket 后台已启动：http://127.0.0.1:${port}/admin/`);
+  console.log(`配置和身份数据目录：${directory}`);
+  console.log(
+    service.store.initialized()
+      ? "使用管理员密码登录。"
+      : "首次打开页面后设置管理员密码，再填写模型配置。",
+  );
+});
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () => void service.close().then(() => process.exit()));

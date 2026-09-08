@@ -16,3 +16,5 @@ output/
 *.sqlite-*
 *.bak
 definition-materials/
+
+.worket-server/

@@ -1,5 +1,7 @@
 # 记录并接力一项工作
 
+> 适用范围：现有记录与跨 Agent 接力版本。2026-09-08 起，新增的主动沉淀、定义复用和后台模型服务以 [工作沉淀与复用 Spec v1](../docs/specs/work-distillation-v1.md) 为准。本文中的“归档”不是沉淀，“客户端自行配置模型 Key”和“未来 WorkPattern”不作为新沉淀功能的实现要求；原有交接验收仍需保留。
+
 ## 状态
 
 可用 MVP 候选版已实现。领域核心、SQLite 持久化、Codex App Server Adapter、WorkBuddy MCP/Hook Bridge、桌宠侧边面板、安装器与 macOS 打包均已完成。真实 Codex 数据导入和桌面 Deep Link 已通过；严格十四步验收尚未完成，必须由用户在同一个 WorkBuddy 桌面对话中亲自发送，并同时取得 MCP 调用审计与 Hook 回写证据。

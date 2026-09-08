@@ -1,0 +1,557 @@
+# Worket 工作沉淀与复用 Spec v1
+
+- 日期：2026-09-08。
+- 状态：待评审的开发规格；本文不表示功能已经实现。
+- 代码基线：`0643e50`；当前应用版本 `0.1.0`。
+- 范围：用户主动沉淀、Worket 后台模型处理、定义确认与版本保存、用定义开展下一次工作。
+- 方法：SDD。先确定行为与验收案例，再实现完整功能并集中验证；不采用严格 TDD 红—绿循环。
+- 术语：[CONTEXT.md](../../CONTEXT.md)。现状及方向索引：[product.md](../product.md)、[architecture.md](../architecture.md)。
+
+## 1. 产品目标与完成标准
+
+核心思想是 Work Object：工作先被定义清楚，就可以交给不同执行者完成。要求用户事先完整定义工作的成本过高，因此先记录真实工作，再由用户决定哪些值得沉淀。
+
+首版必须完成：用户选择真实工作记录并主动沉淀，检查系统生成的候选定义，保存后替换本次输入，创建新的 WorkInstance，由受支持的执行者完成第二次同类工作。用户不必重新描述整套要求。
+
+能生成一段摘要、返回合法 JSON、保存一份模板文件，均不足以构成完成。除了程序规则，还必须验证第二次工作的交付和约束是否正确、旧案例信息是否污染新工作。
+
+公开分发标准：目标用户可以在受支持的 macOS 环境中独立完成这条路径；不能要求配置模型供应商 API Key、修改数据库或由开发者手工修复状态。模型服务未配置时可以完成开发验证，但不能标记真实功能或公开发布验收通过。
+
+## 2. 已确认的决策
+
+| 编号 | 决策 | 必须产生的行为 |
+|---|---|---|
+| D01 | 沉淀只由用户主动发起 | 记录、查看、完成、交换 Agent、启动应用均不自动生成定义 |
+| D02 | 抽象前确认范围，保存前确认结果 | 点击“开始沉淀”才请求模型；候选经检查、修改、确认后才成为定义版本 |
+| D03 | 支持单选与多选 | 多选检查目标与要求的相容性，不默认强行合并 |
+| D04 | 正式定义主要约定输入、交付、约束、验收 | 方法默认供参考；强制步骤需要明确依据和确认 |
+| D05 | “沉淀 / 已沉淀”进入主流程 | 已沉淀展示定义；不是将 `ARCHIVED` 改个中文名称 |
+| D06 | 归档独立、后置且入口隐蔽 | 不扩展归档功能；保留历史数据访问和必要兼容入口 |
+| D07 | 复用产生新实例 | 新输入、新 WorkRecord；不复制上次的完成状态、客户结论或执行绑定 |
+| D08 | 已确认定义按版本保存 | 新版本只影响明确选用它的新工作，不改变旧实例 |
+| D09 | 使用 Worket 后台模型 API | 不使用用户 Codex 订阅额度，不在客户端携带供应商 API Key |
+| D10 | 抽象模型与工作执行者分离 | 后台只分析并返回候选；外部执行者负责真正执行工作 |
+| D11 | 工作数据本地为主，外发边界明确 | 用户选择的内容经 Worket 后台及模型供应商处理，不能宣称全程离线 |
+| D12 | 固定资料与每次输入分开 | 经用户确认的固定资料保存本地版本副本；每次输入重新绑定 |
+
+以下属于本 Spec 的实现默认值，不是用户已指定的供应商或商业方案：请求限额、超时和结果暂存时间集中配置；后台身份提供方、模型与部署环境见第 15 节。
+
+## 3. 三条路径与本次边界
+
+| 路径 | 输入 | 产出 | 工作身份 |
+|---|---|---|---|
+| 交换 Agent | 当前工作状态、资料及必要来源 | Handoff Package | 同一 WorkInstance |
+| 沉淀后复用 | 用户选中的一份或多份记录 | 定义版本，再用新输入创建工作 | 新 WorkInstance |
+| 传递给同事，后续能力 | 本次背景、进度、责任与交接信息 | 面向同事的交接材料 | 原则上仍是同一项工作；本次不实现 |
+
+本次 P0：选择来源、手动提交、多记录相容性判断、候选编辑与确认、已沉淀列表、定义版本、固定资料副本、新实例输入、工作包、至少一个现有执行端的真实执行和结果确认、后台身份与限额边界、失败恢复。
+
+不纳入：自动全库聚类、自动替用户决定沉淀、WorkPattern 实体、工作流设计器、同事协作与云同步、自动优化定义、外部 Agent 执行权控制、全文件历史版本、训练专用模型、无限自主运行的后台 Agent。
+
+AI 处理采用两个分开的应用接口：`WorkStateExtractor` 整理本次工作，`WorkDefinitionExtractor` 抽象可复用定义。它们可以共用后台身份、限额和供应商 Adapter，但不能互相隐式调用。本 Spec 交付后者；前者改为托管 API 的完整迁移另立范围，本次必须保证交换 Agent 不调用定义抽象接口，也不因沉淀失败而不可用。
+
+“先不用 Codex App Server”适用于 AI 整理/抽象执行。现有 Codex 历史读取仍沿用采集 Adapter，本次不删除或重写它；沉淀只读取已经保存的本地记录，不要求再向 Codex 发起模型任务。
+
+## 4. 用户流程
+
+### 4.1 进入与选择
+
+1. 用户在工作记录列表中多选，或在详情中点击“沉淀”。默认只选当前记录，不自动勾选其他记录。
+2. 允许选择 `OPEN`、`COMPLETED` 及历史 `ARCHIVED` 工作。没有可见来源事件的空工作不能提交；仍在执行的工作说明“仅使用当前已记录内容”。
+3. 展示来源标题、日期、事件数量、记录是否仍在变化，以及本次将用于分析的附件内容范围。文件路径引用不等于文件内容已经上传或读懂。
+4. 首版给出提示“可选择同类工作的多次记录”；相似记录推荐不是 P0。以后增加推荐也只能建议选择，不能后台外发其他记录或自动开始抽象。
+5. 用户点击“开始沉淀”，确认本次材料经 Worket 后台及模型服务处理。首次说明完整数据边界；后续每次保留清晰的范围摘要，不增加多轮无意义确认。
+
+### 4.2 固定来源快照
+
+在网络请求前，本地事务保存本次选中的事件 ID、顺序、内容 Hash、附件范围和来源快照。UI 显示采集截止时间。正在继续的工作不停止记录，后续消息不自动追加到已提交请求。
+
+读取失败或文件在确认期间变化时，提示重新确认范围。用户扩大来源或加入附件内容视为新快照，需要重新点击开始；不得以失败重试为由悄悄扩大外发范围。
+
+### 4.3 分析多条记录
+
+模型基于目标、输入、交付、约束判断记录是否能构成同一工作类型，返回以下之一：
+
+- `COMPATIBLE`：生成一个候选，参数化客户、日期、地区等实例差异。
+- `CONFLICTING`：生成候选与显式冲突，例如同一交付有互斥要求；冲突未经处理不能保存。
+- `UNRELATED`：返回建议分组及理由，进入“重新选择”；不生成一个把无关工作拼在一起的定义。
+
+分组建议不自动启动多项抽象。用户选择其中一组或重新选择后，明确开始新的沉淀任务。不能靠标题相似度直接判为同类。
+
+### 4.4 检查与保存
+
+候选界面按用户理解展示：工作名称与目的、每次需要的输入、交付、必须遵守的要求、完成标准、参考方法、固定资料、需要确认的问题。
+
+每项模型提出的要求可展开查看依据。用户可以修改、删除或补充；原始 Work State 仍是只读投影，候选编辑不回写来源对话或原 WorkRecord。
+
+至少满足以下条件才能“保存沉淀”：目的明确、有交付、有可判断的验收标准，全部阻断问题已解决，必需输入和文件角色完整。不适用的输入或固定资料可以为空，不强迫填写无意义字段。
+
+保存一次性生成已确认定义版本、来源关系和材料引用；显示到“已沉淀”。沉淀不自动完成、归档或删除来源工作。同一记录可用于不同定义，不能把“已参与沉淀”作为不可再选的状态。
+
+### 4.5 再次使用
+
+1. 用户在“已沉淀”打开定义，点击“使用”。默认选最新已确认版本，同时可以查看具体版本与来源。
+2. 填写本次输入；业务客户、日期、旧结论、账号身份、上次授权不得作为隐式默认值。固定的合理默认值必须已作为定义的一部分得到确认。
+3. 确认固定资料可读，并选择是否附带某个旧成果作为“参考案例”；默认不带旧成果。
+4. 创建新 WorkInstance 和 WorkRecord，固定引用选定定义版本。未选择执行者时允许保存待执行工作；显示“尚未交给执行者”，采集为 stopped。
+5. 首版提供现有 WorkBuddy 新对话交付，以及复制/导出工作包的通用出口。导出只表示材料已交付，不表示外部执行者已经接手或已建立自动记录。
+6. WorkBuddy 通过现有 MCP/Hook 读入工作包并回写本次工作。失败保留新实例与输入，重试不重复创建实例。
+7. 用户关联本次交付物，按定义确认完成；记录采用的定义版本、交付物及确认时间。Agent 的“已完成”回复不直接把工作置为完成。
+
+自动往新的 Codex 任务提交复用工作的 Adapter 不在本次 P0；首版不承诺任意应用都能自动接入。通用工作包须不依赖 WorkBuddy 的 marker 或 SDK 才能理解工作要求。
+
+### 4.6 归档兼容
+
+主区域增加“已沉淀”，其数据来自可复用定义。原“已归档”与归档动作从主路径移到“更多 → 归档记录”等次级入口，只维持现有查看和操作语义。旧 `ARCHIVED` 工作不能被迁移成已沉淀定义，也不能丢失。
+
+## 5. 领域对象与不变量
+
+```text
+WorkInstance A / B ── WorkRecord / Source Archive
+                              │ 用户选择快照
+                              ▼
+                       DistillationJob
+                              │ 分析结果
+                              ▼
+                       DefinitionDraft
+                              │ 用户确认
+                              ▼
+                      WorkDefinition v1
+                              │ 新输入
+                              ▼
+                      WorkInstance C
+                              │ 外部执行
+                              ▼
+                  ExecutionEpisode / WorkRecord
+```
+
+| 对象 | 职责与主要字段 |
+|---|---|
+| `SourceSnapshot` | 本次材料边界：本地 ID、schemaVersion、来源工作、事件列表、附件内容选择、capturedAt、contentHash |
+| `DistillationJob` | 一次用户请求及其运行状态：ID、snapshotId、远端请求 ID、attempt、status、错误、时间、schema/prompt/model 版本 |
+| `DefinitionDraft` | 可编辑候选：ID、jobId?、baseDefinitionId?、revision、content、来源、问题及用户处理记录；模型候选来自 job，人工修订来自固定定义版本 |
+| `WorkDefinition` | 一个已确认版本：ID、稳定 definitionKey、version、kind、content、来源、confirmedAt、内容 Hash |
+| `DefinitionMaterial` | 固定资料的本地副本：ID、内容 Hash、存储位置、原始来源、用途、可用状态 |
+| `InstanceInput` | 新实例按 input key 绑定的值或资料，不引用上次绑定作为默认 |
+
+不变量：
+
+- `definitionKey` 标识同类工作的版本系列；`id` 标识某个固定版本。名称不作为唯一身份。
+- 原记录属于原 WorkInstance；定义来源关系不是改变原实例的 definitionId。
+- 首次沉淀 v1；修改已保存定义时从原版本建立草稿，确认后产生 v2。首版支持人工修改版本，不自动根据新执行记录提出或应用改进。
+- 同一版本内容不可覆盖；发布、创建实例使用命令幂等键，重复点击只生成一个结果。
+- 工作定义不含特定应用会话 ID、供应商密钥、旧执行许可；这些只属于执行 Adapter 或本次实例。
+- 先保存新实例再调用外部执行端。未交付时不伪造活动 CaptureBinding 或已经接手的 ExecutionEpisode。
+- 固定资料副本一经版本引用即不可原地覆盖；变化产生新副本及新定义版本。
+- 模型调用发生在数据库事务之外；只有校验合格的候选或用户确认结果进入相应事务。
+
+## 6. 工作定义内容契约
+
+以下是领域内容契约；本地对象 ID、版本号、确认记录由 Worket 分配，模型不得决定正式身份或状态。
+
+```ts
+type EvidenceOrigin = "USER_STATED" | "AGENT_PROPOSED" | "SYSTEM_INFERRED";
+type SourceRef = {
+  snapshotId: string;
+  workId: string;
+  eventId: string;
+  excerpt?: string;
+};
+type Basis =
+  | { type: "SOURCE"; origin: EvidenceOrigin; refs: SourceRef[] }
+  | { type: "INFERRED"; refs: SourceRef[]; rationale: string }
+  | { type: "USER_AUTHORED"; reviewEventId: string };
+type DefinedItem = { key: string; text: string; basis: Basis };
+type InputSpec = DefinedItem & {
+  valueType: "TEXT" | "NUMBER" | "BOOLEAN" | "CHOICE" | "FILE";
+  required: boolean;
+  choices?: string[];
+  defaultValue?: string | number | boolean;
+};
+type DefinitionContentV1 = {
+  schemaVersion: 1;
+  name: string;
+  purpose: DefinedItem;
+  inputs: InputSpec[];
+  deliverables: DefinedItem[];
+  constraints: DefinedItem[];
+  acceptanceCriteria: DefinedItem[];
+  methods: Array<DefinedItem & { obligation: "REFERENCE" | "REQUIRED" }>;
+  materialRoles: Array<DefinedItem & { required: boolean }>;
+};
+```
+
+附加规则：
+
+- 所有 key 在对应集合中唯一；模板变量只允许引用已声明 input key，不执行模型生成代码或表达式。
+- 模型输出只能使用 `SOURCE` 或 `INFERRED`；`USER_AUTHORED` 只能由用户编辑命令产生。
+- `SOURCE` 必须有属于本次快照的有效引用；有来源表示可追溯，不等于真实或已经被用户同意。
+- 单纯点击保存不会把 `AGENT_PROPOSED` 改成 `USER_STATED`。确认记录是单独一层；用户改写保留原提案与 reviewEventId。
+- 非来源直接支持的泛化使用 `INFERRED`，说明理由；不能伪造消息证明“必须这样做”。
+- `methods.obligation` 默认 `REFERENCE`。无明确来源的强制步骤列为阻断问题，只有用户明确保留才可发布。
+- `DefinitionDraft.issues` 每项包含 ID、类型、涉及字段/来源及 `blocking`。类型包括 `MISSING_INFORMATION`、`CONFLICT`、`UNCERTAIN_GENERALIZATION`、`UNSUPPORTED_SOURCE`。
+- 阻断问题只能通过补充、改写、删除相关要求或明确的选择解决，保存“已处理”布尔值不算解决。警告可以显式接受。
+- 定义文本显示或导出时作为数据转义，不能直接插入未转义 HTML、shell 命令或动态可执行模板。
+
+## 7. 抽象流程与模型职责
+
+### 7.1 固定流程，不运行自主 Agent
+
+```text
+校验材料 → 提取要求及演变 → 判断多记录关系
+                              ↓ 可继续
+                     泛化输入/约束/交付/方法
+                              ↓
+                    校验结构/引用/覆盖 → 候选
+```
+
+由语言模型负责跨消息理解、修正关系、实例参数化和跨记录综合。程序负责快照、顺序、分块、身份、权限、成本控制、结构和引用校验。用户决定是否沉淀、如何处理歧义及是否采用候选。
+
+首先用一个可配置的模型建立真实案例基准，不按未经验证的判断硬分“大模型/小模型”路由。以后更换模型必须重跑固定评测集。供应商专属 SDK 和提示实现只存在于后台 Provider Adapter，不进入 Work Core。
+
+### 7.2 要求的演变
+
+提取中间结果至少标记：要求内容、来源、适用本次还是可能通用、是否被明确替代、相关替代证据。保留否定、例外与限制范围。
+
+不能简单采用“最后一句优先”：同一工作中的明确修正可以替代先前要求；不同工作中的不同要求可能是不同适用条件，不能按时间覆盖。用户的泛泛“好的”不自动确认前一条 Agent 回复里的所有建议。
+
+单次工作中的“这次来不及”默认作为本次例外，不直接成为长期规则；没有证据说明哪些要求可复用时，提出候选与问题，而不是编造通用标准。
+
+### 7.3 长记录与覆盖
+
+以已保存的原始可见来源为依据，现有八部分摘要只能辅助，不能取代原记录。按事件边界分块并保持工作内顺序；跨块保留要求 ID、修正链和精确来源。最后聚合时再次处理跨块冲突。
+
+每次结果返回 `coverage`：输入事件数、已处理事件数、已处理块数、排除项及原因。不能静默截断历史后返回“完成”；任何未处理的已授权材料导致 `INCOMPLETE_COVERAGE`，不得进入可发布候选。
+
+传输与上下文预算超过限制时提示缩小选择；已明确排除的内容必须在开始前展示。只提交部分范围时，候选注明来源范围有限，不能声称概括全部工作。
+
+### 7.4 不可信材料
+
+来源记录中可能包含历史命令或提示注入。它们是待分析材料，不是本轮系统指令。模型不获得 shell、文件写入、任意 URL 抓取、MCP 或执行用户原工作所需的工具。
+
+结构不合法、引用越界、模型拒绝或结果不完整时，返回具体错误，不保存伪成功。首版不自动循环修复模型输出；用户可重试，后续如引入修复调用需纳入调用数和费用上限。
+
+## 8. 固定资料与删除边界
+
+默认仅提交可见文本事件及附件元数据，不根据本机路径读取整个项目。用户明确选择用于分析的文件内容才外发；首版支持 UTF-8 文本类内容，二进制文件可以保存为固定资料副本，但界面明确“未分析文件内容”。PDF/Office/OCR 解析不作为首版默认隐含能力。
+
+模型只能建议资料角色，不能决定复制哪些本地文件。用户在候选确认阶段将本地文件绑定到固定角色；文件必须可读取并通过 Hash 校验。必要材料缺失阻止发布或使用，不能忽略后继续。
+
+副本保存在 Worket 管理的本地目录，先写临时文件、校验、原子落位，再提交版本引用。崩溃留下的未引用临时文件可清理；仍被任一定义版本或实例引用的内容不能清理。文件数量和总量设可配置限制，不复制目录或无限追踪软链接。
+
+删除来源工作时，预览中说明已有定义仍保留，并清除本工具保存的该来源事件正文、快照正文及证据摘录；定义自身保留已经确认的要求与已独立纳入的固定资料。来源引用标记 `SOURCE_DELETED`，不保留隐蔽全文副本。删除来源不使已确认定义不可执行，但来源核验能力相应减弱。
+
+草稿尚未发布且依赖被删来源时失效，相关任务取消；迟到的模型响应不得重新写回被删内容。删除定义须单独确认；存在实例引用时返回 `DEFINITION_IN_USE` 并列出关联工作，不能一边提示永久删除成功一边保留隐藏版本。没有实例引用时可删除定义系列、草稿、证据副本及不再被其他对象引用的固定资料，原始工作不删除。
+
+固定资料和定义文本本身也可能敏感；未来发给同事必须另有明确导出范围，本次不自动分享。
+
+## 9. 模块关系与数据流
+
+```text
+Desktop UI
+  │ IPC：选择、提交、编辑、确认、使用
+  ▼
+DistillationService ── DefinitionRepository / Work Core ── 本地 SQLite
+  │                         │
+  │                         └── DefinitionMaterialStore ── 本地资料副本
+  ▼
+WorketAIClient ── HTTPS ── Worket AI Service
+                              ├── 身份校验 / 限额 / 请求幂等
+                              ├── DefinitionExtractionWorkflow
+                              ├── ModelProvider
+                              └── 不含正文的运行与用量元数据
+
+Work Core ── WorkPackageBuilder ── 现有 WorkBuddy Adapter / 导出
+```
+
+- `DistillationService` 编排材料快照、远端请求和本地结果；不承担模型推理。
+- `DefinitionRepository` 负责草稿并发修改、版本发布和来源关系，可与当前 SQLite 实现共用连接与事务。
+- `Work Core` 负责实例身份、输入、执行片段、完成和删除；前端与云端均不能直接写数据库。
+- `WorketAIClient` 集中处理认证、请求版本、取消、重试和错误映射。供应商 API Key 不进入 preload、renderer、日志或发布包。
+- 后台是固定处理流程；不保存工作库，不承担 WorkInstance 权威状态，不在模型调用期间修改用户文件。
+- 新增路径建议：`src/distillation/`、`src/definitions/`、`src/ai-service/client.ts`、`server/`、`contracts/`。职责稳定，文件名可在实现时按现有风格调整。
+- `contracts/` 保存版本化请求/响应运行时 Schema，桌面与后台共用；TypeScript 类型断言不能替代输入校验。
+
+### 9.1 云端数据处理
+
+用户提交的文本会由 Worket 后台和模型供应商处理。客户端在本地维护真实 workId/eventId 到请求内不透明 source key 的映射；后台接收 source key、相对顺序和内容，非必要时不发送本机绝对路径、外部会话 ID 或账号身份。正文内的敏感信息仍可能外发，不能以 ID 替换声称已匿名化。
+
+Worket 后台默认不将请求正文、候选正文或文件内容持久化到数据库、对象存储、日志、追踪、异常上报或代理请求转储中。任务运行时材料保留在内存；候选结果为便于客户端取回，在内存中暂存，默认最多 10 分钟，客户端确认收到或用户取消后立即清除。该暂存及模型供应商的留存政策必须在产品说明中如实表达。
+
+后台可持久化用户主体、请求 ID、请求摘要 Hash、状态、用量、错误码、模型/提示/Schema 版本和时间；不能保存正文片段、文件名等作为错误描述。元数据默认保留 30 天，具体期限集中配置并在上线说明中公布。
+
+服务进程重启后，不宣称能恢复已丢失的内存输入或结果。任务标为 `INTERRUPTED` 或 `RESULT_EXPIRED`，客户端持有快照，用户可发起新的明确尝试。部署第一版使用单个有边界并发的服务实例；水平扩展需另行设计任务路由与数据暂存策略，不能直接增加无状态副本。
+
+### 9.2 身份、费用与网络
+
+- 客户端携带 Worket 用户访问令牌，服务端验证签名/有效期、受众和主体；令牌存于系统安全凭据存储，不共享一个内置客户端密钥给所有用户。
+- 每个请求、结果读取、取消及幂等键均按服务端解析出的用户主体隔离。客户端的 workId、设备 ID 或用户 ID 字段不能充当授权依据。
+- 生产身份签发系统尚未选定；本地测试身份只能用于开发，生产拒绝开发令牌和未鉴权请求。
+- 开始模型调用前检查并预占用户限额；结束后按可取得的实际用量结算，失败/未知用量有明确记录。Worket 不因网络重发重复扣同一逻辑请求的用户额度。
+- 同一请求最多一个活动模型调用；长记录串行分块并计入调用总数上限。超预算停止并报错，不无限重试。
+- 生产只连接配置好的 HTTPS Worket 服务；模型供应商地址由服务端配置，不接受客户端提供的任意 base URL、模型密钥或可执行 Prompt 模板。
+- 客户端读取服务能力和限额：最大来源数、字节数、运行时间、并发量、支持的契约版本和文件类型。开发默认值为 5 份来源、2 MiB 文本请求、每用户 1 个运行任务、每任务最多 20 次模型调用、10 分钟总运行期限；上线前按实测调整，前后端保持一致。
+- 网络、Worket 额度或模型故障不能影响本地记录、已有定义的查看和本地实例创建。沉淀无法调用时明确不可用，不偷偷改用用户 Codex 额度或客户端旧 API Key。
+
+## 10. 应用接口
+
+### 10.1 桌面到本地应用服务
+
+以下接口放在受控 preload 下；所有输入在主进程重新验证。省略的 View 类型只返回页面需要的字段，不把整个工作库序列化给页面。
+
+```ts
+prepareDistillation({ workIds, includedFileIds }): Promise<PreparationView>;
+startDistillation({ preparationId, expectedContentHash, consentVersion, commandId }): Promise<JobView>;
+getDistillationJob({ jobId }): Promise<JobView>;
+cancelDistillation({ jobId }): Promise<JobView>;
+retryDistillation({ jobId, expectedContentHash, commandId }): Promise<JobView>;
+updateDefinitionDraft({ draftId, expectedRevision, content, issueResolutions }): Promise<DraftView>;
+publishDefinition({ draftId, expectedRevision, materialBindings, commandId }): Promise<DefinitionView>;
+listDefinitions({ cursor, limit }): Promise<DefinitionPage>;
+getDefinition({ definitionKey, version? }): Promise<DefinitionView>;
+createDefinitionRevision({ definitionId, commandId }): Promise<DraftView>;
+deleteDefinition({ definitionKey, confirmation, commandId }): Promise<void>;
+createWorkFromDefinition({ definitionId, inputs, referenceExampleIds, commandId }): Promise<WorkDetailView>;
+getWorkPackage({ workId }): Promise<WorkPackageView>;
+dispatchWork({ workId, target: "WORKBUDDY", commandId }): Promise<DispatchView>;
+acceptWorkOutput({ workId, artifactIds, criteriaResults, commandId }): Promise<WorkDetailView>;
+```
+
+- `prepare` 只做本地读取、快照和范围说明，不调用云端。跨选区修改后旧 preparation 失效。
+- `start` 验证仍存在的来源、快照 Hash、范围确认和云端说明版本。重复 commandId 返回同一 job。
+- `update` 使用 expectedRevision，过期编辑返回冲突，不能静默覆盖另一个窗口的修改。
+- `publish` 校验问题处理与固定资料，事务内发布；重复命令返回同一版本。
+- `createWorkFromDefinition` 不要求外部 conversationId，不自动启动执行端。创建成功返回的 Work ID 是唯一后续操作身份。
+- `dispatch` 只使用已保存的新实例和工作包；同一 commandId 不重复打开外部对话。另一次重试必须先解释上次是否已确认接手，避免两个活动绑定。
+- `acceptWorkOutput` 只用于用户明确验收。来自定义的工作必须关联交付及标准检查；历史通用记录原有手动完成行为保持兼容。
+- 定义更新建立新草稿；没有变化的确认不生成空版本。首版不自动汇总新实例改进定义。
+
+### 10.2 客户端到 Worket 后台
+
+请求头：`Authorization: Bearer <worket-access-token>`；创建带 `Idempotency-Key`；所有请求为版本化 JSON，不提交用户数据库文件。
+
+| 方法与路径 | 行为 |
+|---|---|
+| `GET /v1/capabilities` | 返回可接受的契约版本、输入限额、超时和文件类型 |
+| `POST /v1/definition-extractions` | 校验并接受材料；返回 202 与 requestId，不直接发布定义 |
+| `GET /v1/definition-extractions/{id}` | 本人读取运行阶段或可取回结果 |
+| `POST /v1/definition-extractions/{id}/ack` | 本地已事务保存候选后确认收取，清理内存结果；幂等 |
+| `DELETE /v1/definition-extractions/{id}` | 本人取消；清理内存材料，供应商取消采用 best effort，不承诺免除已产生费用 |
+
+创建请求示意：
+
+```json
+{
+  "schemaVersion": 1,
+  "snapshotHash": "sha256:<canonical-payload-hash>",
+  "locale": "zh-CN",
+  "sources": [
+    {
+      "key": "work-1",
+      "events": [
+        { "key": "event-1", "sequence": 1, "kind": "user.prompt", "text": "每条竞品结论都要有来源" }
+      ],
+      "materials": []
+    }
+  ]
+}
+```
+
+响应 Envelope：`schemaVersion`、`requestId`、`status`、`stage`、`result?`、`error?`、`usage?`、`resultExpiresAt?`。运行阶段是 `VALIDATING / EXTRACTING / COMPARING / GENERALIZING / CHECKING`，表示真实进度，不伪造百分比。
+
+成功 result 包含 `compatibility`、`suggestedGroups`、`draftContent?`、`issues`、`coverage`、`modelVersion`、`promptVersion`。云端引用使用 `{sourceKey, eventKey}`；客户端验证映射后才能转换成第 6 节的本地 SourceRef。`UNRELATED` 结果只有分组和问题，不要求伪造 draftContent。
+
+远端 status 为 `QUEUED / RUNNING / SUCCEEDED / FAILED / CANCELLED / INTERRUPTED / RESULT_EXPIRED / RESULT_ACKNOWLEDGED`。远端 SUCCEEDED 仅表示分析返回，不等于用户已保存定义；本地根据 compatibility 进入 AWAITING_REVIEW 或 NEEDS_SELECTION。ack 后保留无正文的结果已收取状态，本地不再重复获取正文。
+
+`snapshotHash` 对本次规范化传输内容（schemaVersion、locale、sources，不含 hash 自身）计算；它与本地快照含真实 ID 的 contentHash 分开保存，不能假定脱敏映射前后 Hash 相同。
+
+同一用户、同一幂等键、同一规范化请求 Hash 返回原请求；同键不同内容返回 409。服务端自行计算并验证 Hash，不信任客户端声明。已经取消、已确认收取或已过期的请求不会因再次 POST 同键而重新调用模型；新的尝试须新键。
+
+轮询等待可取回结果，客户端先本地保存再 ack；ack 失败可重试，不重复保存候选。服务重启和结果过期明确失败，不承诺跨进程 exactly-once，也不因供应商超时自动重复一笔不确定调用。
+
+### 10.3 错误契约
+
+错误结构为 `{ code, message, retryable, requestId?, details? }`。message 只描述可操作原因；details 不含原始材料或密钥。
+
+| 错误 | 用户处理与系统行为 |
+|---|---|
+| `AUTH_REQUIRED / AUTH_EXPIRED` | 登录后继续，已有本地内容不丢失 |
+| `QUOTA_EXCEEDED / CONCURRENCY_LIMIT` | 明确显示限制及可取得的恢复时间，不自动换计费来源 |
+| `SOURCE_CHANGED / SOURCE_DELETED` | 重新选择或确认快照，旧响应不得复活删除数据 |
+| `INPUT_TOO_LARGE / UNSUPPORTED_FILE` | 展示具体限额与受影响资料，不静默截断 |
+| `MODEL_UNAVAILABLE / MODEL_TIMEOUT` | 保留本地输入，允许用户重试 |
+| `MODEL_REFUSAL / INVALID_MODEL_OUTPUT / INVALID_SOURCE_REF` | 未生成可用候选，不标记成功 |
+| `INCOMPLETE_COVERAGE` | 明确未完成范围，不允许发布 |
+| `SERVICE_INTERRUPTED / RESULT_EXPIRED` | 原结果无法取回，保留快照供明确的新尝试 |
+| `REVISION_CONFLICT / IDEMPOTENCY_CONFLICT` | 拉取当前状态或提交新命令，不能覆盖或重复扣额度 |
+| `MATERIAL_MISSING / INPUT_REQUIRED` | 补充资料或输入后才能发布/执行 |
+| `DEFINITION_IN_USE` | 说明仍有实例引用，先处理关联工作；不假称永久删除成功 |
+| `EXECUTOR_UNAVAILABLE / DISPATCH_UNCONFIRMED` | 保留本次工作和工作包，不显示“正在记录” |
+
+## 11. 状态与恢复
+
+| 状态对象 | 状态与转换 |
+|---|---|
+| 本地沉淀任务 | `PREPARED → SUBMITTED → RUNNING → AWAITING_REVIEW → SAVED` |
+| 无关多选 | `RUNNING → NEEDS_SELECTION`；重新选择产生新任务 |
+| 失败 | `SUBMITTED / RUNNING → FAILED / INTERRUPTED`；明确重试建立新 attempt |
+| 取消 | 发布前可以进入 `CANCELLED`；结果晚到则丢弃，不产生定义 |
+| 候选 | 未发布可编辑；保存成功后固定版本，修改走新草稿 |
+| 新实例 | `OPEN` 且未绑定 → 等待交付确认 → 真实绑定记录 → 用户验收 `COMPLETED` |
+
+查看、完成和归档仍属于原实例生命周期；`SAVED` 仅属于沉淀任务，不能加入 `WorkStatus`。
+
+关闭面板不取消后台任务；重启后从本地 job、快照和远端 requestId 恢复查询，不自动再提交。失败后重试使用相同已确认材料时可由“重试”动作确认，不另弹重复权限框；材料变化须重新确认。
+
+取消和发布由本地事务串行裁决：先取消则发布失败，先发布则返回既有已保存定义。不能出现显示取消但生成不可见版本的结果。
+
+模型不可用不影响已经沉淀定义的本地复用。交换 Agent 使用已保存 Work State 和资料；不能为了构造 Handoff 临时要求沉淀，不能因 Codex 额度耗尽失败。最新状态无法刷新时显示整理截止位置，保留已有交接材料的复制/导出路径，不伪称包含最新消息。
+
+## 12. 新实例与工作包
+
+`createWorkFromDefinition` 在一个事务中：验证固定版本与输入 → 创建新实例及记录 → 保存本次输入 → 写入 `work.definition_applied` 与 `work.input_provided` 来源事件 → 生成初始状态。新事件来自 Worket 的明确用户操作，不伪造外部对话消息。
+
+初始状态只包含定义目的、约束、验收标准和本次输入资料；`completedActions` 为空，旧 facts、decisions 和 pendingActions 不继承。参考方法单独提供，不把旧工作每一步机械复制成待办。新增本地来源事件类型由核心接受，旧 Adapter 不需要伪造支持它们。
+
+初始 Work State 条目的 sourceMessageIds 指向本次本地定义采用/输入事件；这些事件记载定义版本和用户输入的真实依据，不能假造旧用户消息。外部聊天标题仅作为执行环境元数据，不能覆盖来自定义及本次输入的目的和要求；现有 Codex 标题纠正逻辑限定为其原有整段聊天导入场景。
+
+统一工作包由 `WorkPackageBuilder` 构造，包含：
+
+- `packageVersion: 1`、`purpose: START | CONTINUE`、workId、生成时间；
+- 固定定义引用与完整可执行的定义内容；
+- 本次输入、确认的固定资料清单、可选且明确标记的旧参考案例；
+- 当前 Work State、下一步或需要执行者澄清的事项；
+- 资料可用性、需要核验时的来源访问方式，以及用户验收要求。
+
+同一工作换执行者为 `CONTINUE`；从定义创建下一次工作为 `START`。工作包不含历史全量聊天、上次临时授权或模型供应商凭据。导出为人和 Agent 可读的 Markdown 与结构化 JSON；文件清单准确说明哪些只是本机引用，不能承诺在另一台电脑自动可读。
+
+现有 `HandoffPackage` 与 MCP 返回保留已使用字段，新定义内容以明确版本字段扩展；旧通用工作不强制拥有可复用定义内容。WorkBuddy 启动 Prompt 按 START/CONTINUE 表达不同意图，完整工作包通过 MCP 读取，避免受 Deep Link 长度限制。
+
+不得把打开应用当作接手成功。沿用真实会话绑定、MCP 成功读取、Hook 回写证据验证；一次新工作全程沿用新 workId。外部应用启动失败恢复至未交付/待重试状态，不删除新输入或回到原来源工作的身份。
+
+验收新工作时，界面逐项展示固定版本的验收标准及用户结果：`PASS / NEEDS_REVISION`。全部通过且有关联的本次交付物才能完成；需要修改时保持 OPEN。此处不引入企业审批流或 Agent 自动判断完成。
+
+## 13. 与当前实现的衔接与迁移
+
+| 当前代码 | 所需变化 |
+|---|---|
+| `src/core/types.ts` 的 WorkDefinition 只有身份字段 | 增加可复用定义内容、草稿、固定资料及来源契约 |
+| `src/core/schema.ts` 的 work_definitions 已按 key/version 唯一 | 保持一行对应一个版本，不再创建语义重复的模板表 |
+| `createWork` 必须带 executor/environment/source | 新增 `createWorkFromDefinition`，支持先创建后绑定；保留现有导入命令 |
+| 当前 extractor 主要是中文规则、云端选项读客户端环境变量 | 新增独立的后台定义抽象流程；不把现有规则摘要冒充工作定义抽象 |
+| `src/ui-contract.ts` 只暴露记录生命周期与 WorkBuddy 接力 | 增加沉淀、草稿、版本、输入与结果确认接口 |
+| `src/renderer/panel.ts` 将 ARCHIVED 当主 Tab | 增加定义视图，将归档兼容入口移入次级区域 |
+| 当前 Handoff 主要携带 state 与 ArtifactRef | 增加定义、新输入、START/CONTINUE 意图和固定资料读取 |
+
+数据库迁移采用显式 migration version，并在迁移前备份。现有 `work_definitions.id` 与 `work_instances.definition_id` 保持引用含义：固定版本 ID；`definition_key` 是版本系列身份。
+
+建议增量：work_definitions 增加 kind（`GENERAL / REUSABLE`）、content/schema/provenance/confirmation；新表保存 distillation_jobs、source_snapshots、definition_drafts、definition_materials、定义材料关系、instance_inputs、用户确认事件和命令幂等结果。具体列名可调整，但不能用同一状态字段混合任务、定义和实例生命周期。
+
+既有 general-work v1 标记 GENERAL，不出现在“已沉淀”；其内容不能被后来模型覆盖。来源工作即使参与沉淀，仍引用原定义；只有新建的复用实例引用新版本。
+
+迁移不更改工作 ID、外部绑定、原始事件、历史人工编辑/tombstone 或 ARCHIVED 状态。新存储字段缺省可读旧数据。新增内容不能被旧应用安全解释时，应阻止不兼容版本打开新库，并提供迁移前备份恢复路径；不得声称旧二进制可直接回滚读新库。
+
+文档当前记录的“仅本地持久化、客户端自配 Key、未来 WorkPattern”等旧规则，只说明基线实现；新沉淀以本 Spec 为准。工作状态只读规则继续适用于 Work State，不限制 DefinitionDraft 的人工编辑。
+
+## 14. 验收案例与测试策略
+
+### 14.1 行为验收
+
+| 编号 | Given / When | 必须满足的结果 |
+|---|---|---|
+| A01 | 已记录工作，用户只查看、完成或交换 Agent | 定义抽象接口调用数为零，不自动生成候选 |
+| A02 | 已选来源，用户尚未点击开始 | 无云端请求；取消选择无模型费用 |
+| A03 | 单次竞品分析记录含“这次只看国内”“以后每条结论须有来源” | 区分实例范围与固定约束，保留依据；不凭空把所有工作固定为国内 |
+| A04 | 同一工作先说包含支付，后明确取消支付 | 不再把接支付列为正式要求；修正可追溯 |
+| A05 | 两次同类报告分别使用客户 A、B 和不同地区 | 客户/地区成为输入，不把 A/B 的具体结论固化 |
+| A06 | 多选竞品报告与报销审批 | NEEDS_SELECTION，说明分组；不拼接生成可发布定义 |
+| A07 | 两次同类工作有互斥交付要求 | 显示冲突，未解决不能发布；不按时间跨工作覆盖 |
+| A08 | Agent 建议某步骤，用户未明确采纳 | 保留提案来源，不显示用户已要求；强制性须明确确认 |
+| A09 | 候选有未声明变量、伪造来源或处理不完整 | 被程序拒绝或阻止发布，合法 JSON 不足以通过 |
+| A10 | 用户改写候选并重复点击保存 | 原工作不变，仅一个已确认版本；编辑来源与确认分开记录 |
+| A11 | OPEN 工作在模型运行期间新增消息 | 本次基于固定快照；新消息不隐式外发，UI 显示截止位置 |
+| A12 | 提交后断网、服务重启、结果过期或限额不足 | 本地范围可恢复，明确失败；不静默换模型账户，不自动无限重试 |
+| A13 | 用户取消或删除来源后响应迟到 | 不发布、不复活已删正文；显示可解释的任务结果 |
+| A14 | 发布 v2 时已有实例引用 v1 | 老实例及工作包仍使用 v1，新实例可用 v2 |
+| A15 | 使用定义创建新工作 | 新 ID；必须输入重新填写；没有旧客户、旧完成动作、旧授权和旧绑定 |
+| A16 | 固定资料原文件修改/删除 | 已保存副本仍可用；副本缺失则明确阻止相关发布/执行 |
+| A17 | 同一创建/发布/提交请求网络重发 | 同键同载荷返回原结果；同键异载荷冲突，不生成多份对象 |
+| A18 | 用户甲猜到用户乙 requestId | 读取、取消、ack 均拒绝；不能查看他人内容或改变用量 |
+| A19 | 外部应用打开但未绑定或未读取工作包 | 不显示真实记录成功，工作与输入保留可重试 |
+| A20 | Agent 自称完成但用户未验收 | 工作保持 OPEN；本次交付与标准通过后用户才完成 |
+| A21 | 从旧数据库升级 | 原记录、归档、绑定与人工编辑兼容；general-work 不出现在已沉淀 |
+| A22 | Codex 额度耗尽或 Worket 模型服务不可用 | 已保存交接材料可导出；沉淀失败不破坏记录；定义可离线创建新实例 |
+| A23 | 来源中要求模型执行命令或读取无关文件 | 仅作为材料分析，不执行工具、不扩大文件范围 |
+| A24 | 两个窗口编辑同一候选 | 过期 revision 返回冲突，不静默覆盖 |
+| A25 | 新实例绑定外部对话后，外部应用自动修改标题 | 本次定义、目的和输入保持不变；不会被标题同步覆盖 |
+| A26 | 删除仍被实例引用的定义，或删除已沉淀的来源记录 | 前者明确引用冲突；后者清除来源正文与摘录但保留已确认定义，来源标记已删除 |
+
+### 14.2 可评审的抽象样例
+
+样例为合成材料，不代表已将用户真实工作发送给模型。
+
+| 来源 | 已记录内容 |
+|---|---|
+| 工作 A，消息 A1 | 为客户甲在中国市场做三个竞品的对比，交付对比表和建议 |
+| 工作 A，消息 A2 | 每次做这类报告，事实结论都要有可追溯来源，推断必须标注 |
+| 工作 A，消息 A3 | 这次时间紧，价格分析先省略 |
+| 工作 B，消息 B1 | 同样做三个竞品的对比，这次客户乙，市场改成东南亚 |
+| 工作 B，消息 B2 | 这次补上价格分析；还是每条事实结论保留来源 |
+
+期望候选为“竞品对比报告”：
+
+- 输入：客户、目标产品/业务、市场范围、三个竞品；“目标产品/业务”若来源未提供完整定义，应标记模型建议并由用户补充确认。
+- 交付：竞品对比表与建议，对应 A1、B1。
+- 固定要求：事实结论可追溯、推断明确标注，对应 A2、B2。
+- 待确认差异：价格分析是否设为每次选择项；不能从 A3 推导出“永远不分析价格”，也不能以 B2 较新为由改写 A 的原记录。
+- 客户甲、客户乙、中国、东南亚为本次历史取值，不写入不可更改的工作目的或默认输入。
+- 不因为旧报告已完成而在新工作中写入“已完成竞品分析”。
+
+用户确认价格分析是布尔输入后，第二次使用填写“客户丙、欧洲市场、三个新竞品、需要价格分析”。新工作包包含这些值及正式要求，旧两份报告默认不附带；新交付须覆盖价格分析和可追溯来源。这个样例同时验证抽象、确认与实例化，没有要求模型逐字复述某份答案。
+
+### 14.3 真实模型质量
+
+实现前准备经用户授权或去标识化的固定案例集，至少覆盖单记录、多条同类、无关多选、修正跨长记录分块、中英文、临时例外、Agent 未获采纳建议与文件引用。人工标注关键要求、禁止泛化项、输入变量和来源；不以逐字匹配一份标准答案评测。
+
+发布门槛：固定集中的关键约束无遗漏；伪造来源、旧客户/结论污染、未授权范围扩展、把未采纳建议写成用户强制要求均为零容忍失败；有歧义应显式提出，不以“全部字段填满”追求表面完成。记录测试集规模、模型/提示版本、每例耗时、调用次数、用量及失败结果，不把有限案例通过描述为普遍正确率保证。
+
+### 14.4 真实桌面复用闭环
+
+选一项用户真实做过的工作；用户从 Worket 手动沉淀，检查并保存，提供一组不同的新输入，交给真实 WorkBuddy 新对话。验收同时观察：
+
+1. 工作定义能够独立表达要求，不依赖原聊天才能开始。
+2. 新实例、定义固定版本、本次资料正确，未复制旧结论或临时授权。
+3. MCP 实际读到新工作包，Hook 写回新实例，原工作不被修改。
+4. 用户没有重新描述整套要求；如必须补充，记录缺失原因并修正候选/定义机制。
+5. 本次交付物满足已确认标准，用户在 Worket 验收完成。
+6. 重启后已沉淀定义、输入与执行记录仍可用；异常与取消可恢复。
+
+复制工作包到另一个执行者验证其可理解性，不能把人工复制的成功称为第二个自动 Adapter 已支持。未来“任意执行者”通过扩展 Adapter 验证，不作为首版已实现承诺。
+
+### 14.5 验证顺序
+
+先完成这个垂直功能，再集中运行核心事务与迁移测试、服务契约/身份/幂等测试、UI 流程测试、固定模型评测和真实桌面复用验收。Mock 只用于稳定测试失败路径，不替代真实模型与执行端。
+
+公开发布另外验证新用户安装、服务登录、密钥不在客户端、日志不含正文、限额、升级和断网。已存在的打包接入依赖问题不因本文而自动解决；若它们阻止目标用户独立使用，仍是发布阻塞项。
+
+## 15. 实现顺序、外部配置与评审点
+
+建议按一个逻辑闭环推进：
+
+1. 定义契约、版本迁移、候选保存和新实例命令；
+2. 后台固定模型流程、身份边界、限额、异步结果与恢复；
+3. 桌面选择、沉淀、编辑、已沉淀和输入界面；
+4. 工作包、真实 WorkBuddy 复用、交付验收；
+5. 完整验证、修正、单一功能提交与发布准备。
+
+实现中的内部顺序不代表分批向用户交付半成品；用户最终验收的是第 1 节的完整闭环。当前任务只编写规格和关联文档，不实施上述代码或部署。
+
+| 尚待落定 | 对开发的影响 | 对真实联调/发布的影响 |
+|---|---|---|
+| 模型供应商、具体模型与服务端 Key | 通过 ModelProvider 契约开发 | 未配置不能完成真实抽象评测 |
+| Worket 用户身份签发系统及登录体验 | 可用开发身份实现并验证授权接口 | 必须接入可撤销、可限额的真实身份；不可用公共固定 token 上线 |
+| 后台部署位置、HTTPS、供应商数据政策 | 可本地运行服务与客户端 | 必须完成运行配置及准确数据说明 |
+| 免费/付费额度及成本预算 | 用配置化上限开发和压测 | 实测后设定，不能承诺无限免费或沿用 Codex 额度 |
+| 经授权的真实工作案例及第二次输入 | 可先写去标识化测试样例 | 必须用于质量与桌面验收，未经授权不外发已有工作库 |
+
+以上未定项是配置和发布准备，不改变已经确定的手动触发、定义确认、版本、实例身份与数据边界。评审优先检查：沉淀的实际产物是否是用户需要的 WorkDefinition，以及新输入是否足以开始第二次工作。

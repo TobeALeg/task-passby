@@ -1,5 +1,7 @@
 # 架构：本地 Work Core 与桌面应用 Adapter
 
+> 本文主体描述当前实现。2026-09-08 新增的沉淀与复用架构尚未实现，见末尾“下一阶段”及 [Spec v1](specs/work-distillation-v1.md)。新功能的模型凭据、云端处理、固定资料及定义版本规则以 Spec 为准；现有采集与交接行为不因文档更新而改变。
+
 ## Module architecture
 
 ```text
@@ -29,7 +31,7 @@ Work Core ─────────────── Local Persistence
 
 核心对象：
 
-- `WorkDefinition`：工作的本体定义和固定版本；
+- `WorkDefinition`：工作的本体定义和固定版本；当前仅有 ID、key、name、version，尚无可执行的定义内容；
 - `WorkInstance`：一次真实工作；
 - `WorkRecord`：WorkInstance 的持久事实；
 - `WorkState`：八部分结构化当前状态；
@@ -159,14 +161,14 @@ INACTIVE ──继续原工作──> ACTIVE
 - WorkBuddy 首次接手必须使用全新对话；
 - WorkBuddy 用户级 Hook 必须先校验 marker 与 OPEN binding，未绑定会话不得落盘；
 - 永久删除不得波及用户原始文件和外部应用对话；
-- WorkPattern 未来独立版本化，不修改 WorkDefinition 或历史 WorkRecord。
+- 未来若增加 WorkPattern，须与 WorkDefinition 明确区分；本次沉淀使用 WorkDefinition，不新增同义模板或模式实体，不反向修改历史 WorkRecord。
 
 ## MVP 后扩展 seam
 
 - 新 Agent 应用：新增 Adapter，不修改 Work Core；
 - 本地模型：新增 WorkStateExtractor Adapter；
-- 文件快照：新增 ArtifactResolver Adapter；
-- WorkPattern：从已完成 WorkInstance 生成 Candidate，用户确认后形成 Version；
+- 文件快照：下一阶段为定义固定资料增加独立本地副本存储，不扩展成全文件历史；
+- 工作沉淀：从用户主动选择的一条或多条记录生成 DefinitionDraft，确认后保存 WorkDefinition 固定版本；WorkPattern 暂不实现；
 - 云同步：作为本地记录之外的显式能力，不改变本地优先原则。
 
 ### 多工作发现与持续记录
@@ -179,10 +181,6 @@ INACTIVE ──继续原工作──> ACTIVE
 
 面板以 PanelTab（RECENT 或 WorkStatus）控制两个互斥 tabpanel：sources-panel 只负责来源选择，works-panel 展示当前生命周期的列表、通知和详情。Tab 是 UI 状态，不引入新的工作生命周期；刷新保留 Tab，用户执行记录或生命周期操作后跟随目标工作状态。
 
-### 待实现的归档语义（2026-09-07）
-
-用户将归档的后续目标定义为“抽象工作为可重复执行的副本”。现有 `ARCHIVED` 生命周期状态暂时保留，不代表已实现该能力。未来与 WorkDefinition、WorkInstance、WorkPattern 的实体关系及副本执行方式留待专项设计，本次不调整数据模型、接口或运行行为。
-
 ### 桌宠自由移动
 
 桌宠 pointer capture 区分点击与拖动，经 preload 的 pet:drag IPC 通知主进程。主进程校验发送窗口，校验事件携带的有限桌面坐标，使用按下点与当前点的坐标差移动 BrowserWindow，拖动期间禁用鼠标穿透。desktop/pet-position.ts 负责工作区边界与本地 pet-position.json 的保存恢复；该偏好不进入工作记录。显示器变更触发可见性修正。
@@ -190,3 +188,40 @@ INACTIVE ──继续原工作──> ACTIVE
 窗口 closed 事件清空引用；退出期间以及窗口已销毁时，activate / second-instance 不再调用窗口方法，避免 Object has been destroyed。
 
 角色尺寸由 .pet 的 zoom: .75 统一控制，布局与命中区域同步缩放，内部动画继续使用原有 transform；透明窗口保留气泡和阴影所需空间。
+
+## 下一阶段：沉淀与复用（Spec，未实现）
+
+“沉淀”取代此前将复用能力混入归档的方向。沉淀产生定义对象；ARCHIVED 仍属于原工作生命周期，历史记录保留，主要入口调整为定义视图，归档退到次级区域。
+
+### Module relationship
+
+```text
+Desktop UI → DistillationService → DefinitionRepository / Work Core → Local SQLite
+                    │                        │
+                    │                        └→ DefinitionMaterialStore
+                    ▼
+              WorketAIClient → Worket AI Service → ModelProvider
+
+Work Core → WorkPackageBuilder → WorkBuddy Adapter / Markdown + JSON 导出
+```
+
+WorkDefinitionExtractor 与现有 WorkStateExtractor 独立：前者只在用户主动沉淀时工作，后者描述当前实例状态。它们可共用模型服务基础设施，不能因整理状态自动创建定义。
+
+Worket AI Service 负责固定的提取、比较、泛化与校验流程，不提供 shell、任意文件读取或通用自主 Agent。供应商 Key 仅在服务端；工作库、定义权威版本和正式实例状态保存在本地。后台采用经用户授权的材料暂存和无正文的运行/用量记录，身份、幂等与限额为公开服务必要边界。
+
+### Data flow
+
+```text
+用户选择记录 → 本地快照与范围确认 → 开始沉淀
+    → Worket 后台模型抽象 → 候选定义与问题
+    → 用户检查修改 → 固定定义版本与固定资料副本
+    → 本次新输入 → 新 WorkInstance → 工作包 → 外部执行 → 用户验收
+```
+
+新实例创建必须与外部对话绑定分开。现有 createWork 的导入路径保留；新增 createWorkFromDefinition 可创建尚无 CaptureBinding 的工作。交接继续原 workId，复用创建新 workId。
+
+### Status flow
+
+沉淀任务、候选编辑与 WorkInstance 生命周期分别保存。沉淀任务从 PREPARED 经 RUNNING、AWAITING_REVIEW 到 SAVED；无关多选进入 NEEDS_SELECTION，失败和取消有独立状态。“已沉淀”查询定义集合，不新增 WorkStatus，也不将旧 ARCHIVED 数据解释为定义。
+
+work_definitions 现有一行对应一个 key/version 的形式继续作为固定版本存储，扩展定义内容与确认来源；general-work 保持旧语义。模型结果先进入草稿，用户确认后才发布，运行中的实例固定引用原版本。详细契约、迁移、错误与验收见 [Spec](specs/work-distillation-v1.md)。

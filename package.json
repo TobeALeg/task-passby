@@ -3,7 +3,7 @@
   "productName": "Worket",
   "version": "0.1.0",
   "private": true,
-  "description": "记录各执行者的工作，在同一项工作中交接和继续。",
+  "description": "\u8bb0\u5f55\u5404\u6267\u884c\u8005\u7684\u5de5\u4f5c\uff0c\u5728\u540c\u4e00\u9879\u5de5\u4f5c\u4e2d\u4ea4\u63a5\u548c\u7ee7\u7eed\u3002",
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
@@ -19,16 +19,23 @@
     "qa:desktop-roundtrip:list": "node scripts/qa-desktop-roundtrip.mjs --list",
     "qa:desktop-roundtrip": "node scripts/qa-desktop-roundtrip.mjs",
     "qa:package": "WORKPET_EXECUTABLE_PATH=$PWD/release/Worket-darwin-arm64/Worket.app/Contents/MacOS/Worket node scripts/qa-electron.mjs",
-    "package:mac": "npm run build && electron-packager . Worket --platform=darwin --arch=arm64 --app-bundle-id=dev.workpet.desktop --icon=assets/WorkPet.icns --extra-resource=assets/WorkPet.png --asar.unpackDir=integrations --out=release --overwrite --ignore='^/research($|/)' --ignore='^/test($|/)' --ignore='^/output($|/)' --ignore='^/release($|/)' --ignore='^/server($|/)' --ignore='^/.worket-server($|/)'",
+    "package:mac": "npm run build && electron-packager . Worket --platform=darwin --arch=arm64 --app-bundle-id=dev.workpet.desktop --icon=assets/WorkPet.icns --extra-resource=assets/WorkPet.png --asar.unpackDir=integrations --asar.unpack=dist/foreground-context --out=release --overwrite --ignore='^/research($|/)' --ignore='^/test($|/)' --ignore='^/output($|/)' --ignore='^/release($|/)' --ignore='^/server($|/)' --ignore='^/.worket-server($|/)'",
     "ai:serve": "npm run build:server && node server/start.mjs",
     "build:server": "tsc -p server/tsconfig.json",
-    "ai:serve:env": "npm run build:server && node server/start-env.mjs"
+    "ai:serve:env": "npm run build:server && node server/start-env.mjs",
+    "release:mac": "node scripts/release-mac.mjs"
   },
   "devDependencies": {
     "@electron/packager": "19.0.1",
     "@types/node": "24.10.0",
     "electron": "44.1.1",
     "playwright": "^1.55.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "@electron/osx-sign": "2.7.0",
+    "@electron/notarize": "3.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TobeALeg/worket.git"
   }
 }

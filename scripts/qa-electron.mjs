@@ -12,7 +12,7 @@ const packagedExecutable = process.env.WORKPET_EXECUTABLE_PATH;
 const electronApp = await electron.launch({
   executablePath: packagedExecutable ?? join(root, "node_modules", "electron", "dist", "Electron.app", "Contents", "MacOS", "Electron"),
   args: packagedExecutable
-    ? [`--user-data-dir=${testDirectory}`]
+    ? [`--user-data-dir=${testDirectory}`, "--dev"]
     : [".", `--user-data-dir=${testDirectory}`],
   cwd: root,
   env: {
@@ -38,6 +38,10 @@ try {
   if (packagedExecutable && appIdentity.executable !== "Worket") {
     throw new Error(`打包程序仍以 ${appIdentity.executable} 运行，macOS 会显示错误的应用名`);
   }
+  const updateMenu = await electronApp.evaluate(({ Menu }) =>
+    Menu.getApplicationMenu()?.items[0]?.submenu?.items.some(item => item.label === "检查更新…")
+  );
+  if (!updateMenu) throw new Error("应用菜单缺少检查更新入口");
   const dockVisible = await electronApp.evaluate(({ app }) =>
     process.platform !== "darwin" || Boolean(app.dock?.isVisible())
   );

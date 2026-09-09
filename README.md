@@ -71,3 +71,52 @@ npm run qa:desktop-roundtrip
 - WorkBuddy Hook 会看到事件，但只接受带 Worket marker 且已绑定到 `OPEN` WorkInstance 的会话，其他会话不会落盘。
 
 完整产品与领域定义见 [docs/product.md](docs/product.md) 和 [docs/architecture.md](docs/architecture.md)。
+
+## 应用内更新与 GitHub 发布
+
+正式版通过 `GitHub Releases → update.electronjs.org → Electron autoUpdater` 更新，不需要自建服务器。当前更新仓库固定为 `TobeALeg/worket`，只支持 macOS ARM64 稳定版。更新入口在 macOS 的 **Worket → 检查更新…** 菜单以及桌宠右键菜单。
+
+正式发布包启动时检查更新，此后每小时检查。新版在后台下载，完成后提示“稍后 / 重启更新”；不会自动强制重启。选择“稍后”后也可能在正常退出时安装。重启前请保存面板里尚未提交的编辑；已落盘数据继续使用 `~/Library/Application Support/WorkPet`，不要更改 bundle ID `dev.workpet.desktop` 或用户数据目录。更新不承诺保留未提交的表单输入，也不保证重启间隙持续录制。原有绑定会在重新启动后继续同步。
+
+`npm start`、`npm run package:mac` 生成的本地包不启用自动更新；只有正式发布脚本生成的签名包携带更新标记。`--dev` 始终禁用自动更新。尚未内置更新功能的旧版本，需要手动安装一次新版到 `/Applications/Worket.app`，此后才能在应用内升级。
+
+### 首次准备（发布者）
+
+1. 在 macOS 钥匙串中安装带私钥的 **Developer ID Application** 证书。ad-hoc 临时签名不能作为这条正式发布流程的替代品。后续版本保持相同开发者身份和 bundle ID。
+2. 使用 `xcrun notarytool store-credentials worket-notary` 交互式保存 Apple 公证凭据。不要把密码、证书私钥或 GitHub token 写入仓库或客户端。
+3. 使用本机 `gh auth login` 登录，然后以 `gh auth status`、`gh api user --jq .login` 验证发布权限；发布仓库必须公开。普通用户无需 GitHub 登录。
+
+### 每次发布
+
+先完成改动并递增 `package.json` / `package-lock.json` 的版本，例如 `npm version 0.1.1 --no-git-tag-version`，然后提交。版本必须大于已发布版本；不要覆盖同版本安装包。当前官方更新源按稳定发布使用，**draft / prerelease 不作为面向用户的更新渠道**。
+
+```bash
+export WORKET_SIGN_IDENTITY='Developer ID Application: 你的名称 (TEAMID)'
+export WORKET_NOTARY_PROFILE='worket-notary'
+npm run release:mac
+```
+
+脚本要求干净工作区，依次执行测试、打包、启用更新、正式签名、公证及 stapling 验证、ZIP 打包、解压签名验证、解压后真实应用 QA，最后生成 SHA256。任何一步失败都不得发布。产物为 `release/Worket-<版本>-darwin-arm64.zip` 和对应 `.sha256`；文件名必须包含 `-darwin-arm64`，官方服务以此识别架构。发布脚本不会自动上传或公开 Release。
+
+以 `0.1.1` 为例，在与构建一致的提交创建 tag 和草稿，上传完整附件：
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+gh release create v0.1.1 \
+  release/Worket-0.1.1-darwin-arm64.zip \
+  release/Worket-0.1.1-darwin-arm64.zip.sha256 \
+  --repo TobeALeg/worket --verify-tag --draft \
+  --title 'Worket 0.1.1' --notes-file /tmp/worket-release-notes.md
+```
+
+先编写上述发布说明文件。草稿附件检查完成后，在 GitHub 页面发布为稳定版；发布即让现有正式版用户有机会收到更新。只有上传源码 ZIP、只建 tag、或只提交代码都不会触发应用升级。不要将 GitHub 网页地址直接作为 `autoUpdater` feed。
+
+### 升级验收与故障处理
+
+- 发布前在隔离的测试应用中用受控更新源验证两个不同版本、相同签名身份的真实包：发现新版 → 下载 → 稍后不重启 → 菜单再次提示 → 重启安装 → 版本变化 → 工作记录、设置、绑定仍在。草稿不会被生产更新源发现；首次接入尚需这一真实签名升级验收，不能用模拟事件测试代替。
+- 稳定版发布后，再用旧正式版验证生产地址 `https://update.electronjs.org/TobeALeg/worket/darwin-arm64/<旧版本>` 以及完整升级链。官方服务可能有缓存延迟。
+- GitHub 或更新服务不可达时，后台失败只记录日志，不影响使用；手动检查会提示失败。下载依赖用户能访问 GitHub。
+- 出现发布问题时先撤回有问题的 Release，停止新增分发；已下载的客户端仍可能安装。用更高版本发布修复，不依赖降版本回滚。数据结构变更需要单独验证兼容性与备份恢复。
+
+实现见 `src/desktop/app-updates.ts`、`scripts/release-mac.mjs`。协议依据：[Electron 更新指南](https://www.electronjs.org/docs/latest/tutorial/updates)、[官方更新服务与附件命名](https://github.com/electron/update.electronjs.org)。

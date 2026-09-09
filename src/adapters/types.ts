@@ -1,6 +1,6 @@
 import type { Executor, SourceEventKind } from "../core/types.js";
 
-export type ExecutionEnvironmentType = "CODEX_DESKTOP" | "WORKBUDDY_DESKTOP";
+export type ExecutionEnvironmentType = string;
 
 export interface NormalizedSourceEvent {
   id: string;

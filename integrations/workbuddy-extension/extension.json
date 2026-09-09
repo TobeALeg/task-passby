@@ -1,0 +1,11 @@
+{
+  "id": "worket-capture",
+  "name": "Worket",
+  "version": "1.0.0",
+  "service": {
+    "entry": "server/index.cjs",
+    "activationEvents": [
+      "onStartup"
+    ]
+  }
+}

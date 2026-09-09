@@ -27,7 +27,7 @@ contextBridge.exposeInMainWorld("workpet", {
   resumeWork: (workId) => ipcRenderer.invoke("work:resume", workId),
   cancelHandoff: (workId, confirmation) => ipcRenderer.invoke("work:cancel-handoff", workId, confirmation),
   handoff: (workId, executorId) => ipcRenderer.invoke("work:handoff", workId, executorId),
-  deleteWork: (workId, confirmation) => ipcRenderer.invoke("work:delete", workId, confirmation),
+  cancelRecording: (workId, confirmation) => ipcRenderer.invoke("work:cancel-recording", workId, confirmation),
   onPanelShown: (callback) => {
     const listener = () => callback();
     ipcRenderer.on("panel:shown", listener);

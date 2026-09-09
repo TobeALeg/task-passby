@@ -712,14 +712,14 @@ export class AppService {
         endCurrentEpisode: true,
       });
   }
-  deleteWork(workId: string, confirmation: string): DashboardView {
-    if (confirmation !== "永久删除")
-      throw new Error("请输入“永久删除”进行二次确认");
+  cancelRecording(workId: string, confirmation: string): DashboardView {
+    if (confirmation !== "取消记录")
+      throw new Error("请输入“取消记录”进行二次确认");
     this.#core.deleteWorkPermanently(workId, { confirmation: workId });
     this.#cloudExtractionWorkIds.delete(workId);
     this.#selectedWorkId = null;
     this.#petState = "sleeping";
-    this.#notice = "Worket 本地记录已永久删除；原文件和外部对话未改动。";
+    this.#notice = "已取消记录，后续不再同步；Worket 本地副本已清除，原对话和原文件保持不变。";
     return this.dashboard();
   }
 

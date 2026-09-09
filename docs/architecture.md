@@ -133,7 +133,7 @@ OPEN ──用户完成──> COMPLETED
 COMPLETED ──继续原工作──> OPEN
 ```
 
-时间间隔、应用关闭、Mac 重启和 Executor 变化都不改变 WorkInstance 状态。永久删除是经过二次确认的破坏性命令，不是状态。
+时间间隔、应用关闭、Mac 重启和 Executor 变化都不改变 WorkInstance 状态。取消记录通过 `cancelRecording` / `work:cancel-recording` 撤销记录授权并清理本地副本，需要二次确认，不新增生命周期状态。底层 `deleteWorkPermanently` 仅负责 Worket 本地数据清理；执行者接口不提供原对话删除能力。清理关联证据时按显式主键 `id` 更新，避免 Electron SQLite 的隐式行标识返回差异。
 
 ### ExecutionEpisode
 
@@ -159,7 +159,7 @@ INACTIVE ──继续原工作──> ACTIVE
 - Handoff 主 Prompt 不默认包含完整 Source Archive；
 - WorkBuddy 首次接手必须使用全新对话；
 - WorkBuddy 用户级 Hook 必须先校验 marker 与 OPEN binding，未绑定会话不得落盘；
-- 永久删除不得波及用户原始文件和外部应用对话；
+- 取消记录不得波及用户原始文件和外部应用对话；
 - 未来若增加 WorkPattern，须与 WorkDefinition 明确区分；本次沉淀使用 WorkDefinition，不新增同义模板或模式实体，不反向修改历史 WorkRecord。
 
 ## MVP 后扩展 seam
@@ -233,7 +233,7 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 
 `createWorkFromDefinition` 在单个事务里创建无执行片段/无绑定的新工作，写入本地采用定义与输入事件。`pending_dispatches` 只表达交付意图，真实 Hook 到达后才建立 ExecutionEpisode/CaptureBinding；MCP 读取独立记证。`WorkPackageBuilder` 保留旧 Handoff 字段，以 `workPackage.packageVersion=1` 扩展 START/CONTINUE、固定定义、本次输入与本地资料。
 
-数据库 `user_version=2` 升级前保存 `.before-distillation-v1.bak`。旧实例及 GENERAL 定义不改身份。未来更高版本的库被本应用拒绝；真实采集绑定表迁至 `capture_bindings_v2`，原表名保留升级屏障，使基线旧二进制初始化失败，回滚必须恢复备份。永久删除来源时一并移除工具管理的迁移备份，避免备份保留已删正文。取消和发布在本地事务串行裁决；删除来源还清理快照文件文本、来源摘录与失效草稿，并排队取消远端。
+数据库 `user_version=2` 升级前保存 `.before-distillation-v1.bak`。旧实例及 GENERAL 定义不改身份。未来更高版本的库被本应用拒绝；真实采集绑定表迁至 `capture_bindings_v2`，原表名保留升级屏障，使基线旧二进制初始化失败，回滚必须恢复备份。取消记录时一并移除工具管理的迁移备份，避免备份保留已删正文。取消和发布在本地事务串行裁决；删除来源还清理快照文件文本、来源摘录与失效草稿，并排队取消远端。
 
 验证证据和未通过项见 [沉淀验收记录](acceptance/work-distillation-v1.md)。
 
@@ -262,3 +262,9 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 授权凭据到期或无法恢复时，可由后台管理员删除。原工作和正式定义仍独立保存。现有样本不导入；真实纠正案例评测尚未实施。
 
 下一轮 [工作定义提取执行依据](work-object-extraction-execution-plan.md) 优先复用现有定义契约、提取流程与私有样本链，补充真实案例评审和版本对比。分块中间结果的信息保留属于待验证风险，只有真实错误支持时才调整提取流程；试点所需的评测工具、模型调用和新实例实验尚未执行，不新增已实现状态或扩大采集边界。
+
+### 桌面应用更新
+
+`desktop/app-updates.ts` 封装 Electron 原生 autoUpdater 的检查并发控制、错误提示和重启确认；主进程菜单调用更新模块，安装前等待当前记录同步并保存桌宠位置，退出沿用既有服务清理。数据目录和 bundle ID 保持稳定。正式构建标记决定是否启用，开发参数始终禁用。
+
+更新流：GitHub 稳定 Release ZIP → update.electronjs.org 按平台/架构/版本提供 feed → Squirrel.Mac 下载及签名校验 → 用户确认 → quitAndInstall。状态为闲置/检查下载中/已下载/安装中；重复检查不会重复下载，失败允许重试。`scripts/release-mac.mjs` 负责签名、公证、ZIP 及解压验证，不自动公开发布。证书和公证凭据只在构建机钥匙串中保存。

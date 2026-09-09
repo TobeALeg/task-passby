@@ -1,5 +1,6 @@
+import { AppUpdates } from "./desktop/app-updates.js";
 import { createDefaultExecutors } from "./executors/defaults.js";
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { DistillationDesktop } from "./distillation/desktop.js";
 import { WorketAIClient } from "./ai-service/client.js";
 import { ServiceCredentials } from "./ai-service/credentials.js";
@@ -8,6 +9,7 @@ import { join } from "node:path";
 
 import {
   app,
+  autoUpdater,
   BrowserWindow,
   dialog,
   ipcMain,
@@ -29,6 +31,8 @@ import {
 } from "./desktop/pet-position.js";
 
 let quitting = false;
+let updates: AppUpdates;
+let captureSync: Promise<void> | undefined;
 let petDrag: { cursor: { x: number; y: number }; x: number; y: number } | null =
   null;
 const petPositionPath = () =>
@@ -52,9 +56,10 @@ let captureTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function syncRecordedWorks(): Promise<void> {
   try {
-    await service?.syncRecordedWorks();
+    captureSync = service?.syncRecordedWorks();
+    await captureSync;
   } finally {
-    if (service)
+    if (service && !quitting)
       captureTimer = setTimeout(() => void syncRecordedWorks(), 5_000);
   }
 }
@@ -164,6 +169,7 @@ function createWindows(): void {
 
   const menu = Menu.buildFromTemplate([
     { label: "打开 Worket", click: () => togglePanel() },
+    { label: "检查更新…", click: () => updates.check(true) },
     { type: "separator" },
     { label: "退出", click: () => app.quit() },
   ]);
@@ -386,15 +392,36 @@ function registerIpc(): void {
     requireService().handoff(workId, executorId),
   );
   ipcMain.handle(
-    "work:delete",
+    "work:cancel-recording",
     (_event, workId: string, confirmation: string) =>
-      requireService().deleteWork(workId, confirmation),
+      requireService().cancelRecording(workId, confirmation),
   );
 }
 
 app.whenReady().then(async () => {
   await configureDock();
-  Menu.setApplicationMenu(null);
+  updates = new AppUpdates({
+    updater: autoUpdater,
+    showDialog: (options) => dialog.showMessageBox(options),
+    enabled: process.platform === "darwin" && app.isPackaged &&
+      !process.argv.includes("--dev") &&
+      existsSync(join(process.resourcesPath, "worket-update-enabled.json")),
+    version: app.getVersion(), arch: process.arch,
+    beforeInstall: async () => {
+      // Finish the in-flight capture before the native updater closes windows.
+      await captureSync;
+      if (petWindow && !petWindow.isDestroyed())
+        savePetPosition(petWindow, petPositionPath());
+    },
+  });
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { label: "Worket", submenu: [
+      { role: "about" },
+      { label: "检查更新…", click: () => updates.check(true) },
+      { type: "separator" }, { role: "quit" },
+    ] },
+    { role: "editMenu" },
+  ]));
   const dataDirectory = process.env.WORKPET_DATA_DIR ?? app.getPath("userData");
   const executors = createDefaultExecutors({
     launcher: new ElectronWorkBuddyLauncher(),
@@ -435,12 +462,14 @@ app.whenReady().then(async () => {
     ).install();
   void syncRecordedWorks();
   void syncDistillations();
+  updates.start();
 });
 
 app.on("activate", () => revealApp());
 
 app.on("before-quit", () => {
   quitting = true;
+  updates?.stop();
   if (captureTimer) clearTimeout(captureTimer);
   if (distillationTimer) clearTimeout(distillationTimer);
   distillation?.service.close();

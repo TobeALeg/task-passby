@@ -819,15 +819,15 @@ export class DefinitionRepository {
     ] as const) {
       const rows = this.db
         .prepare(
-          `SELECT rowid,payload_json FROM ${table} WHERE payload_json IS NOT NULL`,
+          `SELECT id,payload_json FROM ${table} WHERE payload_json IS NOT NULL`,
         )
         .all();
       for (const row of rows)
         this.db
-          .prepare(`UPDATE ${table} SET payload_json=? WHERE rowid=?`)
+          .prepare(`UPDATE ${table} SET payload_json=? WHERE id=?`)
           .run(
             JSON.stringify(sanitize(JSON.parse(row.payload_json as string))),
-            row.rowid as number,
+            row.id as string,
           );
     }
     this.db.prepare("DELETE FROM review_events WHERE owner_id=?").run(workId);

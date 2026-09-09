@@ -233,3 +233,46 @@ test("WorkBuddy Deep Link 启动后不把未知提交状态误报为待发送草
   assert.doesNotMatch(result.notice ?? "", /草稿|按回车/u);
   service.close();
 });
+
+
+test("取消记录撤销绑定，迟到的同步不会重建记录，来源仍可重新导入", async () => {
+  const thread: NormalizedThread = {
+    threadId: "cancel-recording-thread", title: "保留原对话", cwd: "/tmp",
+    createdAt: "2026-09-09T10:00:00.000Z", updatedAt: "2026-09-09T10:00:00.000Z",
+    events: [{ id: "prompt", externalId: "prompt", sequence: 1, kind: "user.prompt",
+      content: "用户原始消息", timestamp: "2026-09-09T10:00:00.000Z",
+      executorType: "HUMAN", environmentType: "CODEX_DESKTOP" }],
+  };
+  const original = structuredClone(thread);
+  const source = new FakeCodexSource(thread);
+  const service = makeService({ databasePath: ":memory:", codex: source,
+    launcher: { async openNewConversation() { throw new Error("不应交付消息"); } } });
+  try {
+    const created = await service.createWorkFromConversation({ executorId: "codex", threadId: thread.threadId, allowCloudExtraction: false });
+    const id = created.selectedWorkId!;
+    assert.throws(() => service.cancelRecording(id, "永久删除"), /取消记录/);
+    assert.ok(service.core().getWork(id)?.activeBinding);
+    service.core().createHandoffPackage(id);
+    const read = source.readThread.bind(source);
+    let release!: () => void;
+    source.readThread = async () => {
+      await new Promise<void>((resolve) => { release = resolve; });
+      return read();
+    };
+    const syncing = service.syncRecordedWorks();
+    const cancelled = service.cancelRecording(id, "取消记录");
+    assert.equal(cancelled.works.length, 0);
+    assert.match(cancelled.notice ?? "", /后续不再同步/);
+    release();
+    await syncing;
+    source.readThread = async () => { throw new Error("取消后不应读取来源"); };
+    await service.syncRecordedWorks();
+    assert.equal(service.core().findWorkByBinding("codex", thread.threadId), null);
+    assert.equal(service.core().getWork(id), null);
+    assert.deepEqual(thread, original);
+    source.readThread = read;
+    const recorded = await service.createWorkFromConversation({ executorId: "codex", threadId: thread.threadId, allowCloudExtraction: false });
+    assert.ok(recorded.selectedWorkId);
+    assert.notEqual(recorded.selectedWorkId, id);
+  } finally { service.close(); }
+});

@@ -19,13 +19,13 @@ const list = required<HTMLElement>("#work-list");
 const detail = required<HTMLElement>("#work-detail");
 const notice = required<HTMLElement>("#notice");
 const splitDialog = required<HTMLDialogElement>("#split-dialog");
-const deleteDialog = required<HTMLDialogElement>("#delete-dialog");
+const cancelRecordingDialog = required<HTMLDialogElement>("#cancel-recording-dialog");
 const splitPointSelect = required<HTMLSelectElement>("#split-point");
 let dashboard: DashboardView;
 type PanelTab = WorkStatus | "RECENT" | "DEFINITIONS";
 let filter: PanelTab = "OPEN";
 const selectedDistillationIds = new Set<string>();
-let pendingDeleteWorkId: string | null = null;
+let pendingCancelRecordingWorkId: string | null = null;
 let pendingSplitWorkId: string | null = null;
 
 function required<T extends Element>(selector: string): T {
@@ -131,7 +131,7 @@ function renderDetail(work: WorkDetailView | null): void {
         : `<button data-action="resume">恢复为进行中</button>`;
   detail.innerHTML = `
     <div class="detail-head">${work.reusableDefinitionId ? `<p class="notice">${work.dispatchStatus === "NOT_DISPATCHED" ? "尚未交给执行者" : work.dispatchStatus === "FAILED" ? "启动失败，可重试" : work.dispatchStatus === "BOUND" && work.dispatchReadAt ? "已绑定本次对话，工作包已读取" : "等待执行端确认接手"}</p>` : ""}<span class="eyebrow">${escapeHtml(work.agentName)}</span><h2>${escapeHtml(work.title)}</h2><p class="detail-meta">${work.eventCount} 条来源记录 · ${work.episodeCount} 段执行</p>${work.captureStatus === "waiting" ? `<p class="capture-guidance">${CAPTURE_WAITING_GUIDANCE}</p>` : ""}</div>
-    <div class="detail-actions">${actions}${work.bindings.some((binding) => binding.status === "ACTIVE" && binding.conversationId.startsWith("pending:")) || (work.reusableDefinitionId && !work.bindings.some((binding) => binding.status === "ACTIVE") && ["STARTING", "WAITING"].includes(work.dispatchStatus ?? "")) ? '<button data-action="cancel-handoff">取消未确认交接</button>' : ""}<button data-action="distill">沉淀</button><button data-action="copy">复制工作包</button><button data-action="export">导出工作包</button><button data-action="delete">永久删除</button></div>
+    <div class="detail-actions">${actions}${work.bindings.some((binding) => binding.status === "ACTIVE" && binding.conversationId.startsWith("pending:")) || (work.reusableDefinitionId && !work.bindings.some((binding) => binding.status === "ACTIVE") && ["STARTING", "WAITING"].includes(work.dispatchStatus ?? "")) ? '<button data-action="cancel-handoff">取消未确认交接</button>' : ""}<button data-action="distill">沉淀</button><button data-action="copy">复制工作包</button><button data-action="export">导出工作包</button><button data-action="cancel-recording">取消记录</button></div>
     ${Object.entries(WORK_STATE_LABELS)
       .map(([field, label]) =>
         stateSection(work, field as WorkStateField, label),
@@ -213,9 +213,11 @@ async function runAction(workId: string, action: string): Promise<void> {
     return;
   }
   if (selected && (await workDefinitionAction(selected, action))) return;
-  if (action === "delete") {
-    pendingDeleteWorkId = workId;
-    deleteDialog.showModal();
+  if (action === "cancel-recording") {
+    pendingCancelRecordingWorkId = workId;
+    required<HTMLInputElement>("#cancel-recording-confirmation").value = "";
+    required<HTMLElement>("#cancel-recording-error").hidden = true;
+    cancelRecordingDialog.showModal();
     return;
   }
   if (action === "split") {
@@ -282,21 +284,27 @@ required<HTMLButtonElement>("#confirm-split").addEventListener(
     render();
   },
 );
-required<HTMLButtonElement>("#confirm-delete").addEventListener(
+required<HTMLButtonElement>("#confirm-cancel-recording").addEventListener(
   "click",
   async (event) => {
     event.preventDefault();
-    if (!pendingDeleteWorkId) return;
+    if (!pendingCancelRecordingWorkId) return;
     const confirmation = required<HTMLInputElement>(
-      "#delete-confirmation",
+      "#cancel-recording-confirmation",
     ).value;
-    dashboard = await window.workpet.deleteWork(
-      pendingDeleteWorkId,
-      confirmation,
-    );
-    pendingDeleteWorkId = null;
-    deleteDialog.close();
-    render();
+    try {
+      dashboard = await window.workpet.cancelRecording(
+        pendingCancelRecordingWorkId,
+        confirmation,
+      );
+      pendingCancelRecordingWorkId = null;
+      cancelRecordingDialog.close();
+      render();
+    } catch (error) {
+      const message = required<HTMLElement>("#cancel-recording-error");
+      message.textContent = String(error);
+      message.hidden = false;
+    }
   },
 );
 for (const button of document.querySelectorAll<HTMLButtonElement>(".filter")) {

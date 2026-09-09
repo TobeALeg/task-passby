@@ -35,7 +35,7 @@
 
 侧边面板至少提供：当前 Work 标题与状态、只读八部分 Work State、每条提取内容的来源数量、Source Archive 与资料数量、刷新、从当前消息新建 Work、交给 WorkBuddy、完成、归档，以及按 `OPEN`、`COMPLETED`、`ARCHIVED` 查看全部 Work。
 
-用户可以对 WorkInstance 执行永久删除。删除必须经过二次确认，并删除本工具持有的 WorkRecord、Source Archive、Work State、Capture Binding、ExecutionEpisode、Handoff 和相关本地元数据。不得删除用户原始文件，也不得删除 Codex 或 WorkBuddy 中的原对话。删除后不可恢复。
+用户可以对 WorkInstance 执行取消记录。删除必须经过二次确认，并删除本工具持有的 WorkRecord、Source Archive、Work State、Capture Binding、ExecutionEpisode、Handoff 和相关本地元数据。不得删除用户原始文件，也不得删除 Codex 或 WorkBuddy 中的原对话。删除后不可恢复。
 
 ## 主流程
 

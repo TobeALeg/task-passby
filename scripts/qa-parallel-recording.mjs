@@ -123,6 +123,8 @@ try {
         "work:handoff": (_e, id, target) => service.handoff(id, target),
         "work:cancel-handoff": (_e, id, confirmation) =>
           service.cancelHandoff(id, confirmation),
+        "work:cancel-recording": (_e, id, confirmation) =>
+          service.cancelRecording(id, confirmation),
         "work:complete": (_e, id) => service.completeWork(id),
         "work:archive": (_e, id) => service.archiveWork(id),
       };
@@ -236,6 +238,23 @@ try {
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   );
+  await page.locator('[data-action="cancel-recording"]').click();
+  await page.locator('#confirm-cancel-recording').click();
+  await page.waitForFunction(() => !document.querySelector('#cancel-recording-error').hidden);
+  assert.match(await page.locator('#cancel-recording-error').innerText(), /取消记录/);
+  await page.locator('#cancel-recording-confirmation').fill('取消记录');
+  await page.screenshot({ path: join(output, 'executors-04-cancel-recording.png') });
+  await page.locator('#confirm-cancel-recording').click();
+  await page.waitForFunction(() => document.querySelectorAll('#work-list .work-row').length === 2, undefined, { timeout: 15000 }).catch(async (error) => {
+    console.error(await page.locator('body').innerText());
+    throw error;
+  });
+  const cancellation = await application.evaluate((_electron, id) => {
+    const { service, peers } = globalThis.recordingQa;
+    return { removed: service.core().getWork(id) === null,
+      sourceExists: peers.find(p => p.id === 'workbuddy').threads.some(t => t.threadId === 'workbuddy-1') };
+  }, workId);
+  assert.deepEqual(cancellation, { removed: true, sourceExists: true });
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify(
@@ -246,10 +265,12 @@ try {
         historyPagination: true,
         genericHandoffPicker: true,
         cancelRestoresSource: true,
+        cancelRecording: true,
         screenshots: [
           "executors-01-sources.png",
           "executors-02-history.png",
           "executors-03-handoff.png",
+          "executors-04-cancel-recording.png",
         ],
       },
       null,

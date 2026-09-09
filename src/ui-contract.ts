@@ -184,7 +184,7 @@ export interface WorkPetApi {
   resumeWork(workId: string): Promise<DashboardView>;
   cancelHandoff(workId: string, confirmation: string): Promise<DashboardView>;
   handoff(workId: string, executorId: string): Promise<DashboardView>;
-  deleteWork(workId: string, confirmation: string): Promise<DashboardView>;
+  cancelRecording(workId: string, confirmation: string): Promise<DashboardView>;
   onPanelShown(callback: () => void): () => void;
   closePanel(): Promise<void>;
 }

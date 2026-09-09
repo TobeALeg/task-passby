@@ -64,4 +64,4 @@
 - WorkPattern 是独立、版本化的用户习惯层，描述用户如何完成一类工作，不修改 WorkDefinition。
 - WorkPatternCandidate 必须保存来源 WorkInstance 和置信度，经用户确认后才能成为生效的 WorkPatternVersion。
 - WorkInstance 记录采用的 WorkDefinition 版本和 WorkPattern 版本；Handoff Package 携带已确认的 WorkPattern。
-- MVP 支持经过二次确认的永久删除；只删除本工具持有的数据，不删除用户原始文件或 Codex、WorkBuddy 原对话。
+- MVP 支持经过二次确认的取消记录；只删除本工具持有的数据，不删除用户原始文件或 Codex、WorkBuddy 原对话。

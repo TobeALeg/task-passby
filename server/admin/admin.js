@@ -52,7 +52,7 @@ function showTab(tab) {
     button.classList.toggle("active", button.dataset.tab === tab);
     button.setAttribute("aria-pressed", String(button.dataset.tab === tab));
   });
-  for (const name of ["model", "clients", "activity"])
+  for (const name of ["model", "clients", "activity", "samples"])
     $(`${name}-panel`).hidden = name !== tab;
 }
 async function session() {
@@ -82,6 +82,8 @@ async function session() {
   if (state.authenticated) await load();
   else {
     configuration = null;
+    $("samples-list").replaceChildren();
+    $("sample-detail").replaceChildren();
     $("provider-key").value = "";
     $("client-token").value = "";
     $("issued-client").hidden = true;
@@ -306,8 +308,101 @@ document.querySelectorAll("[data-tab]").forEach(
   (button) =>
     (button.onclick = () => {
       showTab(button.dataset.tab);
+      if (button.dataset.tab === "samples") void samples().catch(error => message(error.message, true));
       if (button.dataset.tab === "activity")
         void activity().catch((error) => message(error.message, true));
     }),
 );
 void session().catch((error) => message(error.message, true));
+
+let collectionPolicy;
+const eventLabels = { SOURCE: "所选材料与来源证据", REUSE: "新工作范围", CANDIDATE: "模型候选原稿", EDIT: "用户保存的修改", PUBLISH: "用户确认发布", STATUS: "任务状态与结果", ACCEPTANCE: "用户验收" };
+function element(tag, text, parent) {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  if (parent) parent.append(node);
+  return node;
+}
+async function samples() {
+  const result = await api("samples");
+  collectionPolicy = result.policy;
+  $("samples-policy").textContent = `${result.policy.enabled ? "正在接收授权样本" : "已暂停接收"} · 授权起 ${result.policy.retentionDays} 天后删除 · ${result.items.length} 份样本`;
+  $("toggle-collection").textContent = result.policy.enabled ? "暂停接收新数据" : "恢复接收授权数据";
+  const list = $("samples-list");
+  list.replaceChildren();
+  if (!result.items.length) element("p", "暂无已授权样本。", list);
+  for (const sample of result.items) {
+    const row = element("div", undefined, list);
+    row.className = "client-item";
+    const button = element("button", `${sample.consent.scope === "REUSE" ? "工作复用" : "工作沉淀"} · ${new Date(sample.created).toLocaleString()}`, row);
+    element("p", `${configuration.clients.find(c => c.id === sample.subject)?.name ?? sample.subject} · ${sample.eventCount} 条证据 · ${sample.review.status === "REVIEWED" ? "已评审" : "待评审"}`, row);
+    button.onclick = () => void sampleDetail(sample.id).catch(e => message(e.message, true));
+  }
+}
+async function sampleDetail(id) {
+  const sample = await api(`samples/${id}`);
+  const panel = $("sample-detail");
+  panel.hidden = false;
+  panel.replaceChildren();
+  element("h2", "样本详情", panel);
+  element("p", `授权：${sample.consent.version} · ${sample.consent.at}；删除期限：${new Date(sample.expires).toLocaleString()}`, panel);
+  const close = element("button", "关闭详情", panel);
+  close.onclick = () => { panel.replaceChildren(); panel.hidden = true; };
+  const label = element("label", "评审备注", panel);
+  const note = element("textarea", undefined, label);
+  note.value = sample.review.note;
+  note.maxLength = 10000;
+  const statusLabel = element("label", "评审状态", panel);
+  const status = element("select", undefined, statusLabel);
+  for (const [value, name] of [["DRAFT", "待评审"], ["REVIEWED", "已评审"]]) {
+    const option = element("option", name, status); option.value = value;
+  }
+  status.value = sample.review.status;
+  const save = element("button", "保存评审", panel);
+  save.onclick = async () => {
+    save.disabled = true;
+    try { await api(`samples/${id}`, "PUT", { status: status.value, note: note.value }); await samples(); message("评审已保存"); }
+    catch (error) { message(error.message, true); }
+    finally { save.disabled = false; }
+  };
+  const remove = element("button", "删除此样本", panel);
+  remove.onclick = () => {
+    remove.disabled = true;
+    const confirmation = element("div", undefined, panel);
+    element("p", "将删除所选材料、候选、修改、验收和评审备注。原始本机工作保留。", confirmation);
+    const yes = element("button", "确认删除样本", confirmation);
+    const no = element("button", "保留样本", confirmation);
+    no.onclick = () => { confirmation.remove(); remove.disabled = false; };
+    yes.onclick = async () => {
+      yes.disabled = true;
+      try { await api(`samples/${id}`, "DELETE"); panel.replaceChildren(); panel.hidden = true; await samples(); message("样本已删除"); }
+      catch (error) { message(error.message, true); yes.disabled = false; }
+    };
+  };
+  for (const event of sample.events) {
+    const detail = element("details", undefined, panel);
+    element("summary", `${eventLabels[event.kind] ?? event.kind} · ${new Date(event.at).toLocaleString()}`, detail);
+    renderData(event.data, detail);
+  }
+}
+function renderData(data, parent, depth = 0) {
+  if (data === null || typeof data !== "object") { element("p", String(data ?? "—"), parent); return; }
+  if (depth > 8) { element("pre", JSON.stringify(data, null, 2), parent); return; }
+  if (Array.isArray(data)) {
+    for (const [index, value] of data.entries()) {
+      const group = element("section", undefined, parent);
+      element("h4", `第 ${index + 1} 项`, group);
+      renderData(value, group, depth + 1);
+    }
+    return;
+  }
+  const names = { content: "内容", request: "选定来源", sources: "来源", events: "事件", sourceRefs: "来源映射", refs: "依据", purpose: "目的", inputs: "输入", deliverables: "交付", constraints: "要求", acceptanceCriteria: "验收标准", methods: "方法", issues: "问题", resolutions: "用户处理", criteriaResults: "逐项验收", text: "文本", basis: "依据分类", name: "名称", status: "状态", revision: "修订版本" };
+  for (const [key, value] of Object.entries(data)) {
+    const detail = element("details", undefined, parent);
+    element("summary", names[key] ?? key, detail);
+    if (depth < 2 || typeof value !== "object" || value === null) detail.open = true;
+    renderData(value, detail, depth + 1);
+  }
+}
+bind("refresh-samples", "click", async () => { $("sample-detail").replaceChildren(); $("sample-detail").hidden = true; await samples(); });
+bind("toggle-collection", "click", async () => { await api("samples-policy", "PUT", { enabled: !collectionPolicy.enabled }); await samples(); });

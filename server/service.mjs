@@ -189,6 +189,7 @@ export function createAIService(config) {
     res.setHeader("Cache-Control", "no-store");
     try {
       expire();
+      config.improvement?.expire();
       if (config.adminHandler && (await config.adminHandler(req, res))) return;
       if (req.method === "GET" && req.url === "/health") {
         res.end(
@@ -204,6 +205,7 @@ export function createAIService(config) {
         res.end(
           JSON.stringify({
             schemaVersions: [1],
+            improvement: config.improvement?.policy() ?? null,
             limits,
             fileTypes: ["UTF-8 text"],
             dataPolicy: {
@@ -214,6 +216,26 @@ export function createAIService(config) {
             },
           }),
         );
+        return;
+      }
+      if (req.url?.startsWith("/v1/improvement-samples")) {
+        ensure(config.improvement, "NOT_FOUND");
+        if (req.method === "POST" && req.url === "/v1/improvement-samples") {
+          let size = 0;
+          const chunks = [];
+          for await (const chunk of req) {
+            size += chunk.length;
+            ensure(size <= LIMITS.maxBytes * 2, "INPUT_TOO_LARGE");
+            chunks.push(chunk);
+          }
+          const input = JSON.parse(Buffer.concat(chunks));
+          authenticate(req.headers.authorization?.replace(/^Bearer /, ""), config);
+          res.end(JSON.stringify(config.improvement.receive(subject, input)));
+          return;
+        }
+        const match = req.url.match(/^\/v1\/improvement-samples\/([a-zA-Z0-9-]{1,100})$/);
+        ensure(match && req.method === "DELETE", "NOT_FOUND");
+        res.end(JSON.stringify(config.improvement.delete(config.improvement.key(subject, match[1]))));
         return;
       }
       if (req.method === "POST" && req.url === "/v1/definition-extractions") {
@@ -345,7 +367,7 @@ export function createAIService(config) {
       );
     }
   });
-  const cleanup = setInterval(expire, Math.min(limits.resultTtlMs, 60_000));
+  const cleanup = setInterval(() => { expire(); config.improvement?.expire(); }, Math.min(limits.resultTtlMs, 60_000));
   cleanup.unref();
   return {
     server,
@@ -398,6 +420,7 @@ export function createAIService(config) {
       while (running.size)
         await new Promise((resolve) => setTimeout(resolve, 10));
       db.close();
+      config.improvement?.close();
     },
   };
 }

@@ -5,10 +5,13 @@ import { join } from "node:path";
 import { createHmac } from "node:crypto";
 import { _electron as electron } from "playwright";
 import { createWorkCore } from "../dist/core/index.js";
+import { ImprovementStore } from "../server/improvement.mjs";
 import { createAIService } from "../server/service.mjs";
 import { source, result } from "../test/distillation/fixtures.ts";
 const directory = mkdtempSync(join(tmpdir(), "worket-distillation-desktop-"));
-const output = join(process.cwd(), "output", "distillation");
+const improvementQA = process.argv.includes("--improvement");
+const output = join(process.cwd(), "output", improvementQA ? "improvement-desktop" : "distillation");
+const improvement = improvementQA ? new ImprovementStore(join(directory, "samples.sqlite")) : null;
 mkdirSync(output, { recursive: true });
 const core = createWorkCore({
   databasePath: join(directory, "workpet.sqlite"),
@@ -19,6 +22,7 @@ core.close();
 let calls = 0,
   wire;
 const service = createAIService({
+  improvement,
   mode: "development",
   devSecret: "local-ui-fixture-secret",
   issuer: "ui-test",
@@ -118,6 +122,11 @@ try {
   assert.equal(await panel.locator("[data-distill-work]").isChecked(), true);
   await panel.locator("#distill-selected").click();
   await panel.locator("#consent").check();
+  assert.equal(await panel.locator("#improvement-consent").isChecked(), false);
+  if (improvementQA) {
+    await panel.getByText("参与改进 Worket（可选）", { exact: true }).click();
+    await panel.locator("#improvement-consent").check();
+  }
   assert.equal(calls, 0);
   await panel.screenshot({ path: join(output, "01-confirm-range.png") });
   await panel.locator("#start-distillation").click();
@@ -132,7 +141,13 @@ try {
   await panel.locator("#use-definition").click();
   await panel.locator('[data-input="customer"]').fill("客户丙");
   await panel.locator('[data-input="market"]').fill("欧洲市场");
+  assert.equal(await panel.locator("#improvement-consent").isChecked(), false);
+  if (improvementQA) {
+    await panel.getByText("参与改进 Worket（可选）", { exact: true }).click();
+    await panel.locator("#improvement-consent").check();
+  }
   await panel.locator("#create-defined-work").click();
+  await panel.locator("#definition-dialog").waitFor({ state: "hidden" });
   const dashboard = await panel.evaluate(() => window.workpet.getDashboard());
   workId = dashboard.selectedWorkId;
   assert.notEqual(workId, original.instance.id);
@@ -161,11 +176,20 @@ try {
   await panel.locator("[data-output]").check();
   await panel.screenshot({ path: join(output, "05-user-acceptance.png") });
   await panel.locator("#accept-output").click();
+  await panel.locator("#definition-dialog").waitFor({ state: "hidden" });
   assert.equal(
     (await panel.evaluate(() => window.workpet.getDashboard())).selectedWork
       .status,
     "COMPLETED",
   );
+  if (improvementQA) {
+    await panel.evaluate(() => window.workpet.distillation("syncImprovement"));
+    const samples = improvement.list();
+    assert.equal(samples.length, 2);
+    const events = samples.flatMap(s => improvement.get(s.id).events);
+    for (const kind of ["SOURCE", "CANDIDATE", "EDIT", "PUBLISH", "REUSE", "ACCEPTANCE"]) assert.ok(events.some(e => e.kind === kind), kind);
+    assert.ok(Object.values(events.find(e => e.kind === "ACCEPTANCE").data.criteriaResults).every(v => v === "PASS"));
+  }
   assert.deepEqual(errors, []);
   await app.close();
   app = null;
@@ -185,6 +209,23 @@ try {
   await panel.screenshot({
     path: join(output, "06-restarted-definitions.png"),
   });
+  if (improvementQA) {
+    await panel.locator(".secondary-menu summary").click();
+    await panel.locator("#service-settings").click();
+    await panel.locator("#improvement-data").click();
+    await panel.getByRole("heading", { name: "改进数据", exact: true }).waitFor();
+    await panel.locator("#stop-all-improvement").click();
+    assert.ok((await panel.evaluate(() => window.workpet.distillation("improvementSamples"))).every(s => s.state === "STOPPED"));
+    await panel.screenshot({ path: join(output, "07-stop-collection.png") });
+    const sampleId = improvement.list()[0].client_id;
+    const section = panel.locator("section").filter({ has: panel.locator(`[data-delete-confirm="${sampleId}"]`) });
+    await section.locator("summary").click();
+    await panel.locator(`[data-delete-confirm="${sampleId}"]`).fill("删除样本");
+    await panel.locator(`[data-delete-sample="${sampleId}"]`).click();
+    await panel.locator("#sync-improvement").click();
+    assert.equal(improvement.list().length, 1);
+    await panel.screenshot({ path: join(output, "08-delete-sample.png") });
+  }
   const metrics = await panel.evaluate(() => ({
     width: innerWidth,
     scrollWidth: document.documentElement.scrollWidth,
@@ -192,7 +233,7 @@ try {
   assert.equal(metrics.scrollWidth, metrics.width);
   const report = {
     passed: true,
-    mode: "synthetic-model-desktop-test",
+    mode: improvementQA ? "synthetic-improvement-desktop-test" : "synthetic-model-desktop-test",
     realModelAcceptance: false,
     realExecutorAcceptance: false,
     calls,
@@ -200,7 +241,7 @@ try {
     directory,
     metrics,
     restart: true,
-    screenshots: 6,
+    screenshots: improvementQA ? 8 : 6,
   };
   writeFileSync(
     join(output, "desktop-report.json"),

@@ -10,5 +10,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["../src/contracts/definition.ts", "../src/definitions/storage.ts"]
+  "include": ["../src/contracts/definition.ts", "../src/contracts/improvement.ts", "../src/definitions/storage.ts"]
 }

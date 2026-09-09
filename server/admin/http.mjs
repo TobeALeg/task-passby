@@ -33,6 +33,7 @@ const reply = (res, value, status = 200) => {
 };
 export function createAdminHandler({
   store,
+  improvement,
   getRuntime,
   providerFactory = (config) => new ModelProvider(config),
 }) {
@@ -163,6 +164,22 @@ export function createAdminHandler({
           csrf.length === expected.length && timingSafeEqual(csrf, expected),
           "AUTH_REQUIRED",
         );
+      }
+      if (path === "/admin/api/samples" && req.method === "GET") {
+        reply(res, { policy: improvement.policy(), items: improvement.list() });
+        return true;
+      }
+      if (path === "/admin/api/samples-policy" && req.method === "PUT") {
+        reply(res, improvement.setEnabled((await body(req)).enabled));
+        return true;
+      }
+      const sample = path.match(/^\/admin\/api\/samples\/([a-f0-9]{64})$/);
+      if (sample) {
+        if (req.method === "GET") reply(res, improvement.get(sample[1]));
+        else if (req.method === "DELETE") reply(res, improvement.delete(sample[1]));
+        else if (req.method === "PUT") reply(res, improvement.review(sample[1], await body(req)));
+        else throw new ContractError("NOT_FOUND");
+        return true;
       }
       const runtime = getRuntime();
       if (path === "/admin/api/config" && req.method === "GET") {

@@ -8,7 +8,7 @@
   </head>
   <body>
     <header>
-      <a class="brand" href="/admin/">Worket<span>模型服务后台</span></a>
+      <a class="brand" href="/admin/">Worket<span>服务后台</span></a>
       <div class="header-status">
         <span id="service-state" class="badge">正在连接</span
         ><button id="logout" class="quiet" hidden>退出登录</button>
@@ -56,7 +56,7 @@
             Worket 接入</button
           ><button class="tab" data-tab="activity" aria-pressed="false">
             运行记录
-          </button>
+          </button><button class="tab" data-tab="samples" aria-pressed="false">改进样本</button>
         </nav>
         <section id="model-panel" class="tab-panel">
           <form id="config-form">
@@ -200,7 +200,7 @@
                 <article class="data-note">
                   <h3>材料如何处理</h3>
                   <p>
-                    只处理用户主动选择的记录。原始正文不写入后台数据库或运行日志。
+                    只处理用户主动选择的记录。另行授权的改进样本保存 90 天；未授权正文不持久保存。运行日志不记录正文。
                   </p>
                   <p>
                     候选结果在内存中最多暂存 10
@@ -289,10 +289,18 @@
             </div>
           </article>
         </section>
+        <section id="samples-panel" class="tab-panel" hidden>
+          <article class="card">
+            <div class="section-heading"><h2>改进样本</h2><button id="refresh-samples">刷新样本</button></div>
+            <p id="samples-policy"></p><button id="toggle-collection"></button>
+            <div id="samples-list"></div>
+          </article>
+          <article id="sample-detail" class="card" hidden></article>
+        </section>
       </div>
       <div id="message" role="status" hidden></div>
     </main>
-    <footer>Worket · 工作记录留在本机，模型配置留在后台。</footer>
+    <footer>Worket · 工作记录保存在本机，已授权改进样本保存在后台。</footer>
     <script src="/admin/admin.js" type="module"></script>
   </body>
 </html>

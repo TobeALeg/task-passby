@@ -408,3 +408,10 @@ footer {
     padding: 25px;
   }
 }
+
+#sample-detail { margin-top: 24px; overflow-wrap: anywhere; }
+#sample-detail details { margin: 10px 0; padding-left: 12px; border-left: 1px solid var(--line, #ddd); }
+#sample-detail summary { cursor: pointer; }
+#sample-detail p, #sample-detail pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+#sample-detail textarea { min-height: 100px; }
+#sample-detail button { margin: 4px; }

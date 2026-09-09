@@ -1,3 +1,4 @@
+import { ImprovementCollector } from "../improvement/collector.js";
 import { randomUUID } from "node:crypto";
 import { basename, extname } from "node:path";
 import { TextDecoder } from "node:util";
@@ -78,12 +79,16 @@ const terminal = new Set([
 ]);
 export class DistillationService {
   readonly repository: DefinitionRepository;
+  readonly improvement: ImprovementCollector;
   readonly active = new Set<string>();
   closed = false;
   close(): void {
     this.closed = true;
+    this.improvement.closed = true;
   }
   async tick(): Promise<void> {
+    this.collectFeedback();
+    void this.improvement.flush();
     for (const job of this.repository.list<Job>("distillation_jobs")) {
       if (this.closed) return;
       if (!terminal.has(job.status) || job.ackPending || job.cancelPending)
@@ -95,6 +100,42 @@ export class DistillationService {
     readonly client: AIClient,
   ) {
     this.repository = core.definitions;
+    this.improvement = new ImprovementCollector(this.repository.db, client);
+  }
+  collectFeedback(): void {
+    for (const subscription of this.improvement.active()) {
+      if (subscription.scope === "REUSE") {
+        for (const row of this.repository.db.prepare("SELECT id,payload_json FROM review_events WHERE owner_id=? ORDER BY rowid").all(subscription.id)) {
+          const review = JSON.parse(row.payload_json as string);
+          if (review.type === "ACCEPTANCE") this.improvement.record(subscription.id, `accept-${row.id}`, "ACCEPTANCE", {
+            criteriaResults: review.criteriaResults, artifactIds: review.artifactIds,
+            artifactContentsCollected: false, userConfirmed: true, at: review.at,
+          });
+        }
+        continue;
+      }
+      // Replay durable domain reviews, including edits made just before an app restart.
+      const row = this.repository.db.prepare("SELECT payload_json FROM distillation_jobs WHERE id=?").get(subscription.id);
+      if (!row) { this.improvement.stop(subscription.id); continue; }
+      const job = JSON.parse(row.payload_json as string) as Job;
+      const errorCode = job.error?.match(/^[A-Z][A-Z0-9_]+(?=:|$)/)?.[0] ?? null;
+      this.improvement.record(job.id, `status-${job.status}-${errorCode}`, "STATUS", { status: job.status, attempt: job.attempt, requestId: job.requestId ?? null, errorCode });
+      if (job.result) this.improvement.record(job.id, "result", "STATUS", { result: job.result });
+      if (job.draftId) {
+        const draftRow = this.repository.db.prepare("SELECT payload_json FROM definition_drafts WHERE id=?").get(job.draftId);
+        if (!draftRow) { this.improvement.stop(job.id); continue; }
+        const draft = JSON.parse(draftRow.payload_json as string) as Draft;
+        this.improvement.record(job.id, "candidate", "CANDIDATE", { content: draft.originalContent, issues: draft.issues, refs: draft.refs });
+        for (const reviewRow of this.repository.db.prepare("SELECT id,payload_json FROM review_events WHERE owner_id=? ORDER BY rowid").all(draft.id)) {
+          const review = JSON.parse(reviewRow.payload_json as string);
+          if (review.after) this.improvement.record(job.id, `edit-${reviewRow.id}`, "EDIT", { content: review.after, before: review.before, resolutions: review.resolutions, at: review.at });
+        }
+        if (draft.publishedId) {
+          const definition = this.repository.get(draft.publishedId);
+          this.improvement.record(job.id, `publish-${definition.id}`, "PUBLISH", { definitionId: definition.id, version: definition.version, content: definition.content, confirmedAt: definition.confirmedAt });
+        }
+      }
+    }
   }
   prepare(input: { workIds: string[]; includedFileIds: string[] }): Snapshot {
     array(input.workIds);
@@ -113,7 +154,7 @@ export class DistillationService {
       const work = this.core.getWork(id);
       ensure(work, "SOURCE_DELETED");
       const events = work.sourceArchive
-        .filter((e) => e.content?.trim())
+        .filter((e) => e.kind !== "reasoning.summary" && e.content?.trim())
         .map((e, i) => ({
           id: e.id,
           key: `event-${i + 1}`,
@@ -244,7 +285,7 @@ export class DistillationService {
       const work = this.core.getWork(source.workId);
       ensure(work && !source.deleted, "SOURCE_DELETED");
       if (unchanged) {
-        const events = work.sourceArchive.filter((e) => e.content?.trim());
+        const events = work.sourceArchive.filter((e) => e.kind !== "reasoning.summary" && e.content?.trim());
         ensure(
           events.length === source.events.length &&
             events.every(

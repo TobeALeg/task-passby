@@ -1,3 +1,5 @@
+import { hash } from "../definitions/storage.js";
+import type { SampleUpload } from "../contracts/improvement.js";
 import {
   ContractError,
   ensure,
@@ -12,6 +14,9 @@ export type RemoteJob = {
 };
 export interface AIClient {
   capabilities(): Promise<unknown>;
+  improvementIdentity?(): string;
+  uploadSample?(input: SampleUpload): Promise<unknown>;
+  deleteSample?(id: string): Promise<unknown>;
   submit(request: ExtractionRequest, key: string): Promise<RemoteJob>;
   get(id: string): Promise<RemoteJob>;
   cancel(id: string): Promise<unknown>;
@@ -71,6 +76,16 @@ export class WorketAIClient implements AIClient {
         true,
       );
     }
+  }
+  improvementIdentity() {
+    const c = this.config();
+    return hash([c.url.replace(/\/$/, ""), c.token]);
+  }
+  uploadSample(input: SampleUpload) {
+    return this.request("/v1/improvement-samples", "POST", input);
+  }
+  deleteSample(id: string) {
+    return this.request(`/v1/improvement-samples/${encodeURIComponent(id)}`, "DELETE");
   }
   capabilities() {
     return this.request("/v1/capabilities");

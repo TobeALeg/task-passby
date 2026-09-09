@@ -54,10 +54,34 @@ export class DistillationDesktop {
         return this.service.prepare(
           input as Parameters<DistillationService["prepare"]>[0],
         );
-      case "start":
-        return this.service.start(
-          input as Parameters<DistillationService["start"]>[0],
-        );
+      case "improvementSamples":
+        return this.service.improvement.list();
+      case "stopImprovement":
+        if (input.id !== undefined) string(input.id);
+        this.service.improvement.stop(input.id as string | undefined);
+        return this.service.improvement.list();
+      case "deleteImprovement":
+        string(input.id);
+        ensure(input.confirmation === "删除样本", "CONFIRMATION_REQUIRED");
+        this.service.improvement.remove(input.id);
+        void this.service.improvement.flush();
+        return this.service.improvement.list();
+      case "syncImprovement":
+        this.service.collectFeedback();
+        await this.service.improvement.flush();
+        return this.service.improvement.list();
+      case "start": {
+        await this.service.improvement.authorize(input.improvementConsentVersion);
+        const job = this.service.start(input as Parameters<DistillationService["start"]>[0]);
+        if (input.improvementConsentVersion) {
+          const snapshot = r.read<import("./service.js").Snapshot>("source_snapshots", job.snapshotId);
+          this.service.improvement.enroll(job.id, "DISTILLATION", snapshot.sources.map(s => s.title).join(" / "), {
+            request: this.service.wire(snapshot), appVersion: "0.1.0", collectorVersion: 1,
+            sourceRefs: snapshot.sources.map(s => ({ key: s.key, workId: s.workId, events: s.events.map(e => ({ key: e.key, id: e.id, hash: e.hash })), files: s.files.map((f, i) => ({ key: `file-${i + 1}`, id: f.id, hash: f.hash })) })),
+          });
+        }
+        return job;
+      }
       case "job":
         string(input.jobId);
         return this.service.get(input.jobId);
@@ -76,10 +100,18 @@ export class DistillationDesktop {
       case "draft":
         string(input.id);
         return r.read("definition_drafts", input.id);
-      case "update":
-        return r.update(input as Parameters<typeof r.update>[0]);
-      case "publish":
-        return r.publish(input as Parameters<typeof r.publish>[0]);
+      case "update": {
+        this.service.collectFeedback();
+        const draft = r.update(input as Parameters<typeof r.update>[0]);
+        this.service.collectFeedback();
+        return draft;
+      }
+      case "publish": {
+        this.service.collectFeedback();
+        const definition = r.publish(input as Parameters<typeof r.publish>[0]);
+        this.service.collectFeedback();
+        return definition;
+      }
       case "definitions":
         return r.definitions(input);
       case "definition":
@@ -112,9 +144,15 @@ export class DistillationDesktop {
       case "deleteDefinition":
         return r.delete(input as Parameters<typeof r.delete>[0]);
       case "create": {
+        await this.service.improvement.authorize(input.improvementConsentVersion);
         const work = core.createWorkFromDefinition(
           input as Parameters<typeof core.createWorkFromDefinition>[0],
         );
+        if (input.improvementConsentVersion) {
+          const definition = r.get(input.definitionId as string);
+          const inputs = Object.fromEntries(Object.entries(input.inputs as Record<string, unknown>).map(([key, value]) => [key, definition.content.inputs.find(i => i.key === key)?.valueType === "FILE" ? { fileSelected: true, contentCollected: false } : value]));
+          this.service.improvement.enroll(work.instance.id, "REUSE", definition.content.name, { definitionId: definition.id, definitionVersion: definition.version, content: definition.content, inputs, appVersion: "0.1.0", collectorVersion: 1 });
+        }
         return this.app.dashboard(work.instance.id);
       }
       case "package": {
@@ -148,6 +186,7 @@ export class DistillationDesktop {
       }
       case "accept":
         r.accept(input as Parameters<typeof r.accept>[0]);
+        this.service.collectFeedback();
         return this.app.dashboard(input.workId as string);
       case "dispatch":
         return this.dispatch(input as { workId: string; commandId: string });

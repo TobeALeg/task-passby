@@ -23,7 +23,10 @@ function render(state: PetView): void {
   currentConversation = state.currentConversation;
   const hasConversation = Boolean(currentConversation);
   root.classList.toggle("has-context", hasConversation);
-  root.classList.toggle("recording-context", Boolean(currentConversation?.isRecording));
+  root.classList.toggle(
+    "recording-context",
+    Boolean(currentConversation?.isRecording),
+  );
   bubble.hidden = !currentConversation;
   paperAction.disabled = !currentConversation || busy;
   if (!currentConversation) {
@@ -34,26 +37,34 @@ function render(state: PetView): void {
     return;
   }
   const hasWork = Boolean(currentConversation.workId);
-  const contextState = currentConversation.captureStatus === "waiting"
-    ? "等待发送消息"
-    : currentConversation.isRecording
-    ? "正在记录"
-    : currentConversation.workStatus === "COMPLETED"
-      ? "已完成"
-      : currentConversation.workStatus === "ARCHIVED"
-        ? "已归档"
-        : hasWork
-          ? "已记录"
-          : "当前聚焦";
-  applicationMark.textContent = currentConversation.adapter === "codex" ? "⌘" : "W";
+  const contextState =
+    currentConversation.captureStatus === "waiting"
+      ? "等待确认"
+      : currentConversation.isRecording
+        ? "正在记录"
+        : currentConversation.workStatus === "COMPLETED"
+          ? "已完成"
+          : currentConversation.workStatus === "ARCHIVED"
+            ? "已归档"
+            : hasWork
+              ? "已记录"
+              : currentConversation.needsSelection
+                ? "选择聊天"
+                : "当前聚焦";
+  applicationMark.textContent =
+    currentConversation.mark ?? currentConversation.applicationName.slice(0, 1);
   applicationMark.className = `application-mark ${currentConversation.adapter}`;
-  contextLabel.textContent = currentConversation.captureStatus === "waiting"
-    ? "请在 WorkBuddy 发送消息"
-    : `${contextState} · ${currentConversation.applicationName}`;
+  contextLabel.textContent =
+    currentConversation.captureStatus === "waiting"
+      ? `请检查 ${currentConversation.applicationName}`
+      : `${contextState} · ${currentConversation.applicationName}`;
   contextTitle.textContent = currentConversation.title;
   paperLabel.textContent = hasWork ? "打开" : "记录";
   paperAction.dataset.action = hasWork ? "open" : "record";
-  paperAction.setAttribute("aria-label", `${hasWork ? "打开" : "记录"}当前工作：${currentConversation.title}`);
+  paperAction.setAttribute(
+    "aria-label",
+    `${hasWork ? "打开" : "记录"}当前工作：${currentConversation.title}`,
+  );
   petBody.title = `打开 Worket · ${currentConversation.title}`;
 }
 
@@ -62,18 +73,29 @@ async function refresh(): Promise<void> {
   render(await window.workpet.getPetView());
 }
 
-let gesture: { pointerId: number; x: number; y: number; moved: boolean } | null = null;
+let gesture: {
+  pointerId: number;
+  x: number;
+  y: number;
+  moved: boolean;
+} | null = null;
 let suppressClick = false;
 petBody.addEventListener("pointerdown", (event) => {
   if (event.button !== 0 || gesture) return;
   suppressClick = false;
-  gesture = { pointerId: event.pointerId, x: event.screenX, y: event.screenY, moved: false };
+  gesture = {
+    pointerId: event.pointerId,
+    x: event.screenX,
+    y: event.screenY,
+    moved: false,
+  };
   petBody.setPointerCapture(event.pointerId);
   window.workpet.dragPet("start", { x: event.screenX, y: event.screenY });
 });
 document.addEventListener("pointermove", (event) => {
   if (!gesture || event.pointerId !== gesture.pointerId) return;
-  if (Math.hypot(event.screenX - gesture.x, event.screenY - gesture.y) >= 5) gesture.moved = true;
+  if (Math.hypot(event.screenX - gesture.x, event.screenY - gesture.y) >= 5)
+    gesture.moved = true;
   if (gesture.moved) {
     root.classList.add("dragging");
     window.workpet.dragPet("move", { x: event.screenX, y: event.screenY });
@@ -115,7 +137,9 @@ document.addEventListener("mousemove", (event) => {
   const target = event.target instanceof Element ? event.target : null;
   window.workpet.setPetMousePassthrough(!target?.closest("#pet"));
 });
-document.addEventListener("mouseleave", () => { if (!gesture) window.workpet.setPetMousePassthrough(true); });
+document.addEventListener("mouseleave", () => {
+  if (!gesture) window.workpet.setPetMousePassthrough(true);
+});
 
 setInterval(() => void refresh().catch(() => undefined), 2_000);
 void refresh();

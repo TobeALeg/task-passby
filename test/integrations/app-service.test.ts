@@ -1,3 +1,4 @@
+import { makeService } from "../helpers/app-options.ts";
 import assert from "node:assert/strict";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -5,9 +6,10 @@ import { join } from "node:path";
 import test from "node:test";
 
 import type { NormalizedThread } from "../../dist/adapters/types.js";
-import { AppService, type CodexSource } from "../../dist/app/app-service.js";
+import { AppService } from "../../dist/app/app-service.js";
+import type { ConversationSource } from "../../dist/executors/types.js";
 
-class FakeCodexSource implements CodexSource {
+class FakeCodexSource implements ConversationSource {
   readonly thread: NormalizedThread;
   constructor(thread: NormalizedThread) { this.thread = thread; }
   async listRecentThreads() { return []; }
@@ -49,12 +51,12 @@ test("刷新工作时复核已有 ArtifactRef 并记录 changed 事件", async (
       }
     ]
   };
-  const service = new AppService({
+  const service = makeService({
     databasePath: ":memory:",
     codex: new FakeCodexSource(thread),
     launcher: { async openNewConversation() { return "opened"; } }
   });
-  const created = await service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false });
+  const created = await service.createWorkFromConversation({executorId: "codex",  threadId: thread.threadId, allowCloudExtraction: false });
   const workId = created.selectedWorkId;
   assert.ok(workId);
   assert.equal(created.selectedWork?.state.objective[0]?.text, "处理资料");
@@ -97,18 +99,19 @@ test("WorkBuddy 启动失败时恢复原 Codex CaptureBinding", async () => {
       environmentType: "CODEX_DESKTOP"
     }]
   };
-  const service = new AppService({
+  const service = makeService({
     databasePath: ":memory:",
     codex: new FakeCodexSource(thread),
     launcher: { async openNewConversation() { throw new Error("WorkBuddy 未启动"); } }
   });
-  const created = await service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false });
+  const created = await service.createWorkFromConversation({executorId: "codex",  threadId: thread.threadId, allowCloudExtraction: false });
   const workId = created.selectedWorkId;
   assert.ok(workId);
 
-  const dashboard = await service.handoffToWorkBuddy(workId);
+  await assert.rejects(service.handoff(workId, "workbuddy"),/WorkBuddy 未启动/);
+  const dashboard = service.dashboard(workId);
 
-  assert.equal(dashboard.petState, "alert");
+  assert.equal(dashboard.petState, "awake");
   assert.match(dashboard.notice ?? "", /已恢复原来源记录/u);
   assert.equal(dashboard.selectedWork?.bindings.at(-1)?.adapter, "codex");
   assert.equal(dashboard.selectedWork?.bindings.at(-1)?.status, "ACTIVE");
@@ -145,18 +148,18 @@ test("用户可从指定 Codex 消息创建新的 WorkInstance", async () => {
       }
     ]
   };
-  const service = new AppService({
+  const service = makeService({
     databasePath: ":memory:",
     codex: new FakeCodexSource(thread),
     launcher: { async openNewConversation() { return "opened"; } }
   });
-  const original = await service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false });
+  const original = await service.createWorkFromConversation({executorId: "codex",  threadId: thread.threadId, allowCloudExtraction: false });
   const originalId = original.selectedWorkId;
   assert.ok(originalId);
-  const points = await service.listCodexSplitPoints(originalId);
+  const points = await service.listSplitPoints(originalId);
   assert.deepEqual(points.map((point) => point.externalId), ["prompt-b", "prompt-a"]);
 
-  const split = await service.createWorkFromCodexMessage({ sourceWorkId: originalId, startExternalId: "prompt-b" });
+  const split = await service.createWorkFromMessage({ sourceWorkId: originalId, startExternalId: "prompt-b" });
 
   const newId = split.selectedWorkId;
   assert.ok(newId);
@@ -182,19 +185,20 @@ test("无来源 CaptureBinding 的工作交接失败时结束 pending Episode", 
       executorType: "HUMAN", environmentType: "CODEX_DESKTOP"
     }]
   };
-  const service = new AppService({
+  const service = makeService({
     databasePath: ":memory:",
     codex: new FakeCodexSource(thread),
     launcher: { async openNewConversation() { throw new Error("WorkBuddy 未启动"); } }
   });
-  const created = await service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false });
+  const created = await service.createWorkFromConversation({executorId: "codex",  threadId: thread.threadId, allowCloudExtraction: false });
   const workId = created.selectedWorkId;
   assert.ok(workId);
   service.core().stopCapture(workId);
 
-  const result = await service.handoffToWorkBuddy(workId);
+  await assert.rejects(service.handoff(workId, "workbuddy"),/WorkBuddy 未启动/);
+  const result = service.dashboard(workId);
 
-  assert.match(result.notice ?? "", /未保留虚假的执行片段/u);
+  assert.match(result.notice ?? "", /未保留活动的待确认绑定/u);
   assert.equal(service.core().getWork(workId)?.activeBinding, null);
   assert.equal(service.core().getWork(workId)?.activeEpisode, null);
   assert.ok(service.core().getWork(workId)?.episodes.every((episode) => episode.status === "ENDED"));
@@ -214,18 +218,18 @@ test("WorkBuddy Deep Link 启动后不把未知提交状态误报为待发送草
       executorType: "HUMAN", environmentType: "CODEX_DESKTOP"
     }]
   };
-  const service = new AppService({
+  const service = makeService({
     databasePath: ":memory:",
     codex: new FakeCodexSource(thread),
     launcher: { async openNewConversation() { return "opened"; } }
   });
-  const created = await service.createWorkFromCodex({ threadId: thread.threadId, allowCloudExtraction: false });
+  const created = await service.createWorkFromConversation({executorId: "codex",  threadId: thread.threadId, allowCloudExtraction: false });
   const workId = created.selectedWorkId;
   assert.ok(workId);
 
-  const result = await service.handoffToWorkBuddy(workId);
+  const result = await service.handoff(workId, "workbuddy");
 
-  assert.match(result.notice ?? "", /已唤起 WorkBuddy/u);
+  assert.match(result.notice ?? "", /已打开 WorkBuddy/u);
   assert.doesNotMatch(result.notice ?? "", /草稿|按回车/u);
   service.close();
 });

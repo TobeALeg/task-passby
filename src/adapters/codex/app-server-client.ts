@@ -36,7 +36,7 @@ export interface CodexThreadSummary {
 export const CODEX_BINARY_CANDIDATES = [
   "/Applications/ChatGPT.app/Contents/Resources/codex",
   `${process.env.HOME ?? ""}/Applications/ChatGPT.app/Contents/Resources/codex`,
-  `${process.env.HOME ?? ""}/.codex/plugins/.plugin-appserver/codex`
+  `${process.env.HOME ?? ""}/.codex/plugins/.plugin-appserver/codex`,
 ];
 
 async function findCodexBinary(candidates: string[]): Promise<string> {
@@ -49,13 +49,16 @@ async function findCodexBinary(candidates: string[]): Promise<string> {
       // Try the next known official bundle location.
     }
   }
-  throw new Error("未找到 Codex App Server。请确认已安装最新版 Codex 桌面应用。");
+  throw new Error(
+    "未找到 Codex App Server。请确认已安装最新版 Codex 桌面应用。",
+  );
 }
 
 export class CodexAppServerClient {
   readonly #binaryCandidates: string[];
   #process: ChildProcessWithoutNullStreams | null = null;
   #nextRequestId = 1;
+  #connecting: Promise<void> | null = null;
   #pending = new Map<
     number,
     { resolve: (value: unknown) => void; reject: (error: Error) => void }
@@ -66,11 +69,23 @@ export class CodexAppServerClient {
   }
 
   async connect(): Promise<void> {
+    if (this.#connecting) return this.#connecting;
     if (this.#process) return;
+    this.#connecting = this.#connect()
+      .catch((error) => {
+        this.close();
+        throw error;
+      })
+      .finally(() => {
+        this.#connecting = null;
+      });
+    return this.#connecting;
+  }
+  async #connect(): Promise<void> {
     const binary = await findCodexBinary(this.#binaryCandidates);
     const child = spawn(binary, ["app-server", "--stdio"], {
       stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env }
+      env: { ...process.env },
     });
     this.#process = child;
 
@@ -79,11 +94,18 @@ export class CodexAppServerClient {
     child.stderr.on("data", () => {
       // App Server diagnostics intentionally stay out of the JSON-RPC channel.
     });
-    child.once("exit", (code, signal) => {
-      const error = new Error(`Codex App Server 已退出（code=${String(code)}, signal=${String(signal)}）`);
+    child.once("error", (error) => {
       for (const request of this.#pending.values()) request.reject(error);
       this.#pending.clear();
-      this.#process = null;
+      if (this.#process === child) this.#process = null;
+    });
+    child.once("exit", (code, signal) => {
+      const error = new Error(
+        `Codex App Server 已退出（code=${String(code)}, signal=${String(signal)}）`,
+      );
+      for (const request of this.#pending.values()) request.reject(error);
+      this.#pending.clear();
+      if (this.#process === child) this.#process = null;
     });
 
     await this.#request("initialize", {
@@ -93,9 +115,9 @@ export class CodexAppServerClient {
         optOutNotificationMethods: [
           "item/agentMessage/delta",
           "item/reasoning/summaryTextDelta",
-          "item/commandExecution/outputDelta"
-        ]
-      }
+          "item/commandExecution/outputDelta",
+        ],
+      },
     });
     this.#notify("initialized", {});
   }
@@ -104,35 +126,44 @@ export class CodexAppServerClient {
     return (await this.listThreadPage(limit)).threads;
   }
 
-  async listThreadPage(limit = 30, cursor?: string): Promise<{ threads: CodexThreadSummary[]; nextCursor: string | null }> {
+  async listThreadPage(
+    limit = 30,
+    cursor?: string,
+  ): Promise<{ threads: CodexThreadSummary[]; nextCursor: string | null }> {
     await this.connect();
     const response = await this.#request<ThreadListResponse>("thread/list", {
       limit,
       ...(cursor ? { cursor } : {}),
       archived: false,
       sortKey: "updated_at",
-      sortDirection: "desc"
+      sortDirection: "desc",
     });
-    return { threads: response.data.map((thread) => ({
-      id: thread.id,
-      title: thread.name?.trim() || null,
-      preview: thread.preview ?? "",
-      cwd: thread.cwd,
-      updatedAt: new Date(thread.updatedAt * 1_000).toISOString(),
-      status: thread.status
-    })), nextCursor: response.nextCursor ?? null };
+    return {
+      threads: response.data.map((thread) => ({
+        id: thread.id,
+        title: thread.name?.trim() || null,
+        preview: thread.preview ?? "",
+        cwd: thread.cwd,
+        updatedAt: new Date(thread.updatedAt * 1_000).toISOString(),
+        status: thread.status,
+      })),
+      nextCursor: response.nextCursor ?? null,
+    };
   }
 
   async readThread(threadId: string): Promise<NormalizedThread> {
     await this.connect();
     const response = await this.#request<ThreadReadResponse>("thread/read", {
       threadId,
-      includeTurns: true
+      includeTurns: true,
     });
     return normalizeCodexThread(response.thread);
   }
 
   close(): void {
+    for (const request of this.#pending.values())
+      request.reject(new Error("Codex connection closed"));
+    this.#pending.clear();
     this.#process?.kill("SIGTERM");
     this.#process = null;
   }
@@ -144,11 +175,26 @@ export class CodexAppServerClient {
   #request<T>(method: string, params: unknown): Promise<T> {
     const id = this.#nextRequestId++;
     return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.#pending.delete(id);
+        reject(new Error(`Codex ${method} 超时，请重试。`));
+      }, 30000);
       this.#pending.set(id, {
-        resolve: (value) => resolve(value as T),
-        reject
+        resolve: (value) => {
+          clearTimeout(timer);
+          resolve(value as T);
+        },
+        reject: (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
       });
-      this.#write({ id, method, params });
+      try {
+        this.#write({ id, method, params });
+      } catch (error) {
+        this.#pending.get(id)?.reject(error as Error);
+        this.#pending.delete(id);
+      }
     });
   }
 
@@ -169,7 +215,9 @@ export class CodexAppServerClient {
     if (!pending) return;
     this.#pending.delete(message.id);
     if ("error" in message) {
-      pending.reject(new Error(`${message.error.message} (${message.error.code})`));
+      pending.reject(
+        new Error(`${message.error.message} (${message.error.code})`),
+      );
     } else {
       pending.resolve(message.result);
     }

@@ -1,473 +1,562 @@
 import { createHash, randomUUID } from "node:crypto";
-
 import { ArtifactTracker } from "../artifacts/tracker.js";
-import { CodexAppServerClient, type CodexThreadSummary } from "../adapters/codex/app-server-client.js";
 import {
   MacForegroundApplicationDetector,
-  classifyForegroundApplication,
-  resolveCodexThreadFromRecentActivity,
-  resolveCodexThreadFromWindowTitle,
   type CurrentApplicationContext,
-  type ForegroundApplicationDetector
+  type ForegroundApplicationDetector,
 } from "../adapters/foreground/context.js";
-import type { NormalizedSourceEvent, NormalizedThread } from "../adapters/types.js";
-import { buildWorkBuddyBootstrap, buildWorkBuddyDeepLink } from "../adapters/workbuddy/deep-link.js";
-import {
-  createPendingWorkBuddyConversationId,
-  createWorkBuddyWindowLocator,
-  matchesPendingWorkBuddyWindow,
-  workBuddyPendingCaptureState
-} from "../adapters/workbuddy/pending-capture.js";
-import { WorkBuddyHookIngestor, type HookIngestResult } from "../adapters/workbuddy/hook-ingestor.js";
-import type { WorkBuddyLauncher } from "../adapters/workbuddy/launcher.js";
+import type {
+  NormalizedSourceEvent,
+  NormalizedThread,
+} from "../adapters/types.js";
 import {
   createWorkCore,
   type SourceEvent,
   type SourceEventInput,
   type WorkCore,
-  type WorkSnapshot
+  type WorkSnapshot,
 } from "../core/index.js";
 import { LocalRuleExtractor } from "../extractor/local-rule-extractor.js";
 import { OpenAICompatibleExtractor } from "../extractor/openai-compatible-extractor.js";
 import type { WorkStateExtractor } from "../extractor/types.js";
+import { ExecutorRegistry, conversationPage } from "../executors/registry.js";
 import type {
-  CodexImportPreview,
-  CodexThreadPage,
-  CodexThreadView,
-  CodexSplitPointView,
-  CreateWorkFromCodexMessageRequest,
+  ExecutorAdapter,
+  ConversationSummary,
+} from "../executors/types.js";
+import { buildWorkPackage } from "../definitions/work-package.js";
+import type {
+  ConversationPreview,
+  ConversationPageView,
+  ConversationView,
+  SplitPointView,
+  CreateWorkFromMessageRequest,
   CreateWorkRequest,
   DashboardView,
   PetView,
   WorkDetailView,
-  WorkSummaryView
+  WorkSummaryView,
+  CaptureStatus,
+  ExecutorView,
 } from "../ui-contract.js";
-import type { CaptureStatus } from "../ui-contract.js";
 
 function captureStatus(work: WorkSnapshot): CaptureStatus {
-  if (work.definition.kind === "REUSABLE" && work.activeBinding?.adapter === "workbuddy" && !work.packageReadAt && !work.sourceArchive.some(e => e.kind === "tool.result" && e.metadata.toolName === "get_work_context")) return "waiting";
   const binding = work.activeBinding;
   if (work.instance.status !== "OPEN" || !binding) return "stopped";
-  if (binding.adapter === "workbuddy") {
-    const pending = workBuddyPendingCaptureState(binding.conversationId);
-    if (pending === "EXPIRED") return "stopped";
-    if (pending === "ACTIVE" || binding.conversationId.startsWith("pending:")) return "waiting";
-  }
+  if (binding.conversationId.startsWith("pending:")) return "waiting";
+  if (binding.conversationId.startsWith("waiting:"))
+    return Number(binding.conversationId.split(":")[1]) > Date.now()
+      ? "waiting"
+      : "stopped";
+  if (
+    work.definition.kind === "REUSABLE" &&
+    !work.packageReadAt &&
+    !work.sourceArchive.some(
+      (event) =>
+        event.kind === "tool.result" &&
+        event.metadata.toolName === "get_work_context",
+    )
+  )
+    return "waiting";
   return "recording";
 }
-
 export interface AppServiceOptions {
   databasePath: string;
-  codex?: CodexSource;
-  launcher: WorkBuddyLauncher;
+  executors: ExecutorAdapter[];
   foreground?: ForegroundApplicationDetector;
 }
-
-export interface CodexSource {
-  listRecentThreads(limit?: number): Promise<CodexThreadSummary[]>;
-  listThreadPage?(limit?: number, cursor?: string): Promise<{ threads: CodexThreadSummary[]; nextCursor: string | null }>;
-  readThread(threadId: string): Promise<NormalizedThread>;
-  close(): void;
-}
-
-interface ForegroundContextResolution {
-  context: CurrentApplicationContext | null;
-  notice: string;
-}
-
-function hasCurrentWorkBuddyBinding(work: WorkSnapshot): boolean {
-  const binding = work.activeBinding;
-  return binding?.adapter === "workbuddy"
-    && workBuddyPendingCaptureState(binding.conversationId) !== "EXPIRED";
-}
-
 export class AppService {
   readonly #core: WorkCore;
-  readonly #codex: CodexSource;
-  readonly #launcher: WorkBuddyLauncher;
+  readonly #executors: ExecutorRegistry;
   readonly #foreground: ForegroundApplicationDetector;
   readonly #artifacts: ArtifactTracker;
-  readonly #workBuddyHooks: WorkBuddyHookIngestor;
   #selectedWorkId: string | null = null;
   #petState: DashboardView["petState"] = "sleeping";
   #notice: string | null = null;
+  #sourceSelection: string | undefined;
   readonly #cloudExtractionWorkIds = new Set<string>();
-
+  readonly #handoffs = new Set<string>();
   constructor(options: AppServiceOptions) {
     this.#core = createWorkCore({ databasePath: options.databasePath });
-    this.#codex = options.codex ?? new CodexAppServerClient();
-    this.#launcher = options.launcher;
-    this.#foreground = options.foreground ?? new MacForegroundApplicationDetector();
+    this.#executors = new ExecutorRegistry(options.executors);
+    this.#foreground =
+      options.foreground ??
+      new MacForegroundApplicationDetector(
+        undefined,
+        options.executors.flatMap((adapter) => [...adapter.bundleIds]),
+      );
     this.#artifacts = new ArtifactTracker(this.#core);
-    this.#workBuddyHooks = new WorkBuddyHookIngestor(this.#core);
   }
-
-  async listCodexThreads(): Promise<CodexThreadView[]> {
-    return (await this.#codex.listRecentThreads(30)).map((thread) => this.#recordingSource(thread));
+  async listExecutors(): Promise<ExecutorView[]> {
+    return Promise.all(
+      this.#executors.all().map(async (adapter) => {
+        try {
+          await adapter.inspect();
+          return {
+            id: adapter.id,
+            name: adapter.name,
+            mark: adapter.mark,
+            available: true,
+            canDeliver: !!adapter.deliver,
+          };
+        } catch (error) {
+          return {
+            id: adapter.id,
+            name: adapter.name,
+            mark: adapter.mark,
+            available: false,
+            canDeliver: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }),
+    );
   }
-
-  async listCodexHistory(cursor?: string): Promise<CodexThreadPage> {
-    const page = this.#codex.listThreadPage
-      ? await this.#codex.listThreadPage(30, cursor)
-      : { threads: cursor ? [] : await this.#codex.listRecentThreads(100), nextCursor: null };
-    return { ...page, threads: page.threads.map((thread) => this.#recordingSource(thread)) };
+  async listConversations(executorId: string): Promise<ConversationView[]> {
+    return (await this.listConversationHistory(executorId)).threads;
   }
-
-  #recordingSource(thread: CodexThreadSummary): CodexThreadView {
-    const work = this.#core.findWorkByBinding("codex", thread.id);
-    return { ...thread, agentName: "Codex", ...(work ? { workId: work.instance.id } : {}) };
+  async listRecentConversations(): Promise<{
+    threads: ConversationView[];
+    errors: string[];
+  }> {
+    const results = await Promise.allSettled(
+      this.#executors
+        .all()
+        .map((adapter) => this.listConversations(adapter.id)),
+    );
+    return {
+      threads: results
+        .flatMap((result) =>
+          result.status === "fulfilled" ? result.value : [],
+        )
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
+      errors: results.flatMap((result) =>
+        result.status === "rejected" ? [String(result.reason)] : [],
+      ),
+    };
   }
-
+  async listConversationHistory(
+    executorId: string,
+    cursor?: string,
+  ): Promise<ConversationPageView> {
+    const adapter = this.#executors.get(executorId);
+    const page = await conversationPage(adapter, cursor);
+    return {
+      ...page,
+      threads: page.threads.map((thread) =>
+        this.#recordingSource(adapter, thread),
+      ),
+    };
+  }
+  #recordingSource(
+    adapter: ExecutorAdapter,
+    thread: ConversationSummary,
+  ): ConversationView {
+    const work = this.#core.findWorkByBinding(adapter.id, thread.id);
+    return {
+      ...thread,
+      executorId: adapter.id,
+      agentName: adapter.name,
+      ...(work ? { workId: work.instance.id } : {}),
+    };
+  }
+  async #resolveForegroundContext(): Promise<CurrentApplicationContext | null> {
+    const application = await this.#foreground.detect();
+    const adapter = application
+      ? this.#executors.forApplication(application.bundleId)
+      : null;
+    if (!application || !adapter) return null;
+    const thread = await adapter.resolveCurrent(application).catch(() => null);
+    return {
+      adapter: adapter.id,
+      environmentName: adapter.environment.name,
+      applicationName: adapter.name,
+      windowTitle: application.windowTitle,
+      ...(thread
+        ? {
+            conversationId: thread.id,
+            ...(thread.title ? { applicationTitle: thread.title } : {}),
+          }
+        : {}),
+    };
+  }
   async captureForegroundContext(): Promise<CurrentApplicationContext | null> {
-    const resolution = await this.#resolveForegroundContext();
-    this.#notice = resolution.notice;
-    return resolution.context;
+    const context = await this.#resolveForegroundContext();
+    this.#notice = context
+      ? context.conversationId
+        ? `已识别当前 ${context.applicationName} 任务：${context.applicationTitle ?? "未命名工作"}`
+        : `请选择要记录的 ${context.applicationName} 聊天。`
+      : "未识别到已接入的前台应用。";
+    return context;
   }
-
   async getPetView(): Promise<PetView> {
+    const context = await this.#resolveForegroundContext();
     const petState = this.#globalPetState();
-    const { context } = await this.#resolveForegroundContext();
-    const conversationTitle = context?.adapter === "codex"
-      ? context.applicationTitle?.trim()
-      : context
-        ? context.windowTitle?.trim() || "当前 WorkBuddy 对话"
-        : null;
-    if (!context || !conversationTitle) {
-      return { petState, currentConversation: null };
-    }
-    const workId = this.#workIdForContext(context);
-    const work = workId ? this.#core.getWork(workId) : null;
+    if (!context) return { petState, currentConversation: null };
+    const adapter = this.#executors.get(context.adapter);
+    const work = context.conversationId
+      ? this.#core.findWorkByBinding(adapter.id, context.conversationId)
+      : null;
     return {
       petState,
       currentConversation: {
-        adapter: context.adapter,
-        applicationName: context.adapter === "codex" ? "Codex" : "WorkBuddy",
-        title: conversationTitle,
-        workId,
+        adapter: adapter.id,
+        applicationName: adapter.name,
+        mark: adapter.mark,
+        title: context.applicationTitle ?? `选择 ${adapter.name} 聊天`,
+        needsSelection: !context.conversationId,
+        workId: work?.instance.id ?? null,
         workStatus: work?.instance.status ?? null,
-        isRecording: work ? this.#isContextActivelyRecorded(work, context) : false,
-        ...(work && captureStatus(work) === "waiting" ? { captureStatus: "waiting" as const } : {})
-      }
+        isRecording: work ? captureStatus(work) === "recording" : false,
+        ...(work ? { captureStatus: captureStatus(work) } : {}),
+      },
     };
   }
-
-  async #resolveForegroundContext(): Promise<ForegroundContextResolution> {
-    const application = await this.#foreground.detect();
-    const context = application ? classifyForegroundApplication(application) : null;
-    if (!context) {
-      return {
-        context: null,
-        notice: "未识别到受支持的前台应用。请先聚焦 Codex 或 WorkBuddy。"
-      };
-    }
-    if (context.adapter === "codex") {
-      const threads = await this.listCodexThreads();
-      const thread = context.windowTitle?.trim()
-        ? resolveCodexThreadFromWindowTitle(context.windowTitle, threads)
-        : resolveCodexThreadFromRecentActivity(threads);
-      if (!thread?.title?.trim()) {
-        return {
-          context: null,
-          notice: "已识别 Codex，但当前没有唯一的应用任务标题可安全绑定。请在目标聊天继续一次后重试。"
-        };
-      }
-      return {
-        context: { ...context, applicationTitle: thread.title, conversationId: thread.id },
-        notice: `已识别当前 Codex 任务：${thread.title}`
-      };
-    }
-    return {
-      context,
-      notice: "已识别 WorkBuddy。点击记录后，下一次在当前聊天提交消息时会自动确认会话身份。"
-    };
-  }
-
   async recordCurrentContext(): Promise<DashboardView> {
     const context = await this.captureForegroundContext();
     if (!context) return this.dashboard();
-    const existingWorkId = this.#workIdForContext(context);
-    if (existingWorkId) {
-      if (context.adapter === "codex" && context.conversationId && context.applicationTitle) {
-        this.#synchronizeCodexObjective(existingWorkId, context.conversationId, context.applicationTitle);
-      }
-      this.#notice = "已打开当前对话对应的工作记录。";
-      return this.dashboard(existingWorkId);
-    }
     return this.createWorkFromCurrentContext(context);
   }
-
-  async createWorkFromCurrentContext(context: CurrentApplicationContext): Promise<DashboardView> {
-    if (context.adapter === "codex") {
-      if (!context.conversationId) throw new Error("当前 Codex 聊天尚未确认，不能用最近任务代替。");
-      const dashboard = await this.createWorkFromCodex({ threadId: context.conversationId });
-      this.#notice = "已从当前 Codex 对话开始记录，并默认提炼 Work State。";
-      return this.dashboard(dashboard.selectedWorkId ?? undefined);
+  async createWorkFromCurrentContext(
+    context: CurrentApplicationContext,
+  ): Promise<DashboardView> {
+    if (!context.conversationId) {
+      this.#sourceSelection = context.adapter;
+      return this.dashboard();
     }
-    const windowTitle = context.windowTitle?.trim() || null;
-    if (!windowTitle) {
-      const activeWorkBuddyWorks = this.#core.listWorks("OPEN").filter(hasCurrentWorkBuddyBinding);
-      if (activeWorkBuddyWorks.length) {
-        throw new Error("WorkBuddy 未提供聊天标题，当前仅支持一份活动记录；请先完成已有的 WorkBuddy 工作。");
-      }
-    }
-    for (const openWork of this.#core.listWorks("OPEN")) {
-      const conversationId = openWork.activeBinding?.adapter === "workbuddy" ? openWork.activeBinding.conversationId : "";
-      if (workBuddyPendingCaptureState(conversationId) !== "NOT_PENDING") this.#core.stopCapture(openWork.instance.id);
-    }
-    const waitingConversationId = createPendingWorkBuddyConversationId(windowTitle);
-    const work = this.#core.createWork({
-      definition: { key: "general-work", name: "通用工作", version: 1 },
-      executor: { type: "AGENT", name: "WorkBuddy" },
-      environment: { type: "WORKBUDDY_DESKTOP", name: "WorkBuddy Desktop" },
-      source: {
-        adapter: "workbuddy",
-        conversationId: waitingConversationId,
-        ...(windowTitle ? { sourceLocator: createWorkBuddyWindowLocator(windowTitle) } : {})
-      }
+    return this.createWorkFromConversation({
+      executorId: context.adapter,
+      threadId: context.conversationId,
     });
-    this.#selectedWorkId = work.instance.id;
-    if (this.#cloudExtractionIsEnabled()) this.#cloudExtractionWorkIds.add(work.instance.id);
-    this.#petState = "awake";
-    this.#notice = "尚未开始记录。请在对应的 WorkBuddy 聊天中提交下一条消息，识别到聊天后会开始记录并导入已有内容。";
-    return this.dashboard(work.instance.id);
   }
-
-  async previewCodexThread(threadId: string): Promise<CodexImportPreview> {
-    const thread = await this.#codex.readThread(threadId);
-    const userPromptCount = thread.events.filter((event) => event.kind === "user.prompt").length;
-    const agentResponseCount = thread.events.filter((event) => event.kind === "agent.response").length;
-    const messageCount = userPromptCount + agentResponseCount;
+  consumeSourceSelection(): string | undefined {
+    const id = this.#sourceSelection;
+    this.#sourceSelection = undefined;
+    return id;
+  }
+  async previewConversation(
+    executorId: string,
+    threadId: string,
+  ): Promise<ConversationPreview> {
+    const adapter = this.#executors.get(executorId),
+      thread = await adapter.source.readThread(threadId);
+    const userPromptCount = thread.events.filter(
+      (e) => e.kind === "user.prompt",
+    ).length;
+    const agentResponseCount = thread.events.filter(
+      (e) => e.kind === "agent.response",
+    ).length;
     return {
-      id: thread.threadId,
-      agentName: "Codex",
+      id: threadId,
+      executorId,
+      agentName: adapter.name,
       title: thread.title,
-      preview: thread.events.find((event) => event.kind === "user.prompt")?.content ?? "",
+      preview: "",
       cwd: thread.cwd,
       updatedAt: thread.updatedAt,
       status: "available",
-      messageCount,
+      messageCount: userPromptCount + agentResponseCount,
       userPromptCount,
       agentResponseCount,
       artifactCount: new Set(
         thread.events
-          .filter((event) => event.kind === "artifact.added")
-          .map((event) => typeof event.metadata?.path === "string" ? event.metadata.path : event.content)
-          .filter((path): path is string => Boolean(path))
+          .filter((e) => e.kind === "artifact.added")
+          .map((e) => e.content),
       ).size,
-      toolEventCount: thread.events.filter((event) => event.kind === "tool.call" || event.kind === "tool.result").length
+      toolEventCount: thread.events.filter(
+        (e) => e.kind === "tool.call" || e.kind === "tool.result",
+      ).length,
     };
   }
-
-  async createWorkFromCodex(request: CreateWorkRequest): Promise<DashboardView> {
-    const existing = this.#core.findWorkByBinding("codex", request.threadId);
+  async createWorkFromConversation(
+    request: CreateWorkRequest,
+  ): Promise<DashboardView> {
+    const adapter = this.#executors.get(request.executorId);
+    let existing = this.#core.findWorkByBinding(adapter.id, request.threadId);
     if (existing) {
-      this.#selectedWorkId = existing.instance.id;
-      this.#notice = "这个 Codex 任务已经属于一份 WorkRecord。";
+      this.#notice = "这个聊天已经属于一份 WorkRecord。";
       return this.dashboard(existing.instance.id);
     }
-    this.#petState = "carrying";
-    const thread = await this.#codex.readThread(request.threadId);
-    const applicationTitle = thread.applicationTitle?.trim();
-    if (!applicationTitle) {
-      this.#petState = "sleeping";
-      throw new Error("Codex 尚未生成应用任务标题，不能用首条消息代替工作目标。");
-    }
+    const thread = await adapter.source.readThread(request.threadId);
+    if (thread.threadId !== request.threadId)
+      throw new Error("来源会话身份不一致，未开始记录。");
+    existing = this.#core.findWorkByBinding(adapter.id, request.threadId);
+    if (existing) return this.dashboard(existing.instance.id);
+    const title = thread.applicationTitle?.trim();
     let work = this.#core.createWork({
       definition: { key: "general-work", name: "通用工作", version: 1 },
-      executor: { type: "AGENT", name: "Codex" },
-      environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
-      source: { adapter: "codex", conversationId: thread.threadId }
+      executor: { type: "AGENT", name: adapter.name },
+      environment: adapter.environment,
+      source: { adapter: adapter.id, conversationId: thread.threadId },
     });
-    const titleEvent = this.#codexTitleEvent(thread.threadId, applicationTitle, thread.updatedAt);
-    const inputs = [
-      titleEvent,
-      ...this.#sourceInputs(thread.events)
-    ];
-    work = this.#core.appendSourceEvents(work.instance.id, inputs).work;
-    work = this.#applyCodexObjective(work, titleEvent);
+    const titleEvent = title
+      ? this.#titleEvent(adapter.id, thread.threadId, title, thread.updatedAt)
+      : null;
+    work = this.#core.appendSourceEvents(work.instance.id, [
+      ...(titleEvent ? [titleEvent] : []),
+      ...this.#sourceInputs(thread.events),
+    ]).work;
+    if (titleEvent) work = this.#applyObjective(work, titleEvent);
     work = await this.#artifacts.attach(work, thread.events);
-    const allowCloudExtraction = request.allowCloudExtraction ?? this.#cloudExtractionIsEnabled();
-    const extractor = this.#extractor(allowCloudExtraction);
-    if (allowCloudExtraction) this.#cloudExtractionWorkIds.add(work.instance.id);
-    const patch = await extractor.extract({ previousState: work.state, events: work.sourceArchive });
-    patch.objective = [];
-    work = this.#core.applyExtractorPatch(work.instance.id, patch);
-    this.#selectedWorkId = work.instance.id;
-    this.#petState = "awake";
-    this.#notice = `已从第一轮开始归档 ${work.sourceArchive.length} 条可见记录。`;
+    const allowCloud =
+      request.allowCloudExtraction ?? this.#cloudExtractionIsEnabled();
+    if (allowCloud) this.#cloudExtractionWorkIds.add(work.instance.id);
+    const patch = await this.#extractor(allowCloud).extract({
+      previousState: work.state,
+      events: work.sourceArchive,
+    });
+    if (titleEvent) patch.objective = [];
+    if (
+      this.#core.getWork(work.instance.id)?.activeBinding?.id ===
+      work.activeBinding?.id
+    )
+      this.#core.applyExtractorPatch(work.instance.id, patch);
+    this.#notice = `已记录 ${adapter.name} 聊天，导入 ${work.sourceArchive.length} 条可见事件。`;
     return this.dashboard(work.instance.id);
   }
-
-  async listCodexSplitPoints(workId: string): Promise<CodexSplitPointView[]> {
+  async listSplitPoints(workId: string): Promise<SplitPointView[]> {
     const work = this.#requireWork(workId);
-    const codexBinding = [...work.bindings].reverse().find((binding) => binding.adapter === "codex");
-    if (!codexBinding) throw new Error("没有可分割的 Codex 来源对话");
-    const thread = await this.#codex.readThread(codexBinding.conversationId);
-    return thread.events
-      .filter((event) => event.kind === "user.prompt" && event.content.trim())
+    // Archived evidence is enough to choose a split point; no need to contact the old application.
+    const binding = work.activeBinding ?? work.bindings.at(-1);
+    if (!binding) throw new Error("没有可分割的来源对话");
+    return work.sourceArchive
+      .filter(
+        (event) =>
+          event.episodeId === binding.episodeId &&
+          event.kind === "user.prompt" &&
+          event.content?.trim(),
+      )
       .map((event) => ({
         externalId: event.externalId,
-        label: event.content.replace(/\s+/gu, " ").slice(0, 100),
-        timestamp: event.timestamp
+        label: event.content!.replace(/\s+/gu, " ").slice(0, 100),
+        timestamp: event.timestamp,
       }))
       .reverse();
   }
-
-  async createWorkFromCodexMessage(request: CreateWorkFromCodexMessageRequest): Promise<DashboardView> {
+  async createWorkFromMessage(
+    request: CreateWorkFromMessageRequest,
+  ): Promise<DashboardView> {
     const sourceWork = this.#requireWork(request.sourceWorkId);
-    const codexBinding = [...sourceWork.bindings].reverse().find((binding) => binding.adapter === "codex");
-    if (!codexBinding) throw new Error("没有可分割的 Codex 来源对话");
-    if (sourceWork.activeBinding && sourceWork.activeBinding.adapter !== "codex") {
-      throw new Error("当前工作正在其他执行环境中，请先完成或切回 Codex");
-    }
-    const thread = await this.#codex.readThread(codexBinding.conversationId);
-    const startIndex = thread.events.findIndex(
-      (event) => event.externalId === request.startExternalId && event.kind === "user.prompt"
+    const binding = sourceWork.activeBinding ?? sourceWork.bindings.at(-1);
+    if (!binding) throw new Error("没有可分割的来源对话");
+    const adapter = this.#executors.get(binding.adapter),
+      thread = await adapter.source.readThread(binding.conversationId);
+    const start = thread.events.findIndex(
+      (event) =>
+        event.externalId === request.startExternalId &&
+        event.kind === "user.prompt",
     );
-    if (startIndex === -1) throw new Error("未找到指定的用户消息");
-    const selectedEvents = thread.events.slice(startIndex);
-    const stoppedCapture = sourceWork.activeBinding?.adapter === "codex";
-    if (stoppedCapture) this.#core.stopCapture(sourceWork.instance.id);
-    let createdWorkId: string | null = null;
-
+    if (start < 0) throw new Error("未找到指定的用户消息");
+    if (
+      this.#requireWork(request.sourceWorkId).activeBinding?.id !==
+      sourceWork.activeBinding?.id
+    )
+      throw new Error("记录来源已改变，请重新选择");
+    const events = thread.events.slice(start);
+    if (sourceWork.activeBinding)
+      this.#core.stopCapture(sourceWork.instance.id);
+    let createdId: string | undefined;
     try {
       let work = this.#core.createWork({
         definition: { key: "general-work", name: "通用工作", version: 1 },
-        executor: { type: "AGENT", name: "Codex" },
-        environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
-        source: { adapter: "codex", conversationId: codexBinding.conversationId }
+        executor: { type: "AGENT", name: adapter.name },
+        environment: adapter.environment,
+        source: { adapter: adapter.id, conversationId: binding.conversationId },
       });
-      createdWorkId = work.instance.id;
-      work = this.#core.appendSourceEvents(work.instance.id, this.#sourceInputs(selectedEvents)).work;
-      work = await this.#artifacts.attach(work, selectedEvents);
-      const allowCloud = this.#cloudExtractionEnabledFor(sourceWork.instance.id);
-      const patch = await this.#extractor(allowCloud).extract({ previousState: work.state, events: work.sourceArchive });
-      work = this.#core.applyExtractorPatch(work.instance.id, patch);
+      createdId = work.instance.id;
+      work = this.#core.appendSourceEvents(
+        work.instance.id,
+        this.#sourceInputs(events),
+      ).work;
+      work = await this.#artifacts.attach(work, events);
+      const allowCloud = this.#cloudExtractionEnabledFor(
+        sourceWork.instance.id,
+      );
+      const patch = await this.#extractor(allowCloud).extract({
+        previousState: work.state,
+        events: work.sourceArchive,
+      });
+      this.#core.applyExtractorPatch(work.instance.id, patch);
       if (allowCloud) this.#cloudExtractionWorkIds.add(work.instance.id);
-      this.#selectedWorkId = work.instance.id;
-      this.#petState = "awake";
-      this.#notice = `已从指定消息创建新的 WorkInstance，并归档后续 ${work.sourceArchive.length} 条记录。`;
+      this.#notice = "已从指定消息创建新的工作记录。";
       return this.dashboard(work.instance.id);
     } catch (error) {
-      if (createdWorkId) this.#core.deleteWorkPermanently(createdWorkId, { confirmation: createdWorkId });
-      if (stoppedCapture && sourceWork.activeEpisode && sourceWork.activeBinding) {
-        this.#core.startExecutionEpisode(sourceWork.instance.id, {
-          executor: sourceWork.activeEpisode.executor,
-          environment: sourceWork.activeEpisode.environment,
-          source: {
-            adapter: sourceWork.activeBinding.adapter,
-            conversationId: sourceWork.activeBinding.conversationId
-          }
+      if (createdId)
+        this.#core.deleteWorkPermanently(createdId, {
+          confirmation: createdId,
         });
-      }
+      this.#restoreBinding(sourceWork);
       throw error;
     }
   }
-
+  async #readBoundWork(workId: string): Promise<{
+    work: WorkSnapshot;
+    newEvents: NormalizedSourceEvent[];
+  } | null> {
+    const current = this.#requireWork(workId),
+      binding = current.activeBinding;
+    if (
+      current.instance.status !== "OPEN" ||
+      !binding ||
+      /^(pending|waiting):/.test(binding.conversationId)
+    )
+      return null;
+    const thread = await this.#executors
+      .get(binding.adapter)
+      .source.readThread(binding.conversationId);
+    const latest = this.#core.getWork(workId);
+    if (
+      !latest ||
+      latest.instance.status !== "OPEN" ||
+      latest.activeBinding?.id !== binding.id
+    )
+      return null;
+    if (thread.threadId !== binding.conversationId)
+      throw new Error("来源会话身份不一致，已拒绝同步");
+    const adapter = this.#executors.get(binding.adapter);
+    return this.#ingestDelta(
+      latest,
+      adapter.reconcileHistory?.(thread, latest.sourceArchive) ?? thread,
+    );
+  }
   async refreshWork(workId: string): Promise<DashboardView> {
-    let current = this.#requireWork(workId);
-    if (current.instance.status !== "OPEN") {
-      this.#notice = "已完成或归档的工作不会自动写入；请先明确继续原工作。";
+    await this.#artifacts.verify(this.#requireWork(workId));
+    const result = await this.#readBoundWork(workId);
+    if (!result) {
+      this.#notice = "当前没有可同步的活动来源。";
       return this.dashboard(workId);
     }
-    current = await this.#artifacts.verify(current);
-    const codexBinding = [...current.bindings].reverse().find((binding) => binding.adapter === "codex");
-    if (!codexBinding || current.activeBinding?.adapter !== "codex") {
-      this.#notice = "当前执行片段不在 Codex；WorkBuddy 的增量由插件 Hook 写回。";
-      return this.dashboard(workId);
-    }
-    this.#petState = "carrying";
-    const thread = await this.#codex.readThread(codexBinding.conversationId);
-    let { work, newEvents } = await this.#ingestCodexDelta(current, thread);
+    const { work, newEvents } = result;
     if (newEvents.length) {
-      const patch = await this.#extractor(this.#cloudExtractionEnabledFor(workId)).extract({ previousState: current.state, events: this.#sourceInputs(newEvents) });
-      work = this.#core.applyExtractorPatch(workId, patch);
+      const patch = await this.#extractor(
+        this.#cloudExtractionEnabledFor(workId),
+      ).extract({
+        previousState: work.state,
+        events: this.#sourceInputs(newEvents),
+      });
+      const current = this.#core.getWork(workId);
+      if (
+        current?.instance.status === "OPEN" &&
+        current.activeBinding?.id === work.activeBinding?.id
+      )
+        this.#core.applyExtractorPatch(workId, patch);
     }
-    this.#petState = "awake";
-    this.#notice = newEvents.length ? `新增 ${newEvents.length} 条记录。` : "没有发现新内容。";
-    return this.dashboard(work.instance.id);
+    this.#notice = newEvents.length
+      ? `新增 ${newEvents.length} 条记录。`
+      : "没有发现新内容。";
+    return this.dashboard(workId);
   }
-
-  async syncCodexHook(payload: Record<string, unknown>): Promise<{ accepted: boolean; appendedCount: number }> {
-    const threadId = typeof payload.session_id === "string" ? payload.session_id : null;
-    if (!threadId) return { accepted: false, appendedCount: 0 };
-    let current = this.#core.findWorkByBinding("codex", threadId);
-    if (!current || current.instance.status !== "OPEN" || current.activeBinding?.adapter !== "codex") {
-      return { accepted: false, appendedCount: 0 };
-    }
-    const thread = await this.#codex.readThread(threadId);
-    const bindingId = current.activeBinding.id;
-    current = this.#core.getWork(current.instance.id);
-    if (!current || current.instance.status !== "OPEN" || current.activeBinding?.id !== bindingId) {
-      return { accepted: false, appendedCount: 0 };
-    }
-    const { work, newEvents } = await this.#ingestCodexDelta(current, thread);
-    if (!newEvents.length) return { accepted: true, appendedCount: 0 };
-    this.#notice = `Codex 已增量归档 ${newEvents.length} 条记录；Work State 将在查看、刷新或交接时更新。`;
-    return { accepted: true, appendedCount: newEvents.length };
-  }
-
-  async syncRecordedCodexWorks(): Promise<void> {
-    const bindings = this.#core.listWorks("OPEN")
-      .flatMap((work) => work.activeBinding?.adapter === "codex" ? [work.activeBinding] : []);
-    for (const binding of bindings) {
-      try {
-        await this.syncCodexHook({ session_id: binding.conversationId });
-      } catch (error) {
-        this.#notice = `部分 Codex 记录暂未同步，将自动重试：${error instanceof Error ? error.message : String(error)}`;
+  async syncHook(
+    executorId: string,
+    payload: Record<string, unknown>,
+  ): Promise<{
+    accepted: boolean;
+    appendedCount: number;
+    workInstanceId?: string;
+  }> {
+    this.#executors.get(executorId);
+    const id =
+      typeof payload.session_id === "string" ? payload.session_id : null;
+    if (!id) return { accepted: false, appendedCount: 0 };
+    let work = this.#core.findWorkByBinding(executorId, id);
+    if (
+      !work &&
+      payload.hook_event_name === "UserPromptSubmit" &&
+      typeof payload.prompt === "string"
+    ) {
+      const marker = payload.prompt.match(/\[WORKPET:([a-zA-Z0-9-]+)\]/u)?.[1];
+      const deliveryId = payload.prompt.match(
+        /\[DELIVERY:([a-zA-Z0-9-]+)\]/u,
+      )?.[1];
+      const candidate = marker ? this.#core.getWork(marker) : null;
+      const binding = candidate?.activeBinding;
+      if (
+        candidate?.instance.status === "OPEN" &&
+        binding?.adapter === executorId &&
+        binding.conversationId === `pending:${deliveryId}`
+      ) {
+        work = this.#core.bindConversation(
+          candidate.instance.id,
+          executorId,
+          binding.conversationId,
+          id,
+        );
+        this.#core.definitions.db
+          .prepare(
+            "UPDATE pending_dispatches SET status='BOUND' WHERE work_id=?",
+          )
+          .run(work.instance.id);
       }
     }
+    if (
+      !work ||
+      work.instance.status !== "OPEN" ||
+      work.activeBinding?.adapter !== executorId ||
+      work.activeBinding.conversationId !== id
+    )
+      return { accepted: false, appendedCount: 0 };
+    const result = await this.#readBoundWork(work.instance.id);
+    return {
+      accepted: !!result,
+      appendedCount: result?.newEvents.length ?? 0,
+      workInstanceId: work.instance.id,
+    };
   }
-
-  async syncWorkBuddyHook(payload: Record<string, unknown>): Promise<HookIngestResult> {
-    const works = this.#core.listWorks();
-    const knownEventIds = new Map(
-      works.map((work) => [work.instance.id, new Set(work.sourceArchive.map((event) => event.externalId))])
+  async syncRecordedWorks(): Promise<void> {
+    const works = this.#core
+      .listWorks("OPEN")
+      .filter(
+        (work) =>
+          work.activeBinding &&
+          !/^(pending|waiting):/.test(work.activeBinding.conversationId),
+      );
+    await Promise.all(
+      works.map(async (work) => {
+        try {
+          await this.#readBoundWork(work.instance.id);
+        } catch (error) {
+          this.#notice = `部分记录暂未同步，将自动重试：${String(error)}`;
+        }
+      }),
     );
-    const result = await this.#workBuddyHooks.ingest(payload);
-    if (!result.accepted || !result.workInstanceId) return result;
-    const work = this.#core.getWork(result.workInstanceId);
-    if (!work) return result;
-    const previous = works.find((candidate) => candidate.instance.id === result.workInstanceId);
-    if (previous && captureStatus(previous) === "waiting" && captureStatus(work) === "recording") {
-      this.#notice = "已识别 WorkBuddy 聊天，正在记录。";
-    }
-    if (!result.appendedCount) return result;
-    const known = knownEventIds.get(result.workInstanceId) ?? new Set<string>();
-    const newEvents = work.sourceArchive.filter((event) => !known.has(event.externalId));
-    if (!newEvents.length) return result;
-    const patch = await this.#extractor(this.#cloudExtractionEnabledFor(result.workInstanceId)).extract({
-      previousState: work.state,
-      events: this.#sourceInputs(newEvents)
-    });
-    this.#core.applyExtractorPatch(result.workInstanceId, patch);
-    return result;
   }
-
   dashboard(workId?: string): DashboardView {
     if (workId) this.#selectedWorkId = workId;
     const works = this.#core.listWorks();
-    if (this.#selectedWorkId && !works.some((work) => work.instance.id === this.#selectedWorkId)) {
+    if (
+      this.#selectedWorkId &&
+      !works.some((work) => work.instance.id === this.#selectedWorkId)
+    )
       this.#selectedWorkId = works[0]?.instance.id ?? null;
-    }
-    const selected = this.#selectedWorkId ? this.#core.getWork(this.#selectedWorkId) : null;
+    const selected = this.#selectedWorkId
+      ? this.#core.getWork(this.#selectedWorkId)
+      : null;
     return {
       petState: this.#globalPetState(),
       selectedWorkId: this.#selectedWorkId,
       works: works.map((work) => this.#summary(work)),
       selectedWork: selected ? this.#detail(selected) : null,
-      notice: this.#notice
+      notice: this.#notice,
+      ...(this.#sourceSelection
+        ? { sourceSelection: this.#sourceSelection }
+        : {}),
     };
   }
-
   async dashboardWithVerification(workId?: string): Promise<DashboardView> {
     if (workId) this.#selectedWorkId = workId;
-    const { context } = await this.#resolveForegroundContext().catch(() => ({ context: null }));
-    if (context?.adapter === "codex" && context.conversationId && context.applicationTitle) {
-      const currentWorkId = this.#workIdForContext(context);
-      if (currentWorkId) {
-        this.#synchronizeCodexObjective(currentWorkId, context.conversationId, context.applicationTitle);
-      }
+    const context = await this.#resolveForegroundContext().catch(() => null);
+    if (context?.conversationId && context.applicationTitle) {
+      const work = this.#core.findWorkByBinding(
+        context.adapter,
+        context.conversationId,
+      );
+      if (work)
+        this.#synchronizeObjective(
+          work.instance.id,
+          context.adapter,
+          context.conversationId,
+          context.applicationTitle,
+        );
     }
     if (this.#selectedWorkId) {
       const selected = this.#core.getWork(this.#selectedWorkId);
@@ -475,87 +564,157 @@ export class AppService {
     }
     return this.dashboard();
   }
-
   completeWork(workId: string): DashboardView {
     this.#core.completeWork(workId);
-    this.#petState = "sleeping";
     this.#notice = "工作已完成，自动写入已停止。";
     return this.dashboard(workId);
   }
-
   archiveWork(workId: string): DashboardView {
     this.#core.archiveWork(workId);
-    this.#petState = "sleeping";
     this.#notice = "工作已归档。";
     return this.dashboard(workId);
   }
-
   resumeWork(workId: string): DashboardView {
-    const work = this.#requireWork(workId);
-    const codex = [...work.bindings].reverse().find((binding) => binding.adapter === "codex");
-    if (!codex) throw new Error("没有可继续的 Codex 来源对话");
+    const work = this.#requireWork(workId),
+      binding = work.bindings.findLast(
+        (binding) => !/^(pending|waiting):/.test(binding.conversationId),
+      );
+    if (!binding || /^(pending|waiting):/.test(binding.conversationId))
+      throw new Error("没有已确认的来源，请选择执行者交接。");
+    const adapter = this.#executors.get(binding.adapter);
     this.#core.resumeWork(workId, {
-      executor: { type: "AGENT", name: "Codex" },
-      environment: { type: "CODEX_DESKTOP", name: "Codex Desktop" },
-      source: { adapter: "codex", conversationId: codex.conversationId }
+      executor: { type: "AGENT", name: adapter.name },
+      environment: adapter.environment,
+      source: { adapter: adapter.id, conversationId: binding.conversationId },
     });
-    this.#petState = "awake";
-    this.#notice = "已继续原 WorkInstance，并创建新的 Codex ExecutionEpisode。";
+    this.#notice = "已继续原工作，并恢复原执行者的记录。";
     return this.dashboard(workId);
   }
-
-  async handoffToWorkBuddy(workId: string): Promise<DashboardView> {
-    let current = await this.#artifacts.verify(this.#requireWork(workId));
-    if (current.activeBinding?.adapter === "codex") {
-      try { await this.refreshWork(workId); } catch { this.#notice = "最新整理不可用；交接使用已保存状态，可能不含最新消息。"; }
-    }
-    current = this.#requireWork(workId);
-    const sourceEpisode = current.activeEpisode;
-    const sourceBinding = current.activeBinding;
-    const handoff = this.#core.createHandoffPackage(workId);
-    const pendingConversationId = `pending:${handoff.id}`;
-    this.#core.startExecutionEpisode(workId, {
-      executor: { type: "AGENT", name: "WorkBuddy" },
-      environment: { type: "WORKBUDDY_DESKTOP", name: "WorkBuddy Desktop" },
-      source: { adapter: "workbuddy", conversationId: pendingConversationId },
-      endCurrentEpisode: true
-    });
-    let prompt = buildWorkBuddyBootstrap({
-      workId,
-      title: handoff.currentTask ?? "未命名工作",
-      currentTask: handoff.currentTask ?? "",
-      nextStep: handoff.nextStep ?? "",
-      artifactPaths: handoff.neededArtifacts.filter((artifact) => artifact.availability !== "MISSING").map((artifact) => artifact.path)
-    });
-    if (process.env.WORKPET_QA_PROOF_TOKEN) {
-      prompt += "\n\n本次为桌面闭环验收：请在成功调用 get_work_context 后，把返回字段 qaProofToken 的值原样放进可见回复；不要猜测该值。";
-    }
-    this.#petState = "carrying";
+  async handoff(workId: string, executorId: string): Promise<DashboardView> {
+    if (this.#handoffs.has(workId))
+      throw new Error("这项工作正在交接，请等待本次结果。");
+    const adapter = this.#executors.get(executorId);
+    if (!adapter.deliver) throw new Error("该执行者尚不支持接收工作。");
+    const initial = this.#requireWork(workId);
+    if (initial.instance.status !== "OPEN") throw new Error("请先继续原工作。");
+    if (initial.activeBinding?.conversationId.startsWith("pending:"))
+      throw new Error("上次交付尚未确认，请先检查目标执行者。");
+    this.#handoffs.add(workId);
     try {
-      await this.#launcher.openNewConversation(buildWorkBuddyDeepLink(prompt));
-    } catch (error) {
-      this.#core.stopCapture(workId);
-      if (sourceEpisode && sourceBinding) {
-        this.#core.startExecutionEpisode(workId, {
-          executor: sourceEpisode.executor,
-          environment: sourceEpisode.environment,
-          source: { adapter: sourceBinding.adapter, conversationId: sourceBinding.conversationId },
-          endCurrentEpisode: true
+      await adapter.inspect();
+      if (initial.activeBinding && captureStatus(initial) === "recording")
+        await this.refreshWork(workId);
+      let current = await this.#artifacts.verify(this.#requireWork(workId));
+      if (
+        current.instance.status !== "OPEN" ||
+        current.activeBinding?.id !== initial.activeBinding?.id
+      )
+        throw new Error("工作状态已改变，未进行交接。");
+      const handoff = this.#core.createHandoffPackage(workId);
+      const pkg = buildWorkPackage(current, this.#core.definitions);
+      const pending = `pending:${handoff.id}`;
+      this.#core.startExecutionEpisode(workId, {
+        executor: { type: "AGENT", name: adapter.name },
+        environment: adapter.environment,
+        source: { adapter: adapter.id, conversationId: pending },
+        endCurrentEpisode: true,
+      });
+      try {
+        const prompt = `[WORKPET:${workId}]\n[DELIVERY:${handoff.id}]\n${pkg.purpose === "START" ? "请开展这项新工作" : "请接手同一项工作"}。以下是用户交付的工作包和当前状态，请按要求继续，完成后等待用户验收。\n${JSON.stringify({ workPackage: pkg, handoff })}`;
+        const receipt = await adapter.deliver({
+          workId,
+          deliveryId: handoff.id,
+          purpose: pkg.purpose,
+          title: handoff.currentTask ?? current.definition.name,
+          prompt,
         });
+        const latest = this.#requireWork(workId);
+        if (
+          receipt.conversationId &&
+          latest.activeBinding?.conversationId === pending
+        )
+          this.#core.bindConversation(
+            workId,
+            executorId,
+            pending,
+            receipt.conversationId,
+          );
+        this.#notice = receipt.conversationId
+          ? `已交给 ${adapter.name}，后续继续记录在同一项工作中。`
+          : `已打开 ${adapter.name}，等待确认目标会话。${receipt.guidance ?? ""}`;
+      } catch (error) {
+        this.#core.stopCapture(workId);
+        this.#restoreBinding(current);
+        this.#notice = `${adapter.name} 未能启动，${current.activeBinding ? "已恢复原来源记录" : "未保留活动的待确认绑定"}。${String(error)}`;
+        throw error;
       }
-      this.#petState = "alert";
-      this.#notice = sourceEpisode && sourceBinding
-        ? `WorkBuddy 未能启动，已恢复原来源记录。${error instanceof Error ? ` ${error.message}` : ""}`
-        : `WorkBuddy 未能启动，未保留虚假的执行片段。${error instanceof Error ? ` ${error.message}` : ""}`;
       return this.dashboard(workId);
+    } finally {
+      this.#handoffs.delete(workId);
     }
-    this.#petState = "awake";
-    this.#notice = "已唤起 WorkBuddy 接力任务。请在对应聊天中发送一条消息，识别到聊天后会开始记录。";
+  }
+  cancelHandoff(workId: string, confirmation: string): DashboardView {
+    if (confirmation !== "已确认未接手")
+      throw new Error("请先确认目标执行者尚未接手。");
+    if (this.#handoffs.has(workId))
+      throw new Error("交接仍在打开目标应用，请稍后重试。");
+    const work = this.#requireWork(workId);
+    const legacyPending =
+      !work.activeBinding &&
+      this.#core.definitions.db
+        .prepare(
+          "SELECT work_id FROM pending_dispatches WHERE work_id=? AND status IN ('STARTING','WAITING')",
+        )
+        .get(workId);
+    if (
+      !work.activeBinding?.conversationId.startsWith("pending:") &&
+      !legacyPending
+    )
+      throw new Error("交接已确认或已取消，请刷新记录。");
+    this.#core.stopCapture(workId);
+    const previous = work.bindings.findLast(
+      (binding) => !/^(pending|waiting):/.test(binding.conversationId),
+    );
+    const episode = work.episodes.find(
+      (episode) => episode.id === previous?.episodeId,
+    );
+    if (previous && episode && work.instance.status === "OPEN")
+      this.#core.startExecutionEpisode(workId, {
+        executor: episode.executor,
+        environment: episode.environment,
+        source: {
+          adapter: previous.adapter,
+          conversationId: previous.conversationId,
+        },
+        endCurrentEpisode: true,
+      });
+    this.#core.definitions.db
+      .prepare(
+        "UPDATE pending_dispatches SET status='FAILED',read_at=NULL WHERE work_id=?",
+      )
+      .run(workId);
+    this.#notice =
+      "已取消未确认的交接。原来源存在时已恢复记录；目标应用中的草稿请自行关闭。";
     return this.dashboard(workId);
   }
-
+  #restoreBinding(work: WorkSnapshot): void {
+    if (work.activeBinding && work.activeEpisode)
+      this.#core.startExecutionEpisode(work.instance.id, {
+        executor: work.activeEpisode.executor,
+        environment: work.activeEpisode.environment,
+        source: {
+          adapter: work.activeBinding.adapter,
+          conversationId: work.activeBinding.conversationId,
+          ...(work.activeBinding.sourceLocator
+            ? { sourceLocator: work.activeBinding.sourceLocator }
+            : {}),
+        },
+        endCurrentEpisode: true,
+      });
+  }
   deleteWork(workId: string, confirmation: string): DashboardView {
-    if (confirmation !== "永久删除") throw new Error("请输入“永久删除”进行二次确认");
+    if (confirmation !== "永久删除")
+      throw new Error("请输入“永久删除”进行二次确认");
     this.#core.deleteWorkPermanently(workId, { confirmation: workId });
     this.#cloudExtractionWorkIds.delete(workId);
     this.#selectedWorkId = null;
@@ -569,7 +728,7 @@ export class AppService {
   }
 
   close(): void {
-    this.#codex.close();
+    this.#executors.close();
     this.#core.close();
   }
 
@@ -578,8 +737,9 @@ export class AppService {
     if (allowCloud && key) {
       return new OpenAICompatibleExtractor({
         apiKey: key,
-        baseUrl: process.env.WORKPET_LLM_BASE_URL ?? "https://api.openai.com/v1",
-        model: process.env.WORKPET_LLM_MODEL ?? "gpt-5.4-mini"
+        baseUrl:
+          process.env.WORKPET_LLM_BASE_URL ?? "https://api.openai.com/v1",
+        model: process.env.WORKPET_LLM_MODEL ?? "gpt-5.4-mini",
       });
     }
     return new LocalRuleExtractor();
@@ -590,116 +750,116 @@ export class AppService {
   }
 
   #cloudExtractionEnabledFor(workId: string): boolean {
-    return this.#cloudExtractionWorkIds.has(workId) || this.#cloudExtractionIsEnabled();
-  }
-
-  #workIdForContext(context: CurrentApplicationContext): string | null {
-    if (context.adapter === "codex" && context.conversationId) {
-      return this.#core.findWorkByBinding("codex", context.conversationId)?.instance.id ?? null;
-    }
-    if (context.adapter !== "workbuddy") return null;
-    if (!context.windowTitle?.trim()) {
-      // WorkBuddy 5.4.7 不暴露聊天标题，因此这里只表达应用级的单一活动记录，
-      // 不声称已经取得当前聊天的会话级匹配证据。
-      const activeWorks = this.#core.listWorks("OPEN").filter(hasCurrentWorkBuddyBinding);
-      return activeWorks.length === 1 ? activeWorks[0]?.instance.id ?? null : null;
-    }
-    const pending = this.#core.listWorks("OPEN").find((work) => {
-      const conversationId = work.activeBinding?.adapter === "workbuddy" ? work.activeBinding.conversationId : "";
-      return matchesPendingWorkBuddyWindow(conversationId, context.windowTitle);
-    });
-    if (pending) return pending.instance.id;
-    const located = this.#core.findWorkBySourceLocator(
-      "workbuddy",
-      createWorkBuddyWindowLocator(context.windowTitle)
-    );
-    if (
-      located?.activeBinding
-      && workBuddyPendingCaptureState(located.activeBinding.conversationId) !== "NOT_PENDING"
-    ) return null;
-    return located?.instance.id ?? null;
-  }
-
-  #isContextActivelyRecorded(work: WorkSnapshot, context: CurrentApplicationContext): boolean {
-    if (captureStatus(work) !== "recording") return false;
-    const binding = work.activeBinding;
-    if (work.instance.status !== "OPEN" || !binding || binding.adapter !== context.adapter) return false;
-    if (context.adapter === "codex") {
-      return Boolean(context.conversationId && binding.conversationId === context.conversationId);
-    }
-    if (!context.windowTitle?.trim()) {
-      return workBuddyPendingCaptureState(binding.conversationId) !== "EXPIRED";
-    }
-    return Boolean(
-      context.windowTitle?.trim()
-      && binding.sourceLocator === createWorkBuddyWindowLocator(context.windowTitle)
+    return (
+      this.#cloudExtractionWorkIds.has(workId) ||
+      this.#cloudExtractionIsEnabled()
     );
   }
 
-  #synchronizeCodexObjective(workId: string, threadId: string, applicationTitle: string): void {
+  #synchronizeObjective(
+    workId: string,
+    executorId: string,
+    threadId: string,
+    applicationTitle: string,
+  ): void {
     let work = this.#requireWork(workId);
-    if (work.definition.kind === "REUSABLE") return;
-    const existingTitleEvent = work.sourceArchive.findLast((event) => event.kind === "conversation.title");
+    if (
+      work.definition.kind === "REUSABLE" ||
+      work.episodes[0]?.id !== work.activeEpisode?.id
+    )
+      return;
+    const existingTitleEvent = work.sourceArchive.findLast(
+      (event) => event.kind === "conversation.title",
+    );
     const firstPromptSequence = work.sourceArchive
       .filter((event) => event.kind === "user.prompt")
-      .reduce<number | null>((first, event) => first === null ? event.sequence : Math.min(first, event.sequence), null);
+      .reduce<number | null>(
+        (first, event) =>
+          first === null ? event.sequence : Math.min(first, event.sequence),
+        null,
+      );
     if (!existingTitleEvent && firstPromptSequence !== 1) return;
-    const titleEvent = this.#codexTitleEvent(
+    const titleEvent = this.#titleEvent(
+      executorId,
       threadId,
       applicationTitle,
-      new Date().toISOString()
+      new Date().toISOString(),
     );
-    if (work.sourceArchive.some((event) => event.externalId === titleEvent.externalId)) {
-      this.#applyCodexObjective(work, titleEvent);
+    if (
+      work.sourceArchive.some(
+        (event) => event.externalId === titleEvent.externalId,
+      )
+    ) {
+      this.#applyObjective(work, titleEvent);
       return;
     }
     if (
-      work.instance.status !== "OPEN"
-      || work.activeBinding?.adapter !== "codex"
-      || work.activeBinding.conversationId !== threadId
-    ) return;
+      work.instance.status !== "OPEN" ||
+      work.activeBinding?.adapter !== executorId ||
+      work.activeBinding.conversationId !== threadId
+    )
+      return;
     work = this.#core.appendSourceEvents(workId, [titleEvent]).work;
-    this.#applyCodexObjective(work, titleEvent);
+    this.#applyObjective(work, titleEvent);
   }
 
-  #codexTitleEvent(threadId: string, title: string, timestamp: string): SourceEventInput {
+  #titleEvent(
+    executorId: string,
+    threadId: string,
+    title: string,
+    timestamp: string,
+  ): SourceEventInput {
     const normalizedTitle = title.trim();
-    const titleHash = createHash("sha256").update(normalizedTitle).digest("hex").slice(0, 16);
+    const titleHash = createHash("sha256")
+      .update(normalizedTitle)
+      .digest("hex")
+      .slice(0, 16);
     return {
-      externalId: `codex-conversation-title:${threadId}:${titleHash}`,
+      externalId: `${executorId}-conversation-title:${threadId}:${titleHash}`,
       sequence: 0,
       kind: "conversation.title",
       content: normalizedTitle,
       timestamp,
       executorType: "AGENT",
-      environmentType: "CODEX_DESKTOP",
-      metadata: { source: "codex.thread.name" },
-      artifactRefs: []
+      environmentType: this.#executors.get(executorId).environment.type,
+      metadata: { source: `${executorId}.thread.name` },
+      artifactRefs: [],
     };
   }
 
-  #applyCodexObjective(work: WorkSnapshot, titleEvent: SourceEventInput): WorkSnapshot {
+  #applyObjective(
+    work: WorkSnapshot,
+    titleEvent: SourceEventInput,
+  ): WorkSnapshot {
     const existingObjective = work.state.objective[0];
-    if (existingObjective?.origin === "USER_EDITED" || !titleEvent.content?.trim()) return work;
     if (
-      existingObjective?.text === titleEvent.content
-      && existingObjective.origin === "SYSTEM_INFERRED"
-      && existingObjective.sourceMessageIds.length === 1
-      && existingObjective.sourceMessageIds[0] === titleEvent.externalId
+      existingObjective?.origin === "USER_EDITED" ||
+      !titleEvent.content?.trim()
+    )
+      return work;
+    if (
+      existingObjective?.text === titleEvent.content &&
+      existingObjective.origin === "SYSTEM_INFERRED" &&
+      existingObjective.sourceMessageIds.length === 1 &&
+      existingObjective.sourceMessageIds[0] === titleEvent.externalId
     ) {
       return work;
     }
     return this.#core.applyExtractorPatch(work.instance.id, {
-      objective: [{
-        id: existingObjective?.id ?? `codex-objective:${work.instance.id}`,
-        text: titleEvent.content,
-        origin: "SYSTEM_INFERRED",
-        sourceMessageIds: [titleEvent.externalId]
-      }]
+      objective: [
+        {
+          id: existingObjective?.id ?? `work-objective:${work.instance.id}`,
+          text: titleEvent.content,
+          origin: "SYSTEM_INFERRED",
+          sourceMessageIds: [titleEvent.externalId],
+        },
+      ],
     });
   }
 
-  #sourceInputs(events: Array<NormalizedSourceEvent | SourceEventInput | SourceEvent>): SourceEventInput[] {
+  #sourceInputs(
+    events: Array<NormalizedSourceEvent | SourceEventInput | SourceEvent>,
+  ): SourceEventInput[] {
     return events.map((event) => ({
       externalId: event.externalId,
       sequence: event.sequence,
@@ -709,16 +869,37 @@ export class AppService {
       executorType: event.executorType,
       environmentType: event.environmentType,
       metadata: event.metadata ?? {},
-      artifactRefs: "artifactRefs" in event ? event.artifactRefs : []
+      artifactRefs: "artifactRefs" in event ? event.artifactRefs : [],
     }));
   }
 
-  async #ingestCodexDelta(current: WorkSnapshot, thread: NormalizedThread): Promise<{ work: WorkSnapshot; newEvents: NormalizedSourceEvent[] }> {
-    const known = new Set(current.sourceArchive.map((event) => event.externalId));
-    const captureStart = thread.events.findIndex((event) => known.has(event.externalId));
-    const captureScope = captureStart === -1 ? thread.events : thread.events.slice(captureStart);
-    const newEvents = captureScope.filter((event) => !known.has(event.externalId));
-    let work = this.#core.appendSourceEvents(current.instance.id, this.#sourceInputs(newEvents)).work;
+  async #ingestDelta(
+    current: WorkSnapshot,
+    thread: NormalizedThread,
+  ): Promise<{ work: WorkSnapshot; newEvents: NormalizedSourceEvent[] }> {
+    const known = new Set(
+      current.sourceArchive.map((event) => event.externalId),
+    );
+    const captureStart = thread.events.findIndex((event) =>
+      known.has(event.externalId),
+    );
+    const captureScope =
+      captureStart === -1 ? thread.events : thread.events.slice(captureStart);
+    const maxSequence = Math.max(
+      0,
+      ...current.sourceArchive.map((event) => event.sequence),
+    );
+    const newEvents = captureScope
+      .filter((event) => !known.has(event.externalId))
+      .map((event, index) => ({
+        ...event,
+        sequence: maxSequence + index + 1,
+        metadata: { ...event.metadata, sourceSequence: event.sequence },
+      }));
+    let work = this.#core.appendSourceEvents(
+      current.instance.id,
+      this.#sourceInputs(newEvents),
+    ).work;
     work = await this.#artifacts.attach(work, newEvents);
     return { work, newEvents };
   }
@@ -730,7 +911,8 @@ export class AppService {
   }
 
   #globalPetState(): DashboardView["petState"] {
-    if (this.#petState === "carrying" || this.#petState === "alert") return this.#petState;
+    if (this.#petState === "carrying" || this.#petState === "alert")
+      return this.#petState;
     const statuses = this.#core.listWorks("OPEN").map(captureStatus);
     if (statuses.includes("recording")) return "awake";
     if (statuses.includes("waiting")) return "waiting";
@@ -740,21 +922,31 @@ export class AppService {
   #summary(work: WorkSnapshot): WorkSummaryView {
     return {
       id: work.instance.id,
-      agentName: (work.activeEpisode ?? work.episodes.at(-1))?.executor.name ?? (work.definition.kind === "REUSABLE" ? "尚未交给执行者" : "未知 Agent"),
+      agentName:
+        (work.activeEpisode ?? work.episodes.at(-1))?.executor.name ??
+        (work.definition.kind === "REUSABLE" ? "尚未交给执行者" : "未知 Agent"),
       title: work.state.objective[0]?.text ?? "未命名工作",
       status: work.instance.status,
       captureStatus: captureStatus(work),
       updatedAt: work.instance.updatedAt,
       eventCount: work.sourceArchive.length,
       artifactCount: work.artifactRefs.length,
-      episodeCount: work.episodes.length
+      episodeCount: work.episodes.length,
     };
   }
 
   #detail(work: WorkSnapshot): WorkDetailView {
-    const dispatch = this.#core.definitions.db.prepare("SELECT status,read_at FROM pending_dispatches WHERE work_id=?").get(work.instance.id);
+    const dispatch = this.#core.definitions.db
+      .prepare("SELECT status,read_at FROM pending_dispatches WHERE work_id=?")
+      .get(work.instance.id);
     return {
-      ...(work.definition.kind === "REUSABLE" ? { reusableDefinitionId: work.definition.id, dispatchStatus: String(dispatch?.status ?? "NOT_DISPATCHED"), dispatchReadAt: dispatch?.read_at as string | null ?? null } : {}),
+      ...(work.definition.kind === "REUSABLE"
+        ? {
+            reusableDefinitionId: work.definition.id,
+            dispatchStatus: String(dispatch?.status ?? "NOT_DISPATCHED"),
+            dispatchReadAt: (dispatch?.read_at as string | null) ?? null,
+          }
+        : {}),
       ...this.#summary(work),
       state: work.state,
       episodes: work.episodes.map((episode) => ({
@@ -763,15 +955,15 @@ export class AppService {
         environment: episode.environment.name,
         status: episode.status,
         startedAt: episode.startedAt,
-        endedAt: episode.endedAt
+        endedAt: episode.endedAt,
       })),
       bindings: work.bindings.map((binding) => ({
         id: binding.id,
         episodeId: binding.episodeId,
         adapter: binding.adapter,
         conversationId: binding.conversationId,
-        status: binding.status
-      }))
+        status: binding.status,
+      })),
     };
   }
 }

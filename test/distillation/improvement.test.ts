@@ -133,7 +133,7 @@ test("desktop collection: opted source, original candidate, edits, publication; 
   client.uploadSample = async (v: any) => remote.receive("alice", v);
   client.deleteSample = async (id: string) => remote.delete(remote.key("alice", id));
   const app: any = { core: () => core, dashboard: (id: string) => core.getWork(id) };
-  const desktop = new DistillationDesktop(app, client, {} as any);
+  const desktop = new DistillationDesktop(app, client);
   try {
     const snapshot: any = await desktop.call("prepare", { workIds: [work.instance.id], includedFileIds: [] });
     const job: any = await desktop.call("start", { preparationId: snapshot.id, expectedContentHash: snapshot.contentHash, consentVersion: "worket-data-v1", improvementConsentVersion: IMPROVEMENT_POLICY.version, commandId: "start-1" });

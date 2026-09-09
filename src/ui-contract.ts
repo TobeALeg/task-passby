@@ -6,15 +6,20 @@ export const WORK_STATE_LABELS = {
   decisions: "决定",
   completedActions: "已完成",
   pendingActions: "下一步",
-  artifacts: "资料与产物"
+  artifacts: "资料与产物",
 } as const;
 
 export type WorkStateField = keyof typeof WORK_STATE_LABELS;
 export type WorkStatus = "OPEN" | "COMPLETED" | "ARCHIVED";
 export type PetState = "sleeping" | "awake" | "waiting" | "carrying" | "alert";
 export type CaptureStatus = "recording" | "waiting" | "stopped";
-export const CAPTURE_STATUS_LABELS = { recording: "正在记录", waiting: "等待发送消息", stopped: "已停止记录" } as const;
-export const CAPTURE_WAITING_GUIDANCE = "尚未开始记录。请在对应的 WorkBuddy 聊天中发送一条消息，识别到该聊天后会自动开始记录。";
+export const CAPTURE_STATUS_LABELS = {
+  recording: "正在记录",
+  waiting: "等待确认",
+  stopped: "已停止记录",
+} as const;
+export const CAPTURE_WAITING_GUIDANCE =
+  "目标执行者尚未确认接手，请检查对应应用中的交付状态。";
 
 export interface StateItemView {
   id: string;
@@ -59,7 +64,17 @@ export interface WorkDetailView extends WorkSummaryView {
   }>;
 }
 
+export interface ExecutorView {
+  id: string;
+  name: string;
+  mark: string;
+  available: boolean;
+  canDeliver: boolean;
+  error?: string;
+}
+
 export interface DashboardView {
+  sourceSelection?: string;
   petState: PetState;
   selectedWorkId: string | null;
   works: WorkSummaryView[];
@@ -68,8 +83,10 @@ export interface DashboardView {
 }
 
 export interface CurrentConversationView {
-  adapter: "codex" | "workbuddy";
-  applicationName: "Codex" | "WorkBuddy";
+  adapter: string;
+  applicationName: string;
+  mark?: string;
+  needsSelection?: boolean;
   title: string;
   workId: string | null;
   workStatus: WorkStatus | null;
@@ -82,7 +99,8 @@ export interface PetView {
   currentConversation: CurrentConversationView | null;
 }
 
-export interface CodexThreadView {
+export interface ConversationView {
+  executorId: string;
   id: string;
   agentName: string;
   title: string | null;
@@ -93,12 +111,12 @@ export interface CodexThreadView {
   workId?: string;
 }
 
-export interface CodexThreadPage {
-  threads: CodexThreadView[];
+export interface ConversationPageView {
+  threads: ConversationView[];
   nextCursor: string | null;
 }
 
-export interface CodexImportPreview extends CodexThreadView {
+export interface ConversationPreview extends ConversationView {
   messageCount: number;
   userPromptCount: number;
   agentResponseCount: number;
@@ -107,17 +125,18 @@ export interface CodexImportPreview extends CodexThreadView {
 }
 
 export interface CreateWorkRequest {
+  executorId: string;
   threadId: string;
   allowCloudExtraction?: boolean;
 }
 
-export interface CodexSplitPointView {
+export interface SplitPointView {
   externalId: string;
   label: string;
   timestamp: string;
 }
 
-export interface CreateWorkFromCodexMessageRequest {
+export interface CreateWorkFromMessageRequest {
   sourceWorkId: string;
   startExternalId: string;
 }
@@ -127,24 +146,44 @@ export interface WorkPetApi {
   chooseDefinitionFile(): Promise<string | null>;
   exportWorkPackage(workId: string): Promise<string | null>;
   copyWorkPackage(workId: string): Promise<void>;
-  configureWorketService(input: {url:string;token:string}): Promise<void>;
+  configureWorketService(input: { url: string; token: string }): Promise<void>;
   recordCurrentContextFromPet(): Promise<DashboardView>;
   getPetView(): Promise<PetView>;
   togglePanelFromPet(): Promise<void>;
   setPetMousePassthrough(ignored: boolean): void;
-  dragPet(phase: "start" | "move" | "end", cursor?: { x: number; y: number }): void;
+  dragPet(
+    phase: "start" | "move" | "end",
+    cursor?: { x: number; y: number },
+  ): void;
   getDashboard(workId?: string): Promise<DashboardView>;
-  listCodexThreads(): Promise<CodexThreadView[]>;
-  listCodexHistory(cursor?: string): Promise<CodexThreadPage>;
-  previewCodexThread(threadId: string): Promise<CodexImportPreview>;
-  createWorkFromCodex(request: CreateWorkRequest): Promise<DashboardView>;
-  listCodexSplitPoints(workId: string): Promise<CodexSplitPointView[]>;
-  createWorkFromCodexMessage(request: CreateWorkFromCodexMessageRequest): Promise<DashboardView>;
+  listExecutors(): Promise<ExecutorView[]>;
+  listConversations(executorId: string): Promise<ConversationView[]>;
+  listRecentConversations(): Promise<{
+    threads: ConversationView[];
+    errors: string[];
+  }>;
+  listConversationHistory(
+    executorId: string,
+    cursor?: string,
+  ): Promise<ConversationPageView>;
+  previewConversation(
+    executorId: string,
+    threadId: string,
+  ): Promise<ConversationPreview>;
+  createWorkFromConversation(
+    request: CreateWorkRequest,
+  ): Promise<DashboardView>;
+  listSplitPoints(workId: string): Promise<SplitPointView[]>;
+  createWorkFromMessage(
+    request: CreateWorkFromMessageRequest,
+  ): Promise<DashboardView>;
+  consumeSourceSelection(): Promise<string | undefined>;
   refreshWork(workId: string): Promise<DashboardView>;
   completeWork(workId: string): Promise<DashboardView>;
   archiveWork(workId: string): Promise<DashboardView>;
   resumeWork(workId: string): Promise<DashboardView>;
-  handoffToWorkBuddy(workId: string): Promise<DashboardView>;
+  cancelHandoff(workId: string, confirmation: string): Promise<DashboardView>;
+  handoff(workId: string, executorId: string): Promise<DashboardView>;
   deleteWork(workId: string, confirmation: string): Promise<DashboardView>;
   onPanelShown(callback: () => void): () => void;
   closePanel(): Promise<void>;

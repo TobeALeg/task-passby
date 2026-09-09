@@ -90,9 +90,9 @@ async function listCandidates() {
   });
   try {
     const candidates = await panel.evaluate(async () => {
-      const threads = await window.workpet.listCodexThreads();
+      const threads = await window.workpet.listConversations("codex");
       const output = [];
-      for (const thread of threads) output.push(await window.workpet.previewCodexThread(thread.id));
+      for (const thread of threads) output.push(await window.workpet.previewConversation("codex", thread.id));
       return output;
     });
     console.log(JSON.stringify(candidates.map((preview) => ({
@@ -134,11 +134,11 @@ try {
   const launched = await launchWorkPet({ bridgePath: defaultBridgePath, dataDirectory: testDirectory, proofToken });
   app = launched.app;
   const panel = launched.panel;
-  const preview = await panel.evaluate((threadId) => window.workpet.previewCodexThread(threadId), selectedThreadId);
+  const preview = await panel.evaluate((threadId) => window.workpet.previewConversation("codex", threadId), selectedThreadId);
   const qualification = qualificationIssues(preview);
   if (qualification.length) throw new Error(`所选 Codex 任务不满足严格验收：${qualification.join("；")}`);
 
-  const imported = await panel.evaluate((threadId) => window.workpet.createWorkFromCodex({ threadId, allowCloudExtraction: false }), selectedThreadId);
+  const imported = await panel.evaluate((threadId) => window.workpet.createWorkFromConversation({executorId: "codex",  threadId, allowCloudExtraction: false }), selectedThreadId);
   const workId = imported.selectedWorkId;
   if (!workId || !imported.selectedWork) throw new Error("Codex 工作没有被记录");
   const refreshedBeforeContinuation = await panel.evaluate((id) => window.workpet.refreshWork(id), workId);
@@ -151,7 +151,7 @@ try {
   }
 
   const beforeWorkBuddy = afterCodexContinuation.selectedWork?.eventCount ?? 0;
-  await panel.evaluate((id) => window.workpet.handoffToWorkBuddy(id), workId);
+  await panel.evaluate((id) => window.workpet.handoff(id, "workbuddy"), workId);
   console.log("已唤起 WorkBuddy 接力任务，无需手动发送；正在等待真实 Conversation、MCP 与 Hook 回写证据。");
 
   const deadline = Date.now() + 10 * 60_000;

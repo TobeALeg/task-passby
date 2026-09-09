@@ -1,22 +1,41 @@
-import { writeFileSync } from 'node:fs';
-import { DistillationDesktop } from './distillation/desktop.js';
-import { WorketAIClient } from './ai-service/client.js';
-import { ServiceCredentials } from './ai-service/credentials.js';
+import { createDefaultExecutors } from "./executors/defaults.js";
+import { writeFileSync } from "node:fs";
+import { DistillationDesktop } from "./distillation/desktop.js";
+import { WorketAIClient } from "./ai-service/client.js";
+import { ServiceCredentials } from "./ai-service/credentials.js";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, screen, clipboard } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  screen,
+  clipboard,
+  shell,
+} from "electron";
 
 import { ElectronWorkBuddyLauncher } from "./adapters/workbuddy/launcher.js";
 import { AppService } from "./app/app-service.js";
 import { WorkPetHttpBridge } from "./bridge/http-bridge.js";
 import { WorkPetMcpHandler } from "./bridge/mcp-handler.js";
 import { IntegrationInstaller } from "./integrations/installer.js";
-import { keepPetVisible, restorePetPosition, savePetPosition } from "./desktop/pet-position.js";
+import {
+  keepPetVisible,
+  restorePetPosition,
+  savePetPosition,
+} from "./desktop/pet-position.js";
 
 let quitting = false;
-let petDrag: { cursor: { x: number; y: number }; x: number; y: number } | null = null;
-const petPositionPath = () => join(process.env.WORKPET_DATA_DIR ?? app.getPath("userData"), "pet-position.json");
+let petDrag: { cursor: { x: number; y: number }; x: number; y: number } | null =
+  null;
+const petPositionPath = () =>
+  join(
+    process.env.WORKPET_DATA_DIR ?? app.getPath("userData"),
+    "pet-position.json",
+  );
 let petWindow: BrowserWindow | null = null;
 let panelWindow: BrowserWindow | null = null;
 let service: AppService | null = null;
@@ -24,21 +43,27 @@ let bridge: WorkPetHttpBridge | null = null;
 let distillation: DistillationDesktop;
 let credentials: ServiceCredentials;
 let distillationTimer: ReturnType<typeof setTimeout> | null = null;
-async function syncDistillations(): Promise<void> { await distillation.service.tick(); if (!quitting) distillationTimer = setTimeout(() => void syncDistillations(), 2000); }
+async function syncDistillations(): Promise<void> {
+  await distillation.service.tick();
+  if (!quitting)
+    distillationTimer = setTimeout(() => void syncDistillations(), 2000);
+}
 let captureTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function syncRecordedWorks(): Promise<void> {
   try {
-    await service?.syncRecordedCodexWorks();
+    await service?.syncRecordedWorks();
   } finally {
-    if (service) captureTimer = setTimeout(() => void syncRecordedWorks(), 5_000);
+    if (service)
+      captureTimer = setTimeout(() => void syncRecordedWorks(), 5_000);
   }
 }
 const PET_WINDOW_WIDTH = 304;
 const PET_WINDOW_HEIGHT = 206;
 
 const hasExplicitUserDataDirectory = process.argv.some(
-  (argument) => argument === "--user-data-dir" || argument.startsWith("--user-data-dir=")
+  (argument) =>
+    argument === "--user-data-dir" || argument.startsWith("--user-data-dir="),
 );
 
 // 展示名称可以更新，但日常启动沿用原目录，避免一次品牌调整让现有本地记录看似消失。
@@ -88,9 +113,17 @@ function createWindows(): void {
     hasShadow: false,
     skipTaskbar: true,
     focusable: false,
-    webPreferences: { preload, contextIsolation: true, nodeIntegration: false, sandbox: true }
+    webPreferences: {
+      preload,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
   });
-  petWindow.on("closed", () => { petWindow = null; petDrag = null; });
+  petWindow.on("closed", () => {
+    petWindow = null;
+    petDrag = null;
+  });
   petWindow.setAlwaysOnTop(true, "floating");
   petWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   petWindow.setIgnoreMouseEvents(true, { forward: true });
@@ -113,43 +146,83 @@ function createWindows(): void {
     resizable: true,
     alwaysOnTop: true,
     backgroundColor: "#f6f2e9",
-    webPreferences: { preload, contextIsolation: true, nodeIntegration: false, sandbox: true }
+    webPreferences: {
+      preload,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
   });
-  panelWindow.on("closed", () => { panelWindow = null; });
+  panelWindow.on("closed", () => {
+    panelWindow = null;
+  });
   panelWindow.setAlwaysOnTop(true, "floating");
   panelWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  panelWindow.loadFile(join(app.getAppPath(), "dist", "renderer", "panel.html"));
+  panelWindow.loadFile(
+    join(app.getAppPath(), "dist", "renderer", "panel.html"),
+  );
 
   const menu = Menu.buildFromTemplate([
     { label: "打开 Worket", click: () => togglePanel() },
     { type: "separator" },
-    { label: "退出", click: () => app.quit() }
+    { label: "退出", click: () => app.quit() },
   ]);
   petWindow.webContents.on("context-menu", () => menu.popup());
 }
 
 function togglePanel(): void {
-  if (quitting || !petWindow || petWindow.isDestroyed() || !panelWindow || panelWindow.isDestroyed()) return;
-  if (panelWindow.isVisible()) { panelWindow.hide(); return; }
+  if (
+    quitting ||
+    !petWindow ||
+    petWindow.isDestroyed() ||
+    !panelWindow ||
+    panelWindow.isDestroyed()
+  )
+    return;
+  if (panelWindow.isVisible()) {
+    panelWindow.hide();
+    return;
+  }
   showPanel();
 }
 
 function showPanel(): void {
-  if (quitting || !petWindow || petWindow.isDestroyed() || !panelWindow || panelWindow.isDestroyed()) return;
+  if (
+    quitting ||
+    !petWindow ||
+    petWindow.isDestroyed() ||
+    !panelWindow ||
+    panelWindow.isDestroyed()
+  )
+    return;
   const petBounds = petWindow.getBounds();
   const panelBounds = panelWindow.getBounds();
-  const display = screen.getDisplayNearestPoint({ x: petBounds.x, y: petBounds.y });
+  const display = screen.getDisplayNearestPoint({
+    x: petBounds.x,
+    y: petBounds.y,
+  });
   const rightX = petBounds.x + petBounds.width + 8;
-  const x = rightX + panelBounds.width <= display.workArea.x + display.workArea.width
-    ? rightX
-    : petBounds.x - panelBounds.width - 8;
+  const x =
+    rightX + panelBounds.width <= display.workArea.x + display.workArea.width
+      ? rightX
+      : petBounds.x - panelBounds.width - 8;
   const y = Math.min(
-    Math.max(display.workArea.y + 8, petBounds.y - panelBounds.height + petBounds.height),
-    display.workArea.y + display.workArea.height - panelBounds.height - 8
+    Math.max(
+      display.workArea.y + 8,
+      petBounds.y - panelBounds.height + petBounds.height,
+    ),
+    display.workArea.y + display.workArea.height - panelBounds.height - 8,
   );
   panelWindow.setPosition(
-    Math.max(display.workArea.x, Math.min(x, display.workArea.x + Math.max(0, display.workArea.width - panelBounds.width))),
-    Math.max(display.workArea.y, y)
+    Math.max(
+      display.workArea.x,
+      Math.min(
+        x,
+        display.workArea.x +
+          Math.max(0, display.workArea.width - panelBounds.width),
+      ),
+    ),
+    Math.max(display.workArea.y, y),
   );
   panelWindow.show();
   panelWindow.focus();
@@ -157,7 +230,14 @@ function showPanel(): void {
 }
 
 function revealApp(): void {
-  if (quitting || !petWindow || petWindow.isDestroyed() || !panelWindow || panelWindow.isDestroyed()) return;
+  if (
+    quitting ||
+    !petWindow ||
+    petWindow.isDestroyed() ||
+    !panelWindow ||
+    panelWindow.isDestroyed()
+  )
+    return;
   petWindow.show();
   if (panelWindow?.isVisible()) {
     panelWindow.focus();
@@ -168,27 +248,50 @@ function revealApp(): void {
 
 function registerIpc(): void {
   ipcMain.handle("distillation:command", (event, action, input) => {
-    if (event.sender !== panelWindow?.webContents) throw new Error("INVALID_SENDER");
+    if (event.sender !== panelWindow?.webContents)
+      throw new Error("INVALID_SENDER");
     return distillation.call(action, input);
   });
   ipcMain.handle("distillation:configure", (event, input) => {
-    if (event.sender !== panelWindow?.webContents) throw new Error("INVALID_SENDER");
+    if (event.sender !== panelWindow?.webContents)
+      throw new Error("INVALID_SENDER");
     credentials.save(input);
   });
   ipcMain.handle("distillation:choose-file", async (event) => {
-    if (event.sender !== panelWindow?.webContents) throw new Error("INVALID_SENDER");
-    return (await dialog.showOpenDialog({properties:['openFile']})).filePaths[0] ?? null;
+    if (event.sender !== panelWindow?.webContents)
+      throw new Error("INVALID_SENDER");
+    return (
+      (await dialog.showOpenDialog({ properties: ["openFile"] }))
+        .filePaths[0] ?? null
+    );
   });
   ipcMain.handle("distillation:copy", async (event, workId) => {
-    if (event.sender !== panelWindow?.webContents) throw new Error("INVALID_SENDER");
-    const result = await distillation.call('package',{workId}) as {markdown:string}; clipboard.writeText(result.markdown);
+    if (event.sender !== panelWindow?.webContents)
+      throw new Error("INVALID_SENDER");
+    const result = (await distillation.call("package", { workId })) as {
+      markdown: string;
+    };
+    clipboard.writeText(result.markdown);
   });
   ipcMain.handle("distillation:export", async (event, workId) => {
-    if (event.sender !== panelWindow?.webContents) throw new Error("INVALID_SENDER");
-    const result = await distillation.call('package',{workId}) as {json:unknown;markdown:string};
-    const target=await dialog.showSaveDialog({defaultPath:'work-package.md',filters:[{name:'Markdown',extensions:['md']}]});
-    if(target.canceled || !target.filePath)return null;
-    writeFileSync(target.filePath,result.markdown,{mode:0o600}); writeFileSync(target.filePath.replace(/\.md$/i,'')+'.json',JSON.stringify(result.json,null,2),{mode:0o600});return target.filePath;
+    if (event.sender !== panelWindow?.webContents)
+      throw new Error("INVALID_SENDER");
+    const result = (await distillation.call("package", { workId })) as {
+      json: unknown;
+      markdown: string;
+    };
+    const target = await dialog.showSaveDialog({
+      defaultPath: "work-package.md",
+      filters: [{ name: "Markdown", extensions: ["md"] }],
+    });
+    if (target.canceled || !target.filePath) return null;
+    writeFileSync(target.filePath, result.markdown, { mode: 0o600 });
+    writeFileSync(
+      target.filePath.replace(/\.md$/i, "") + ".json",
+      JSON.stringify(result.json, null, 2),
+      { mode: 0o600 },
+    );
+    return target.filePath;
   });
   ipcMain.handle("panel:toggle", () => togglePanel());
   ipcMain.handle("pet:get-view", () => requireService().getPetView());
@@ -199,81 +302,137 @@ function registerIpc(): void {
   });
   ipcMain.on("pet:mouse-passthrough", (event, ignored: boolean) => {
     if (event.sender !== petWindow?.webContents) return;
-    petWindow.setIgnoreMouseEvents(petDrag ? false : Boolean(ignored), { forward: true });
+    petWindow.setIgnoreMouseEvents(petDrag ? false : Boolean(ignored), {
+      forward: true,
+    });
   });
-  ipcMain.on("pet:drag", (event, phase: string, cursor?: { x: number; y: number }) => {
-    if (event.sender !== petWindow?.webContents) return;
-    if ((phase === "start" || phase === "move") && (!cursor || !Number.isFinite(cursor.x) || !Number.isFinite(cursor.y))) return;
-    if (phase === "start" && cursor) {
-      const { x, y } = petWindow.getBounds();
-      petDrag = { cursor, x, y };
-      petWindow.setIgnoreMouseEvents(false);
-    } else if (phase === "move" && petDrag && cursor) {
-      petWindow.setPosition(Math.round(petDrag.x + cursor.x - petDrag.cursor.x), Math.round(petDrag.y + cursor.y - petDrag.cursor.y));
-    } else if (phase === "end" && petDrag) {
-      petDrag = null;
-      keepPetVisible(petWindow);
-      savePetPosition(petWindow, petPositionPath());
-      petWindow.setIgnoreMouseEvents(true, { forward: true });
-    }
-  });
+  ipcMain.on(
+    "pet:drag",
+    (event, phase: string, cursor?: { x: number; y: number }) => {
+      if (event.sender !== petWindow?.webContents) return;
+      if (
+        (phase === "start" || phase === "move") &&
+        (!cursor || !Number.isFinite(cursor.x) || !Number.isFinite(cursor.y))
+      )
+        return;
+      if (phase === "start" && cursor) {
+        const { x, y } = petWindow.getBounds();
+        petDrag = { cursor, x, y };
+        petWindow.setIgnoreMouseEvents(false);
+      } else if (phase === "move" && petDrag && cursor) {
+        petWindow.setPosition(
+          Math.round(petDrag.x + cursor.x - petDrag.cursor.x),
+          Math.round(petDrag.y + cursor.y - petDrag.cursor.y),
+        );
+      } else if (phase === "end" && petDrag) {
+        petDrag = null;
+        keepPetVisible(petWindow);
+        savePetPosition(petWindow, petPositionPath());
+        petWindow.setIgnoreMouseEvents(true, { forward: true });
+      }
+    },
+  );
   ipcMain.handle("panel:close", () => panelWindow?.hide());
-  ipcMain.handle("dashboard:get", (_event, workId?: string) => requireService().dashboardWithVerification(workId));
-  ipcMain.handle("codex:list", () => requireService().listCodexThreads());
-  ipcMain.handle("codex:history", (_event, cursor?: string) => requireService().listCodexHistory(cursor));
-  ipcMain.handle("codex:preview", (_event, threadId: string) => requireService().previewCodexThread(threadId));
-  ipcMain.handle("work:create-from-codex", (_event, request) => requireService().createWorkFromCodex(request));
-  ipcMain.handle("work:split-points", (_event, workId: string) => requireService().listCodexSplitPoints(workId));
-  ipcMain.handle("work:create-from-codex-message", (_event, request) => requireService().createWorkFromCodexMessage(request));
-  ipcMain.handle("work:refresh", (_event, workId: string) => requireService().refreshWork(workId));
-  ipcMain.handle("work:complete", (_event, workId: string) => requireService().completeWork(workId));
-  ipcMain.handle("work:archive", (_event, workId: string) => requireService().archiveWork(workId));
-  ipcMain.handle("work:resume", (_event, workId: string) => requireService().resumeWork(workId));
-  ipcMain.handle("work:handoff", (_event, workId: string) => requireService().handoffToWorkBuddy(workId));
-  ipcMain.handle("work:delete", (_event, workId: string, confirmation: string) => requireService().deleteWork(workId, confirmation));
+  ipcMain.handle("dashboard:get", (_event, workId?: string) =>
+    requireService().dashboardWithVerification(workId),
+  );
+  ipcMain.handle("executors:list", () => requireService().listExecutors());
+  ipcMain.handle("conversations:list", (_event, executorId: string) =>
+    requireService().listConversations(executorId),
+  );
+  ipcMain.handle("conversations:recent", () =>
+    requireService().listRecentConversations(),
+  );
+  ipcMain.handle(
+    "conversations:history",
+    (_event, executorId: string, cursor?: string) =>
+      requireService().listConversationHistory(executorId, cursor),
+  );
+  ipcMain.handle(
+    "conversations:preview",
+    (_event, executorId: string, threadId: string) =>
+      requireService().previewConversation(executorId, threadId),
+  );
+  ipcMain.handle("conversations:selection", () =>
+    requireService().consumeSourceSelection(),
+  );
+  ipcMain.handle("work:create-from-conversation", (_event, request) =>
+    requireService().createWorkFromConversation(request),
+  );
+  ipcMain.handle("work:split-points", (_event, workId: string) =>
+    requireService().listSplitPoints(workId),
+  );
+  ipcMain.handle("work:create-from-message", (_event, request) =>
+    requireService().createWorkFromMessage(request),
+  );
+  ipcMain.handle("work:refresh", (_event, workId: string) =>
+    requireService().refreshWork(workId),
+  );
+  ipcMain.handle("work:complete", (_event, workId: string) =>
+    requireService().completeWork(workId),
+  );
+  ipcMain.handle("work:archive", (_event, workId: string) =>
+    requireService().archiveWork(workId),
+  );
+  ipcMain.handle("work:resume", (_event, workId: string) =>
+    requireService().resumeWork(workId),
+  );
+  ipcMain.handle(
+    "work:cancel-handoff",
+    (_event, workId: string, confirmation: string) =>
+      requireService().cancelHandoff(workId, confirmation),
+  );
+  ipcMain.handle("work:handoff", (_event, workId: string, executorId: string) =>
+    requireService().handoff(workId, executorId),
+  );
+  ipcMain.handle(
+    "work:delete",
+    (_event, workId: string, confirmation: string) =>
+      requireService().deleteWork(workId, confirmation),
+  );
 }
 
 app.whenReady().then(async () => {
   await configureDock();
   Menu.setApplicationMenu(null);
   const dataDirectory = process.env.WORKPET_DATA_DIR ?? app.getPath("userData");
+  const executors = createDefaultExecutors({
+    launcher: new ElectronWorkBuddyLauncher(),
+    openUrl: (url) => shell.openExternal(url),
+  });
   service = new AppService({
     databasePath: join(dataDirectory, "workpet.sqlite"),
-    launcher: new ElectronWorkBuddyLauncher()
+    executors,
   });
-  credentials = new ServiceCredentials(join(dataDirectory, 'worket-service.enc'), !app.isPackaged || process.argv.includes('--dev'));
-  distillation = new DistillationDesktop(service, new WorketAIClient(() => credentials.read()), new ElectronWorkBuddyLauncher());
+  credentials = new ServiceCredentials(
+    join(dataDirectory, "worket-service.enc"),
+    !app.isPackaged || process.argv.includes("--dev"),
+  );
+  distillation = new DistillationDesktop(
+    service,
+    new WorketAIClient(() => credentials.read()),
+  );
   bridge = new WorkPetHttpBridge({
-    configPath: process.env.WORKPET_BRIDGE_CONFIG ?? join(homedir(), ".workpet", "bridge.json"),
+    configPath:
+      process.env.WORKPET_BRIDGE_CONFIG ??
+      join(homedir(), ".workpet", "bridge.json"),
     mcp: new WorkPetMcpHandler(
       service.core(),
       process.env.WORKPET_QA_PROOF_TOKEN
         ? { proofToken: process.env.WORKPET_QA_PROOF_TOKEN }
-        : {}
+        : {},
     ),
-    onWorkBuddyHook: (payload) => requireService().syncWorkBuddyHook(payload),
-    onCodexHook: (payload) => requireService().syncCodexHook(payload)
+    onHook: (executorId, payload) =>
+      requireService().syncHook(executorId, payload),
   });
   await bridge.start();
-  try {
-    await new IntegrationInstaller(integrationResourceRoot()).install();
-  } catch (error) {
-    await dialog.showMessageBox({
-      type: "error",
-      buttons: ["退出"],
-      defaultId: 0,
-      title: "Worket 未能启动",
-      message: "本机接入安装失败，Worket 不会在未接入状态下运行。",
-      detail: error instanceof Error ? error.message : String(error)
-    });
-    await bridge.close();
-    service.close();
-    service = null;
-    app.quit();
-    return;
-  }
   createWindows();
   registerIpc();
+  if (process.env.WORKPET_SKIP_INTEGRATIONS !== "1")
+    void new IntegrationInstaller(
+      integrationResourceRoot(),
+      executors,
+    ).install();
   void syncRecordedWorks();
   void syncDistillations();
 });

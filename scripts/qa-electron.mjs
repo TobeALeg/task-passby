@@ -16,7 +16,7 @@ const electronApp = await electron.launch({
     : [".", `--user-data-dir=${testDirectory}`],
   cwd: root,
   env: {
-    ...process.env,
+    ...process.env, WORKPET_SKIP_INTEGRATIONS: "1",
     WORKPET_BRIDGE_CONFIG: join(testDirectory, "bridge.json"),
     WORKPET_DATA_DIR: testDirectory
   }

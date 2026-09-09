@@ -2,11 +2,6 @@ import { randomUUID } from "node:crypto";
 import { basename } from "node:path";
 import { statSync } from "node:fs";
 import type { AppService } from "../app/app-service.js";
-import {
-  buildWorkBuddyBootstrap,
-  buildWorkBuddyDeepLink,
-} from "../adapters/workbuddy/deep-link.js";
-import type { WorkBuddyLauncher } from "../adapters/workbuddy/launcher.js";
 import { ensure, object, string } from "../contracts/definition.js";
 import {
   buildWorkPackage,
@@ -20,7 +15,6 @@ export class DistillationDesktop {
   constructor(
     readonly app: AppService,
     readonly client: AIClient,
-    readonly launcher: WorkBuddyLauncher,
   ) {
     this.service = new DistillationService(app.core(), client);
   }
@@ -71,14 +65,41 @@ export class DistillationDesktop {
         await this.service.improvement.flush();
         return this.service.improvement.list();
       case "start": {
-        await this.service.improvement.authorize(input.improvementConsentVersion);
-        const job = this.service.start(input as Parameters<DistillationService["start"]>[0]);
+        await this.service.improvement.authorize(
+          input.improvementConsentVersion,
+        );
+        const job = this.service.start(
+          input as Parameters<DistillationService["start"]>[0],
+        );
         if (input.improvementConsentVersion) {
-          const snapshot = r.read<import("./service.js").Snapshot>("source_snapshots", job.snapshotId);
-          this.service.improvement.enroll(job.id, "DISTILLATION", snapshot.sources.map(s => s.title).join(" / "), {
-            request: this.service.wire(snapshot), appVersion: "0.1.0", collectorVersion: 1,
-            sourceRefs: snapshot.sources.map(s => ({ key: s.key, workId: s.workId, events: s.events.map(e => ({ key: e.key, id: e.id, hash: e.hash })), files: s.files.map((f, i) => ({ key: `file-${i + 1}`, id: f.id, hash: f.hash })) })),
-          });
+          const snapshot = r.read<import("./service.js").Snapshot>(
+            "source_snapshots",
+            job.snapshotId,
+          );
+          this.service.improvement.enroll(
+            job.id,
+            "DISTILLATION",
+            snapshot.sources.map((s) => s.title).join(" / "),
+            {
+              request: this.service.wire(snapshot),
+              appVersion: "0.1.0",
+              collectorVersion: 1,
+              sourceRefs: snapshot.sources.map((s) => ({
+                key: s.key,
+                workId: s.workId,
+                events: s.events.map((e) => ({
+                  key: e.key,
+                  id: e.id,
+                  hash: e.hash,
+                })),
+                files: s.files.map((f, i) => ({
+                  key: `file-${i + 1}`,
+                  id: f.id,
+                  hash: f.hash,
+                })),
+              })),
+            },
+          );
         }
         return job;
       }
@@ -124,18 +145,6 @@ export class DistillationDesktop {
           (id) => core.getWork(id)?.artifactRefs ?? [],
         );
       }
-      case "resetDispatch": {
-        string(input.workId);
-        ensure(input.confirmation === "已确认未接手", "CONFIRMATION_REQUIRED");
-        const work = core.getWork(input.workId);
-        ensure(work && !work.activeBinding, "DISPATCH_UNCONFIRMED");
-        r.db
-          .prepare(
-            "UPDATE pending_dispatches SET status='FAILED' WHERE work_id=? AND status IN ('STARTING','WAITING')",
-          )
-          .run(input.workId);
-        return this.app.dashboard(input.workId);
-      }
       case "versions":
         string(input.key);
         return r.versions(input.key);
@@ -144,14 +153,38 @@ export class DistillationDesktop {
       case "deleteDefinition":
         return r.delete(input as Parameters<typeof r.delete>[0]);
       case "create": {
-        await this.service.improvement.authorize(input.improvementConsentVersion);
+        await this.service.improvement.authorize(
+          input.improvementConsentVersion,
+        );
         const work = core.createWorkFromDefinition(
           input as Parameters<typeof core.createWorkFromDefinition>[0],
         );
         if (input.improvementConsentVersion) {
           const definition = r.get(input.definitionId as string);
-          const inputs = Object.fromEntries(Object.entries(input.inputs as Record<string, unknown>).map(([key, value]) => [key, definition.content.inputs.find(i => i.key === key)?.valueType === "FILE" ? { fileSelected: true, contentCollected: false } : value]));
-          this.service.improvement.enroll(work.instance.id, "REUSE", definition.content.name, { definitionId: definition.id, definitionVersion: definition.version, content: definition.content, inputs, appVersion: "0.1.0", collectorVersion: 1 });
+          const inputs = Object.fromEntries(
+            Object.entries(input.inputs as Record<string, unknown>).map(
+              ([key, value]) => [
+                key,
+                definition.content.inputs.find((i) => i.key === key)
+                  ?.valueType === "FILE"
+                  ? { fileSelected: true, contentCollected: false }
+                  : value,
+              ],
+            ),
+          );
+          this.service.improvement.enroll(
+            work.instance.id,
+            "REUSE",
+            definition.content.name,
+            {
+              definitionId: definition.id,
+              definitionVersion: definition.version,
+              content: definition.content,
+              inputs,
+              appVersion: "0.1.0",
+              collectorVersion: 1,
+            },
+          );
         }
         return this.app.dashboard(work.instance.id);
       }
@@ -189,7 +222,9 @@ export class DistillationDesktop {
         this.service.collectFeedback();
         return this.app.dashboard(input.workId as string);
       case "dispatch":
-        return this.dispatch(input as { workId: string; commandId: string });
+        return this.dispatch(
+          input as { workId: string; commandId: string; executorId: string },
+        );
       default:
         throw new Error("UNKNOWN_COMMAND");
     }
@@ -197,9 +232,11 @@ export class DistillationDesktop {
   async dispatch(input: {
     workId: string;
     commandId: string;
+    executorId: string;
   }): Promise<unknown> {
     string(input.workId);
     string(input.commandId);
+    string(input.executorId);
     const core = this.app.core(),
       r = core.definitions,
       work = core.getWork(input.workId);
@@ -220,7 +257,7 @@ export class DistillationDesktop {
         ensure(
           !old || old.status === "FAILED",
           "DISPATCH_UNCONFIRMED",
-          "上次启动尚未确认，请先检查 WorkBuddy",
+          "上次启动尚未确认，请先检查目标执行者",
         );
         r.db
           .prepare(
@@ -243,18 +280,7 @@ export class DistillationDesktop {
       .prepare("UPDATE pending_dispatches SET status='WAITING' WHERE work_id=?")
       .run(input.workId);
     try {
-      const pkg = buildWorkPackage(work, r);
-      core.createHandoffPackage(input.workId);
-      const prompt = buildWorkBuddyBootstrap({
-        workId: input.workId,
-        purpose: pkg.purpose,
-        title: work.definition.name,
-        currentTask:
-          "调用 get_work_context 读取本次完整工作包、输入与验收标准。",
-        nextStep: "按固定版本执行；完成后等待用户验收。",
-        artifactPaths: [],
-      });
-      await this.launcher.openNewConversation(buildWorkBuddyDeepLink(prompt));
+      await this.app.handoff(input.workId, input.executorId);
     } catch (error) {
       r.db
         .prepare(

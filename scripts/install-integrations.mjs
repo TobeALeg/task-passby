@@ -1,4 +1,4 @@
 import { IntegrationInstaller } from "../dist/integrations/installer.js";
-
-const installer = new IntegrationInstaller(process.cwd());
-console.log(JSON.stringify(await installer.install(), null, 2));
+import { createDefaultExecutors } from "../dist/executors/defaults.js";
+const executors=createDefaultExecutors({launcher:{openNewConversation:async()=>{throw new Error('Install only');}}});
+console.log(JSON.stringify(await new IntegrationInstaller(process.cwd(),executors).install(),null,2));

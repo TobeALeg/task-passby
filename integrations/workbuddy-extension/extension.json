@@ -4,8 +4,6 @@
   "version": "1.0.0",
   "service": {
     "entry": "server/index.cjs",
-    "activationEvents": [
-      "onStartup"
-    ]
+    "activationEvents": ["onStartup"]
   }
 }

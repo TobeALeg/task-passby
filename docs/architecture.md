@@ -1,31 +1,24 @@
 # 架构：本地 Work Core 与桌面应用 Adapter
 
-> 2026-09-09 待实施改造：通过执行者注册表、采集接口与交付接口统一历史读取、当前会话解析、记录、恢复、同步、交接及定义复用。具体应用协议仅保留在适配器中。已查明耦合位置、WorkBuddy 5.5.3 接口线索和未验证事项，见 [执行者接入方案](specs/executor-adapters-v1.md)；本文其余部分仍描述当前实现。
+> 2026-09-09：记录、历史选择、同步、恢复、交接与定义复用已通过执行者注册表路由。具体应用协议在适配器内；接口与验证见 [执行者接入方案](specs/executor-adapters-v1.md)。
 
 > 本文主体描述当前实现。沉淀、复用与 2026-09-09 增补的授权改进采集已实现，见末尾实现章节及 [Spec v1](specs/work-distillation-v1.md)。新功能的模型凭据、云端处理、固定资料及定义版本规则以 Spec 为准；现有采集与交接行为不因文档更新而改变。
 
 ## Module architecture
 
 ```text
-Desktop Pet Interface
-        │
-        ▼
-Foreground Context Detector
-        │
-        ▼
-Work Core ─────────────── Local Persistence
-   │  │                         │
-   │  ├── WorkStateExtractor    └── WorkRecord / Source Archive
-   │  ├── ArtifactTracker ─── ArtifactResolver
-   │  └── HandoffCoordinator
-   │
-   ├── Codex Adapter ───── Codex App Server
-   │
-   └── WorkBuddy Adapter
-       ├── User-scoped MCP Connector
-       ├── User-scoped visible-event Hooks
-       └── WorkBuddy Deep Link
+Pet / Panel → generic IPC → AppService → Work Core → SQLite
+                              │            ├── WorkStateExtractor
+                              │            └── ArtifactTracker
+                              ▼
+                       ExecutorRegistry
+                         ├── Codex Adapter → App Server / Hook / native new-chat URL
+                         ├── WorkBuddy Adapter → read-only extension socket / Hook / Deep Link
+                         └── future adapters
+MCP → Work Core work package + read audit
 ```
+
+注册表装配点为 `src/executors/defaults.ts`。`types.ts` 定义来源读取、当前会话解析、接入安装、可用性检查与交付回执。来源以 `(executorId, conversationId)` 唯一识别；渲染层只使用通用元数据与能力，不写应用名分支。原生前台 Helper 的受支持 bundle ID 通过注册表参数传入。
 
 ### Work Core
 
@@ -33,7 +26,7 @@ Work Core ─────────────── Local Persistence
 
 核心对象：
 
-- `WorkDefinition`：工作的本体定义和固定版本；当前仅有 ID、key、name、version，尚无可执行的定义内容；
+- `WorkDefinition`：工作的本体定义和固定版本；包括记录型定义与已确认的可复用定义版本；
 - `WorkInstance`：一次真实工作；
 - `WorkRecord`：WorkInstance 的持久事实；
 - `WorkState`：八部分结构化当前状态；
@@ -46,31 +39,35 @@ Work Core ─────────────── Local Persistence
 
 ### Desktop Pet Interface
 
-采集状态由 OPEN 工作的活动绑定统一推导：真实会话为 recording，WorkBuddy 的 pending: 交接和有效 waiting: 授权为 waiting，过期授权或无活动绑定为 stopped。PetView 与 Dashboard 使用同一全局状态计算，recording 优先于 waiting；瞬时 carrying/alert 反馈保持原有行为。选中工作和进程重启不改变全局采集状态。待绑定不再视为当前会话正在记录。
+采集状态从 OPEN 工作的活动绑定推导：真实会话为 recording，`pending:<deliveryId>` 为 waiting，无活动绑定为 stopped。复用工作还需 MCP 工作包读取证据。旧版 `waiting:` 记录保留历史状态，不再用于新会话授权。PetView 与 Dashboard 使用相同全局状态，真实记录优先于等待确认。
 
-只调用 Work Core Interface，不承担领域判断。PetView 轮询只返回受支持前台聊天的 Adapter、App Server 应用总结标题、已绑定 WorkInstance、`workStatus` 与记录状态，不写入 notice 或持久数据；`workId` 只表达“可以打开历史工作”，不能代替活动记录状态。Helper 原始窗口标题只用于识别，二者在 Context 类型中分开表达。未识别到唯一聊天时隐藏气泡并禁用便利贴操作。用户点击便利贴后重新检测并创建记录，避免使用可能过期的预览缓存；便利贴在已有绑定时改为打开对应工作。Codex 气泡只在当前聊天拥有匹配的 ACTIVE CaptureBinding 时显示“正在记录”；不提供聊天标题的 WorkBuddy 则明确采用应用级单一活动记录，不能伪装成会话级匹配。完成与归档分别显示“已完成”“已归档”。`PetState` 保留四种反馈：`sleeping` 闭眼静止，`awake` 睁眼呼吸，`carrying` 睁眼跳动，`alert` 睁眼摇晃，并继续用体色与状态点辅助区分；四种状态共用与 Dock 图标一致的圆土豆轮廓、右上便利贴和微笑嘴型。透明桌宠窗口固定使用与定位共用的 `304 × 206` 画布，右侧和底部保留足以容纳主体阴影及状态动画的安全区，并通过鼠标穿透避免遮挡来源应用。侧边面板负责 Codex 最近活动来源、可分页的历史聊天选择、Work 列表、只读 Work State、重新整理、交接、完成、归档和永久删除；面板读取已有工作时会幂等同步当前 Codex 聊天的应用总结标题，用于纠正早期版本以首条 Prompt 生成的目标。MVP 保留 macOS Dock 入口；开发与发布都从打包后的 `Worket.app` 启动，以确保 macOS 使用产品名而不是底层 `Electron` 运行时名称；`assets/WorkPet.png` 与 `assets/WorkPet.icns` 仍作为稳定内部资源名提供同一品牌图标。显示名称变更不迁移内部 `workpet` 标识、bundle ID 或原 `WorkPet` 用户数据目录，已有接入配置与本地记录保持兼容。单实例锁拦截重复进程后，重复启动事件必须恢复并聚焦已有窗口，不能静默退出。
+桌宠明确解析当前会话后提供记录或打开入口；无法解析则打开执行者会话选择，不猜 WorkBuddy 最新会话。面板负责多来源发现、历史分页、工作状态、交接、完成和归档。原始窗口标题只用于匹配；来源接口提供的应用标题保存为 `conversation.title`，首条消息不冒充标题。未命名会话可显式选择。
+
+保留原有桌宠拖动、位置持久化、75% 缩放、Dock 和单实例恢复。内部 workpet 标识、用户数据目录与 bundle ID 不迁移。
 
 ### Foreground Context Detector
 
-通过随应用构建的原生 macOS Helper 读取前台应用 bundle ID 与可用窗口标题，且不持久化 Helper 取得的原始窗口标题或内容，不依赖 `osascript` 的辅助功能授权。若桌宠点击时 Worket 面板本身仍是前台，Helper 只在确认前台 PID 是自己的父进程后，向后选择最近的受支持工作窗口；其他不受支持的前台应用不会被跳过。它先把应用归类为 Adapter（同时支持 Codex 的 `com.openai.codex` 与 DOVE 桌面容器），再由 Adapter 解析会话身份：Codex 有窗口标题时只接受与 App Server 应用任务标题的唯一精确匹配，匹配失败不得回退到最近任务；只有容器不提供窗口标题时，才在最近任务处于五分钟活动窗口且领先第二新任务至少五秒、并且存在应用生成标题时绑定。WorkBuddy 5.4.7 的 CoreGraphics 主窗口没有标题，因此前台识别只要求 bundle ID，并把状态限定为 WorkBuddy 应用级单一活动记录；用户点击记录后创建唯一的五分钟待确认 Binding，由下一条官方 `UserPromptSubmit` 的真实 `session_id` 完成绑定。只有 Hook 实际提供窗口标题时才追加指纹校验并持久化不可逆 SHA-256 `sourceLocator`；Hook 没有标题时依靠唯一待确认 Binding 完成授权，不请求辅助功能权限。
+macOS Helper 返回应用身份和可用窗口标题。只有前台 PID 为 Worket 自身时才向后寻找注册表列出的工作窗口。具体标题后缀处理和解析属于适配器：Codex 保留唯一标题匹配及无标题容器的唯一近期活动规则；WorkBuddy 无法读取准确当前会话时返回需要选择。第三方执行者不需要修改原生 Helper。
 
 ### Codex Adapter
 
-位于外部应用 seam。首选通过 Codex App Server 获取任务身份、应用生成的 `thread.name`、完整历史、附件和增量事件，并转换成 Work Core 接受的统一 Source Event。整段对话创建 Work 时，`thread.name` 作为 `conversation.title` 来源事件进入 Source Archive，并成为 `SYSTEM_INFERRED` 的唯一初始目标；首条 Prompt 仍被归档，但不再承担工作命名。若 App Server 尚未生成 `thread.name`，创建动作明确失败，不得回退到 preview、首条 Prompt 或 Helper 窗口标题。旧版整段对话记录在面板读取或用户点击当前聊天的“打开”时执行同一幂等纠正；从指定消息拆出的 Work 不继承整段会话标题。
+App Server 提供列表与完整可见历史；共享连接初始化，单请求超时 30 秒。Hook 仅触发已绑定来源同步或确认本次交付。交付使用官方 `codex://new?prompt=...&path=...` 打开预填新聊天，用户在 Codex 确认发送，不由 Worket 启动独立模型执行进程。用户级 Worket MCP 提供工作包读取。
 
 ### WorkBuddy Adapter
 
-位于外部应用 seam。MVP 通过 WorkBuddy 官方支持的用户级配置提供：
+5.5.3 内部扩展安装在 `~/.workbuddy/extensions/worket-capture`，声明 onStartup 与 resident，避免空闲回收后失去读取入口。仅授权 conversations.list/get/requestEntries/requests，通过同用户 0600 Unix socket 提供 list/read/status。历史加载等待 historyReady，分页完整读取并去重；不完整分页失败，不把部分历史当完整导入。
 
-- MCP：让 WorkBuddy 按 WorkInstance ID 读取 Handoff Package；
-- Hook：把用户 Prompt、Agent 停止、会话结束和资料变化转换成统一 Source Event；
-- Deep Link：负责唤起 WorkBuddy、创建全新对话并提交首条接力指令；
+归一化仅接受可见 text、tool 与资料引用，丢弃 reasoning/未知块；回复完成后入库，避免流式首个片段永久占用事件 ID。内部协议不是外部兼容承诺，升级不兼容时应显示接入错误。
 
-`IntegrationInstaller` 在 Worket 每次启动时幂等地合并这些用户级配置；安装不是面板中的手动步骤，且安装失败会阻止 Worket 启动。开发态从项目根目录读取接入资源；打包态通过 `asar.unpackDir` 把 `integrations/` 保留在 `Contents/Resources/app.asar.unpacked` 的实体目录中，供只接受普通文件系统路径的外部 CLI 与 Hook 使用，不把 `app.asar` 内部路径泄漏给外部进程。首次写入或更新配置后，Codex 与 WorkBuddy 需要重启以加载新 Hook/MCP。
+用户级 Hook 通知会话身份与变化，Deep Link 创建目标任务。安装逻辑位于各适配器的 install.ts，通用 IntegrationInstaller 分别调用；失败不阻止 Worket 窗口或其他执行者。打包资源通过 asar.unpacked 提供普通文件路径；升级扩展后需要重启 WorkBuddy。
 
-本机 WorkBuddy 5.4.7 的目录型 marketplace 会误报安装成功但不生成桌面主进程要求的版本化 cache record。为避免伪安装，MVP 不手工篡改其插件 registry，而是原子合并 `~/.workbuddy/.mcp.json` 与 `~/.workbuddy/settings.json` 中的官方用户级 MCP/Hook 配置。Hook 对所有会话可见，但 Bridge 只接受带有 WorkInstance marker 且存在 OPEN pending binding 的会话；其他会话立即忽略。整个 Adapter 不读取 WorkBuddy 私有数据库。
+### 通用交付
 
-每次 WorkBuddy 成功读取 `get_work_context` 或 `get_artifact_refs` 后，Bridge 才在当前 WorkBuddy Binding 和 ExecutionEpisode 中原子追加一对不含返回正文的 `tool.call + tool.result` 审计事件，并记录 conversationId、bindingId 与同一 auditId。桌面验收还会在 MCP 返回中加入仅本次运行可见的随机 proof token，并要求同一会话的可见回复带回该值；因此工具失败、旧 Episode 或 Agent 自称“读过”都不能冒充成功。
+交付前刷新源状态并核验资料；生成不可变工作包和 deliveryId，结束旧绑定并建立 pending 目标执行片段。短启动指令包含 WORKPET 工作标记、DELIVERY 本次交付标记及 MCP 读取指令，完整包留在 Worket。
+
+Hook 只在工作 OPEN、目标执行者和两个标记均匹配时确认真实 session；重复点击和已待确认的交付不得重复打开目标。失败补偿恢复原来源；取消需要确认未接手，恢复前一真实绑定。旧标记不能绑定下一轮交付。恢复工作使用最后一个真实执行者。切换不取消外部应用已经执行的任务。
+
+MCP 成功读取审计使用当前 Binding、Episode 与环境，工作包读取和目标会话确认是分开的证据。通用服务每轮同步全部真实活动绑定；异步读取完成后重新检查生命周期和 binding ID，避免旧来源写入新执行片段。事件序号跨执行片段递增，externalId 去重。
 
 ### WorkStateExtractor
 
@@ -93,10 +90,10 @@ Work Core ─────────────── Local Persistence
   → PetView 只读识别前台应用和应用生成的会话标题
   → 用户悬浮桌宠并点击展开的便利贴
   → Foreground Context Detector 重新确认前台应用
-  → Codex：唯一标题匹配当前任务并读取完整历史
-  → WorkBuddy：下一次提交由 Hook 提供真实 session ID
+  → 适配器解析会话，不能确定时由用户选择
+  → 统一来源接口读取完整可见历史
   → Work Core 创建 WorkInstance / WorkRecord / Episode
-  → Codex 的 thread.name 作为 conversation.title 与完整历史一同落盘
+  → 来源会话标题作为 conversation.title 与历史一同落盘
   → conversation.title 生成可追溯的只读目标
   → WorkStateExtractor 生成八部分 Work State
 ```
@@ -114,13 +111,13 @@ Codex 或 WorkBuddy 产生新事件
 ### 跨应用接力
 
 ```text
-用户点击“交给 WorkBuddy”
+用户点击“交接”并选择执行者
   → Work Core 更新 Work State
   → HandoffCoordinator 生成 Handoff Package
-  → Deep Link 创建全新 WorkBuddy 对话并提交 marker
+  → 适配器打开目标新会话，提交工作与本次交付 marker
   → 首条指令携带 WorkInstance ID
-  → WorkBuddy 通过 MCP 读取 Work State 与当前资料
-  → 建立 WorkBuddy CaptureBinding / ExecutionEpisode
+  → 目标执行者通过 MCP 读取 Work State 与当前资料
+  → 确认目标 CaptureBinding / ExecutionEpisode
   → 后续事件继续写回同一个 WorkRecord
 ```
 

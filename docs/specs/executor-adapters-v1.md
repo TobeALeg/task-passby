@@ -2,7 +2,7 @@
 
 日期：2026-09-09。
 
-状态：实现调查与改造设计；尚未实现、未做真实桌面验收。WorkBuddy 内部扩展接入方式待用户选择，不把安装包内存在某个方法视为接入成功。
+状态：用户已确认内部扩展方案，通用接口与 WorkBuddy 读取已实现。真实历史只读验证通过；模型执行闭环以验收记录为准。
 
 ## 要解决的问题
 
@@ -20,7 +20,7 @@ Worket 持有工作，外部执行者承担工作。Codex 与 WorkBuddy 在产�
 - `9322af1` 收紧无标题绑定边界；后续增加过期处理与明确等待状态。
 - 上述历史支持“可以记录”，不能据此证明曾经实现“和 Codex 一样立即读取选中会话”。
 
-### 当前 Worket
+### 改造前的 Worket
 
 | 位置 | 当前耦合 | 改造责任 |
 | --- | --- | --- |
@@ -34,7 +34,7 @@ Worket 持有工作，外部执行者承担工作。Codex 与 WorkBuddy 在产�
 | `src/bridge/mcp-handler.ts` | 读取成功审计只接受 WorkBuddy，环境名称写死 | 审计关联实际交付、绑定与执行片段 |
 | `src/integrations/installer.ts` | 两应用安装串联，单方失败阻止启动 | 分别检查可用性；单一执行者失败不应阻断其他执行者 |
 
-当前 WorkBuddy transcript 解析器跳过 `tool_use`、`tool_result`、`thinking` 和 `reasoning`。可见工具调用与结果需要独立规范化，不能因过滤隐藏思维而一并漏掉可见工具记录。
+改造前的 WorkBuddy transcript 解析器跳过 `tool_use`、`tool_result`、`thinking` 和 `reasoning`。可见工具调用与结果需要独立规范化，不能因过滤隐藏思维而一并漏掉可见工具记录。
 
 ### 当前安装的 WorkBuddy
 
@@ -47,7 +47,8 @@ Worket 持有工作，外部执行者承担工作。Codex 与 WorkBuddy 在产�
 - `main/daemon-bootstrap.js` 实现扩展扫描、独立子进程及受权限检查的消息桥；用户扩展目录包含 `~/.workbuddy/extensions/` 与 `~/.workbuddy/extensions-dev/`。
 - 扩展清单缺少权限配置时默认没有授权；验证应使用明确列举的读取权限，不伪装内置扩展、不授予通配权限。
 - 集合实现存在 `current`、`setCurrent` 和 `onCurrentChange`，但尚未证实它们可跨进程提供桌面当前聊天身份；桥接集合并未直接列出对应读取方法。
-- 尚未安装 Worket 扩展、调用真实会话接口或向 WorkBuddy 发送消息。源码存在与真实可调用之间仍有验证缺口。
+- 已安装最小读取权限扩展，实际列出 30 个历史会话；选中历史读取返回 122 条可见事件且 ID 唯一。未为此发送消息或启动模型。
+- 当前会话 getter 未跨服务桥暴露，所以 WorkBuddy 无精确窗口标题时使用明确的会话选择。
 
 [官方 Hook 文档](https://www.codebuddy.cn/docs/cli/hooks) 描述 `session_id` 与 `transcript_path`。这是既有 Hook 路线的协议依据，不能作为桌面内部扩展兼容性的承诺。[官方开放平台](https://open.workbuddy.cn/docs/openapi) 的搜索摘要涉及云任务、助理和 ACP；本次正文抓取失败，未确认其覆盖本机已打开聊天，不能以它替代桌面接入验证。
 
@@ -61,7 +62,7 @@ Worket 持有工作，外部执行者承担工作。Codex 与 WorkBuddy 在产�
 4. “最近活动”“记录沉睡工作”共用来源接口，支持按执行者筛选。列表读取只做发现，点击记录才持久保存内容。
 5. 每个已确认会话独立绑定，多项记录可以并行；错误和重试互不阻塞。
 
-WorkBuddy 内部扩展是待验证的首选路线：由 WorkBuddy 自己提供会话列表、可见历史及增量事件，再由本机桥返回 Worket。旧 Hook 可以作为适配器内的兼容方式，但只能展示其真实能力，不能无提示地退回“等待发送消息”并声称立即记录已完成。
+WorkBuddy 内部扩展是已验证的读取路线：由 WorkBuddy 自己提供会话列表、可见历史及增量事件，再由本机桥返回 Worket。旧 Hook 可以作为适配器内的兼容方式，但只能展示其真实能力，不能无提示地退回“等待发送消息”并声称立即记录已完成。
 
 ### 交接与复用
 
@@ -75,45 +76,11 @@ WorkBuddy 内部扩展是待验证的首选路线：由 WorkBuddy 自己提供�
 
 注册表只在装配入口列出实际适配器。UI、AppService、交付协调逻辑不得通过应用名字分支。
 
-```ts
-type ExecutorId = string;
+实际接口见 `src/executors/types.ts`：适配器包含 id/name/mark/bundleIds/environment，source 提供 listThreadPage 与 readThread，resolveCurrent 解析当前会话，inspect 检查可用性，install 合并各自配置，deliver 返回真实 conversationId 或待确认 guidance。后台增量共用轮询与 Hook 通知，不引入尚未使用的 watch 订阅协议。
 
-interface ConversationRef {
-  executorId: ExecutorId;
-  conversationId: string;
-}
+应用安装路径、读取协议、标题后缀和启动 URL 只属于适配器；领域逻辑、绑定、重试与状态归 Worket。短启动包包含工作 ID 和 deliveryId；完整 START/CONTINUE 工作包通过 MCP 提供。Codex 使用官方原生新聊天草稿入口，需要用户确认发送。
 
-interface ExecutorAdapter {
-  readonly descriptor: ExecutorDescriptor;
-  inspect(): Promise<ExecutorAvailability>;
-  capture?: CapturePort;
-  delivery?: DeliveryPort;
-  close(): Promise<void>;
-}
-
-interface CapturePort {
-  resolveCurrent(application: ForegroundApplication): Promise<ContextResolution>;
-  list(query: ConversationQuery): Promise<ConversationPage>;
-  read(ref: ConversationRef, cursor?: string): Promise<VisibleEventBatch>;
-  watch(ref: ConversationRef, onChange: () => void): Promise<() => void>;
-}
-
-interface DeliveryPort {
-  deliver(request: DeliveryRequest): Promise<DeliveryReceipt>;
-}
-```
-
-这是接口语义草案，不是已存在的 TypeScript 定义。具体约定：
-
-- `ExecutorDescriptor` 包含稳定 ID、名称、应用身份与显示标识；业务层不依赖固定字符串联合类型。
-- `ExecutorAvailability` 区分未安装、接入不可用与可用，以及历史读取、当前会话解析、增量、交付等能力；不把“应用已安装”当作“接入已就绪”。
-- `ContextResolution` 明确区分精确身份、需要选择、不可用。来源选择以 `{executorId, conversationId}` 为键，避免不同应用相同会话 ID 冲突。
-- `VisibleEventBatch` 只包括用户可见消息、可见工具调用/结果、资料引用及明确游标；保留来源 ID、顺序、时间和环境。快照与增量必须去重，处理流式更新、重连及分割起点。
-- `watch` 可由适配器内部使用订阅、Hook 或轮询实现；调用方不关心是哪一种。
-- `DeliveryRequest` 包含一次交付 ID、目标执行者、本次工作包及 START/CONTINUE 用途；重复请求必须幂等。
-- `DeliveryReceipt` 区分启动失败、已打开但待确认、已取得真实会话身份。启动回执不代表目标已读取工作包；工作包读取与后续可见记录分别保留证据。
-- 工作生命周期、授权范围、工作 ID、记录入库、绑定唯一性和交接恢复属于 Worket；应用路径、协议、Hook 格式、Deep Link、SDK 和版本检测属于各适配器。
-- 交付前检查目标能力，交付失败保留或恢复来源记录；迟到事件不能写进错误执行片段。执行者切换不自动取消外部应用正在运行的任务。
+取消未确认交付会恢复原来源，但不会关闭目标草稿或终止外部执行；确认窗口说明好处和风险。失败、迟到回调与重复点击必须维持同一工作身份及正确来源。
 
 ## 改造顺序与完成标准
 
@@ -134,6 +101,8 @@ interface DeliveryPort {
 - 用第三个测试适配器验证注册后列表与交接可用，无须修改应用服务或渲染层的执行者分支。
 - 打包后的真实 Worket 完成 UI 验证；任何会触发外部模型执行或发送工作数据的验收另行使用用户明确授权的工作范围。
 
-## 待选择项
+## 确认与验证
 
-是否接受本机 WorkBuddy 内部扩展接入，并承担版本兼容检测与修复成本。已向用户提出该选择；此文档不代表已获授权安装扩展。
+用户已确认采用内部扩展方案，并要求此后任何确认同时告知好处与风险。
+
+本次实际证据与未覆盖范围记录在 [验收记录](../acceptance/executor-adapters-v1.md)。旧版依赖 transcript 的自动绑定已移除；旧记录保留，尚未确认的旧 waiting 工作需要从历史重新明确选择会话。

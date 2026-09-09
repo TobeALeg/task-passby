@@ -2,13 +2,6 @@
 #import <CoreGraphics/CoreGraphics.h>
 #import <unistd.h>
 
-static BOOL IsSupportedApplication(NSRunningApplication *application) {
-  NSString *bundleId = application.bundleIdentifier ?: @"";
-  return [bundleId isEqualToString:@"com.openai.codex"]
-    || [bundleId isEqualToString:@"DOVE.tauri"]
-    || [bundleId isEqualToString:@"com.tencent.workbuddy.mac"];
-}
-
 static NSDictionary *FirstWindowForProcess(NSArray<NSDictionary *> *windows, pid_t processId) {
   for (NSDictionary *candidate in windows) {
     NSNumber *ownerPid = candidate[(id)kCGWindowOwnerPID];
@@ -18,8 +11,10 @@ static NSDictionary *FirstWindowForProcess(NSArray<NSDictionary *> *windows, pid
   return nil;
 }
 
-int main(void) {
+int main(int argc, const char *argv[]) {
   @autoreleasepool {
+    NSMutableSet<NSString *> *supported = [NSMutableSet set];
+    for (int i = 1; i < argc; i++) [supported addObject:[NSString stringWithUTF8String:argv[i]]];
     NSRunningApplication *application = [[NSWorkspace sharedWorkspace] frontmostApplication];
     NSArray<NSDictionary *> *windows = CFBridgingRelease(
       CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID)
@@ -34,7 +29,7 @@ int main(void) {
         if (ownerPid.intValue == getppid() || layer.intValue != 0) continue;
         NSRunningApplication *candidateApplication =
           [NSRunningApplication runningApplicationWithProcessIdentifier:ownerPid.intValue];
-        if (candidateApplication && IsSupportedApplication(candidateApplication)) {
+        if (candidateApplication && [supported containsObject:candidateApplication.bundleIdentifier ?: @""]) {
           application = candidateApplication;
           break;
         }

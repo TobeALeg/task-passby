@@ -1,3 +1,4 @@
+import { makeService } from "../helpers/app-options.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -473,7 +474,7 @@ test("A19 actual Hook binding and MCP read evidence gate reusable dispatch; laun
       if (fail) throw new Error("EXECUTOR_UNAVAILABLE");
     },
   };
-  const app = new AppService({
+  const app = makeService({
     databasePath: join(directory, "work.sqlite"),
     launcher,
     codex: {
@@ -494,7 +495,7 @@ test("A19 actual Hook binding and MCP read evidence gate reusable dispatch; laun
   const core = app.core(),
     original = source(core),
     client = new FixtureClient(),
-    desktop = new DistillationDesktop(app, client as any, launcher),
+    desktop = new DistillationDesktop(app, client as any),
     snapshot = desktop.service.prepare({
       workIds: [original.instance.id],
       includedFileIds: [],
@@ -502,19 +503,19 @@ test("A19 actual Hook binding and MCP read evidence gate reusable dispatch; laun
     f = { core, service: desktop.service, snapshot };
   const d = publish(f, await review(f)),
     work = create(f, d),
-    command = { workId: work.instance.id, commandId: cid() };
+    command = { workId: work.instance.id, commandId: cid(),executorId:"workbuddy" };
   await desktop.dispatch(command);
   await desktop.dispatch(command);
   assert.equal(launches, 1);
-  assert.equal(core.getWork(work.instance.id)!.activeBinding, null);
+  assert.ok(core.getWork(work.instance.id)!.activeBinding?.conversationId.startsWith("pending:"));
   assert.equal(
     app.dashboard(work.instance.id).selectedWork!.captureStatus,
-    "stopped",
+    "waiting",
   );
-  await app.syncWorkBuddyHook({
+  await app.syncHook("workbuddy", {
     hook_event_name: "UserPromptSubmit",
     session_id: "real-session",
-    prompt: `[WORKPET:${work.instance.id}] 读取工作包`,
+    prompt: `[WORKPET:${work.instance.id}] [DELIVERY:${core.getWork(work.instance.id)!.activeBinding!.conversationId.slice(8)}] 读取工作包`,
     turn_id: "one",
   });
   assert.equal(
@@ -546,7 +547,7 @@ test("A19 actual Hook binding and MCP read evidence gate reusable dispatch; laun
   const another = create(f, d);
   fail = true;
   await assert.rejects(
-    desktop.dispatch({ workId: another.instance.id, commandId: cid() }),
+    desktop.dispatch({ workId: another.instance.id, commandId: cid(),executorId:"workbuddy" }),
     /EXECUTOR_UNAVAILABLE/,
   );
   assert.equal(core.getWork(another.instance.id)!.activeBinding, null);

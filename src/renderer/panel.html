@@ -39,6 +39,7 @@
     <dialog id="history-dialog" aria-labelledby="history-title">
       <div class="dialog-card">
         <div class="source-heading"><h2 id="history-title">记录沉睡工作</h2><button id="history-close" class="icon-button" aria-label="关闭历史聊天">×</button></div>
+        <label class="field">执行者<select id="history-executor"></select></label>
         <label class="field">搜索已加载的聊天<input id="history-search" type="search" placeholder="聊天标题或项目" /></label>
         <div id="history-error" class="notice" role="alert" hidden></div>
         <div id="history-sources" class="history-sources"></div>
@@ -61,7 +62,7 @@
     <dialog id="delete-dialog">
       <form method="dialog" class="dialog-card danger-card">
         <div class="dialog-heading"><span class="eyebrow">永久删除</span><h2>这份本地记录将无法恢复</h2></div>
-        <p>原始文件、Codex 与 WorkBuddy 对话不会被删除。已确认定义仍保留；本工具保存的来源正文、快照与证据摘录将清除，相关未保存候选失效；含历史正文的迁移备份也会移除。请输入“永久删除”继续。</p>
+        <p>原始文件与外部执行者的对话不会被删除。已确认定义仍保留；本工具保存的来源正文、快照与证据摘录将清除，相关未保存候选失效；含历史正文的迁移备份也会移除。请输入“永久删除”继续。</p>
         <label class="field">确认文字<input id="delete-confirmation" autocomplete="off" /></label>
         <div class="dialog-actions"><button value="cancel" class="secondary">取消</button><button id="confirm-delete" value="default" class="danger">永久删除</button></div>
       </form>

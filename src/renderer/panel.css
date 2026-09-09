@@ -96,3 +96,7 @@ button:disabled { cursor: wait; opacity: .55; }
 .definition-card .source-heading h2 { font-size: 23px; }
 .source-evidence { white-space: pre-wrap; max-height: 220px; overflow: auto; padding: 8px; background: #eee8db; }
 .distill-choice { margin-top: 12px; color: #74695b; }
+
+.executor-options { display: grid; gap: 8px; }
+.executor-options button { width: 100%; text-align: left; padding: 11px 14px; }
+.executor-options p { font-size: 12px; overflow-wrap: anywhere; }

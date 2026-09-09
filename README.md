@@ -13,7 +13,7 @@ npm ci
 npm start
 ```
 
-Worket 每次启动都会静默、幂等地安装 Codex Hook 与 WorkBuddy 用户级 MCP/Hook；不再提供“设置接入”按钮。它们都是本机配置：Codex Hook 用于已绑定任务的增量通知；WorkBuddy Hook 提供真实 `session_id` 与可见 transcript，MCP 则让接力任务读取 WorkRecord。没有 Worket 服务端需要部署。首次安装或更新接入后，重启 Codex 和 WorkBuddy 使其加载新配置。
+Worket 启动后分别安装已接入执行者的本机配置：Codex Hook/MCP，WorkBuddy 用户级 Hook/MCP 和最小读取权限扩展。单个执行者不可用不阻止应用启动。WorkBuddy 历史读取已在 5.5.3 验证；内部扩展接口未来升级可能需要适配。更新后重启目标应用使配置生效。
 
 接入安装是启动前提：自动安装失败时 Worket 会显示错误并退出，不会在半接入状态下开始记录。
 
@@ -23,7 +23,7 @@ Worket 每次启动都会静默、幂等地安装 Codex Hook 与 WorkBuddy 用�
 
 - Codex 优先通过前台窗口标题与 App Server 中唯一的任务标题匹配当前任务；容器不提供窗口标题时，只接受唯一的近期活动任务。
 - Codex 的工作目标直接使用 App Server 已总结的任务标题；首条 Prompt 或报错正文只进入来源档案，不会再充当目标。
-- WorkBuddy 5.4.7 不向 CoreGraphics 暴露主窗口标题；Worket 仍会识别前台应用并显示“当前 WorkBuddy 对话”。点击桌宠后，它等待下一次真实提交，从官方 Hook 取得 `session_id` 后绑定；若 Hook 同时提供标题则追加指纹校验，不要求辅助功能权限。
+- WorkBuddy 支持历史列表与直接导入；无法明确定位当前聊天时，桌宠点击打开该执行者的会话选择。两端都可多会话记录，“交接”从注册表选择目标，Codex 原生入口需要确认发送。
 
 Worket 默认提炼 Work State，且默认使用本地规则，不会外发数据。只有本机同时配置 `WORKPET_LLM_API_KEY` 和 `WORKPET_CLOUD_EXTRACTION=true`，才会把必要的可见对话发送给所配置的 OpenAI-compatible 模型。
 
@@ -47,7 +47,7 @@ npm run qa:desktop-roundtrip:list
 
 `qa:current-context` 使用临时数据库启动真实 Electron 应用，强制让 Worket 面板保持前台，再通过便利贴识别并记录真实 Codex 任务，同时检查应用标题气泡、记录后“打开”和只读 Work State。`qa:package` 验证打包后的真实 Worket 应用名称、窗口、桌宠入口与面板基本布局。`qa:desktop-roundtrip:list` 只读取本机 Codex 任务并列出哪些任务满足“至少二十轮用户输入、两份不同附件”，不向 WorkBuddy 发送内容。
 
-`qa:workbuddy-context` 会启动或聚焦 WorkBuddy，再使用临时数据库验证即使系统窗口标题为空，桌宠仍显示通用 WorkBuddy 气泡，并能建立等待下一条真实提交确认的绑定；脚本不会向 WorkBuddy 发送消息。
+`qa:workbuddy-context` 使用临时数据库验证实际 WorkBuddy 历史读取、重复导入与增量去重，不发送消息。`node scripts/qa-parallel-recording.mjs` 在打包应用中用三个合成适配器验证列表、分页、多会话记录、执行者选择和取消交接。
 
 如果当前验收任务只有一份附件，可把无敏感信息的 [第二验收资料](test/fixtures/desktop-acceptance-second-artifact.md) 作为新附件发到该 Codex 任务，再重新运行候选扫描。
 
@@ -59,7 +59,7 @@ WORKPET_QA_CONFIRM=SEND_TO_CURRENT_WORKBUDDY_ACCOUNT \
 npm run qa:desktop-roundtrip
 ```
 
-脚本会使用临时 Worket 数据库，并等待用户在 Codex 新增一轮对话。随后它通过 Deep Link 新建并提交 WorkBuddy 接力任务；成功条件同时要求真实桌面 Conversation ID、同一 Binding/ExecutionEpisode 内成对的 `get_work_context` 成功审计、MCP 返回的随机 proof token 出现在可见回复中，以及 WorkBuddy 用户 Prompt 和回复经 Hook 写回同一 WorkInstance。WorkBuddy 页面可能短暂显示空白，验收器不会据此判定成功。`qa:roundtrip` 是额外的 CLI 接入检查，会主动调用当前 WorkBuddy 账号，不能替代桌面同会话验收，也不应在没有具体数据发送授权时运行。
+脚本会使用临时 Worket 数据库，并等待用户在 Codex 新增一轮对话。随后它通过 Deep Link 新建并提交 WorkBuddy 接力任务；成功条件同时要求真实桌面 Conversation ID、同一 Binding/ExecutionEpisode 内成对的 `get_work_context` 成功审计、MCP 返回的随机 proof token 出现在可见回复中，以及 WorkBuddy 用户 Prompt 和回复经只读接口写回同一 WorkInstance。WorkBuddy 页面可能短暂显示空白，验收器不会据此判定成功。旧 CLI 验收已移除：它产生的 CLI 会话不能代表当前桌面会话读取链。
 
 ## 数据边界
 

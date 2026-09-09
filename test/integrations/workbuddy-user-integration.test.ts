@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { installWorkBuddyUserIntegration } from "../../dist/integrations/installer.js";
+import { installWorkBuddyUserIntegration } from "../../dist/adapters/workbuddy/install.js";
 
 test("WorkBuddy 用户级接入保留现有配置并可幂等安装", async () => {
   const configDirectory = await mkdtemp(join(tmpdir(), "workpet-workbuddy-"));
@@ -19,8 +19,8 @@ test("WorkBuddy 用户级接入保留现有配置并可幂等安装", async () =
     mcpServers: { existing: { command: "existing-mcp" } }
   }));
 
-  const first = await installWorkBuddyUserIntegration("/Applications/Worket.app/Contents/Resources/app", configDirectory);
-  const second = await installWorkBuddyUserIntegration("/Applications/Worket.app/Contents/Resources/app", configDirectory);
+  const first = await installWorkBuddyUserIntegration(process.cwd(), configDirectory);
+  const second = await installWorkBuddyUserIntegration(process.cwd(), configDirectory);
 
   const settings = JSON.parse(await readFile(join(configDirectory, "settings.json"), "utf8")) as Record<string, any>;
   const mcp = JSON.parse(await readFile(join(configDirectory, ".mcp.json"), "utf8")) as Record<string, any>;

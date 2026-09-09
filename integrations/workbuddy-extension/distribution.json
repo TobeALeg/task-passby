@@ -1,1 +1,21 @@
-{"extensionId":"worket-capture","version":"1.0.0","kind":"platform","grantedPermissions":["conversations.list","conversations.get","conversations.requests","conversations.requestEntries"],"processPolicy":{"server":"fork","renderer":null},"rollout":{"strategy":"full","percentage":100},"status":"active"}
+{
+  "extensionId": "worket-capture",
+  "version": "1.0.0",
+  "kind": "platform",
+  "grantedPermissions": [
+    "conversations.list",
+    "conversations.get",
+    "conversations.requests",
+    "conversations.requestEntries"
+  ],
+  "processPolicy": {
+    "server": "fork",
+    "renderer": null
+  },
+  "rollout": {
+    "strategy": "full",
+    "percentage": 100
+  },
+  "status": "active",
+  "resident": true
+}

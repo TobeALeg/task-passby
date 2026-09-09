@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildWorkBuddyDeepLink, buildWorkBuddyBootstrap } from "../../src/adapters/workbuddy/deep-link.ts";
+import { buildWorkBuddyDeepLink } from "../../src/adapters/workbuddy/deep-link.ts";
+import { buildWorkBootstrap } from "../../src/executors/work-bootstrap.ts";
 
 test("WorkBuddy 交接只通过 deep link 传递稳定 marker 和 MCP 指令", () => {
-  const prompt = buildWorkBuddyBootstrap({
+  const prompt = buildWorkBootstrap({
     workId: "work-123",
     title: "准备客户提案",
     currentTask: "补全证据来源",

@@ -502,26 +502,6 @@ export async function workDefinitionAction(
     window.alert("工作包已复制；尚未确认外部执行者接手。");
     return true;
   }
-  if (action === "reset-dispatch") {
-    show(
-      "确认上次未接手",
-      `<p>请先检查 WorkBuddy，确认没有已经开始的本次工作。重试会打开新对话。</p><label class="field">输入“已确认未接手”<input id="reset-dispatch-confirm"></label><button id="reset-dispatch">允许重新交付</button>`,
-    );
-    bind("#reset-dispatch", async () => {
-      changed(
-        await api("resetDispatch", {
-          workId: work.id,
-          confirmation: value("#reset-dispatch-confirm"),
-        }),
-      );
-      modal.close();
-    });
-    return true;
-  }
-  if (action === "handoff" && work.reusableDefinitionId) {
-    changed(await api("dispatch", { workId: work.id, commandId: commandId() }));
-    return true;
-  }
   if (action === "complete" && work.reusableDefinitionId) {
     const d: Definition = await api("definition", {
       id: work.reusableDefinitionId,

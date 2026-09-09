@@ -8,12 +8,16 @@ import type { WorkPetMcpHandler } from "./mcp-handler.js";
 export interface WorkPetBridgeOptions {
   configPath: string;
   mcp: WorkPetMcpHandler;
-  onWorkBuddyHook: (payload: Record<string, unknown>) => Promise<unknown>;
-  onCodexHook: (payload: Record<string, unknown>) => Promise<unknown>;
+  onHook: (
+    executorId: string,
+    payload: Record<string, unknown>,
+  ) => Promise<unknown>;
   port?: number;
 }
 
-async function jsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
+async function jsonBody(
+  request: IncomingMessage,
+): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
   let total = 0;
   for await (const raw of request) {
@@ -22,7 +26,10 @@ async function jsonBody(request: IncomingMessage): Promise<Record<string, unknow
     if (total > 5 * 1024 * 1024) throw new Error("REQUEST_TOO_LARGE");
     chunks.push(chunk);
   }
-  return JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+  return JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<
+    string,
+    unknown
+  >;
 }
 
 export class WorkPetHttpBridge {
@@ -38,7 +45,10 @@ export class WorkPetHttpBridge {
     if (this.#server) throw new Error("BRIDGE_ALREADY_STARTED");
     const server = createServer(async (request, response) => {
       try {
-        if (request.method !== "POST" || request.headers["x-workpet-token"] !== this.#token) {
+        if (
+          request.method !== "POST" ||
+          request.headers["x-workpet-token"] !== this.#token
+        ) {
           response.writeHead(401).end();
           return;
         }
@@ -46,22 +56,29 @@ export class WorkPetHttpBridge {
         if (request.url === "/mcp") {
           const result = this.#options.mcp.handle(payload);
           if (!result) response.writeHead(204).end();
-          else response.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(result));
+          else
+            response
+              .writeHead(200, { "Content-Type": "application/json" })
+              .end(JSON.stringify(result));
           return;
         }
-        if (request.url === "/hooks/workbuddy") {
-          const result = await this.#options.onWorkBuddyHook(payload);
-          response.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(result));
-          return;
-        }
-        if (request.url === "/hooks/codex") {
-          const result = await this.#options.onCodexHook(payload);
-          response.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(result));
+        const hook = request.url?.match(/^\/hooks\/([a-z][a-z0-9-]*)$/);
+        if (hook?.[1]) {
+          const result = await this.#options.onHook(hook[1], payload);
+          response
+            .writeHead(200, { "Content-Type": "application/json" })
+            .end(JSON.stringify(result));
           return;
         }
         response.writeHead(404).end();
       } catch (error) {
-        response.writeHead(400, { "Content-Type": "application/json" }).end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
+        response
+          .writeHead(400, { "Content-Type": "application/json" })
+          .end(
+            JSON.stringify({
+              error: error instanceof Error ? error.message : String(error),
+            }),
+          );
       }
     });
     await new Promise<void>((resolve, reject) => {
@@ -70,9 +87,18 @@ export class WorkPetHttpBridge {
     });
     this.#server = server;
     const address = server.address();
-    if (!address || typeof address === "string") throw new Error("BRIDGE_ADDRESS_UNAVAILABLE");
+    if (!address || typeof address === "string")
+      throw new Error("BRIDGE_ADDRESS_UNAVAILABLE");
     await mkdir(dirname(this.#options.configPath), { recursive: true });
-    await writeFile(this.#options.configPath, JSON.stringify({ host: "127.0.0.1", port: address.port, token: this.#token }), { mode: 0o600 });
+    await writeFile(
+      this.#options.configPath,
+      JSON.stringify({
+        host: "127.0.0.1",
+        port: address.port,
+        token: this.#token,
+      }),
+      { mode: 0o600 },
+    );
     await chmod(this.#options.configPath, 0o600);
     return address.port;
   }
@@ -81,6 +107,8 @@ export class WorkPetHttpBridge {
     if (!this.#server) return;
     const server = this.#server;
     this.#server = null;
-    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
   }
 }

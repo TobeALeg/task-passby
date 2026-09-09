@@ -1,63 +1,80 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { EventEmitter } from "node:events";
-import { AppUpdates, updateFeed } from "../../src/desktop/app-updates.ts";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { AppUpdates } from "../../src/desktop/app-updates.ts";
+import { isNewer, latestRelease, downloadRelease } from "../../src/desktop/github-release.ts";
 
+const bytes = Buffer.from("synthetic archive");
+const name = "Worket-0.2.0-darwin-arm64.zip";
+const asset = (name: string) => ({ name, size: bytes.length,
+  browser_download_url: `https://github.com/TobeALeg/worket/releases/download/v0.2.0/${name}` });
+const release = { version: "0.2.0", archive: asset(name), checksum: asset(`${name}.sha256`) };
+const metadata = { tag_name: "v0.2.0", draft: false, prerelease: false, assets: [release.archive, release.checksum] };
+const json = (value: unknown) => new Response(JSON.stringify(value));
+const sha = createHash("sha256").update(bytes).digest("hex");
+
+test("stable numeric version comparison rejects downgrade and prerelease", () => {
+  assert.equal(isNewer("0.10.0", "0.9.0"), true);
+  for (const version of ["0.1.0", "0.0.9", "0.2.0-beta.1", "bad"]) assert.equal(isNewer(version, "0.1.0"), false);
+});
+test("release selection excludes prerelease, missing/wrong architecture and foreign URL", async () => {
+  assert.equal((await latestRelease(async () => json(metadata), "0.1.0", "arm64"))?.version, "0.2.0");
+  assert.equal(await latestRelease(async () => json({ ...metadata, prerelease: true }), "0.1.0", "arm64"), null);
+  assert.equal(await latestRelease(async () => new Response(null, { status: 404 }), "0.1.0", "arm64"), null);
+  await assert.rejects(latestRelease(async () => json(metadata), "0.1.0", "x64"), /缺少/);
+  await assert.rejects(latestRelease(async () => json({ ...metadata, assets: [release.archive] }), "0.1.0", "arm64"), /缺少/);
+  await assert.rejects(latestRelease(async () => json({ ...metadata, assets: [{ ...release.archive, browser_download_url: "https://example.com/app.zip" }, release.checksum] }), "0.1.0", "arm64"), /地址/);
+});
+test("streamed download verifies size and checksum and removes failed files", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "worket-download-test-"));
+  try {
+    const fetcher = async (url: string) => url.endsWith(".sha256") ? new Response(`${sha}  ${name}\n`) : new Response(bytes);
+    const path = await downloadRelease(fetcher, release, directory);
+    assert.deepEqual(await readFile(path), bytes);
+    const before = await readdir(directory);
+    await assert.rejects(downloadRelease(async url => url.endsWith(".sha256") ? new Response(`${"0".repeat(64)}  ${name}`) : new Response(bytes), release, directory), /校验失败/);
+    assert.deepEqual(await readdir(directory), before);
+    await assert.rejects(downloadRelease(async url => url.endsWith(".sha256") ? new Response(`${sha}  ${name}`) : new Response("truncated"), release, directory), /校验失败/);
+    assert.deepEqual(await readdir(directory), before);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
 function harness(enabled = true) {
-  const emitter = new EventEmitter();
-  let checks = 0;
-  let installs = 0;
-  let response = 0;
   const messages: string[] = [];
-  let prepare: () => Promise<void> = async () => {};
-  const updater = Object.assign(emitter, {
-    setFeedURL: () => {}, checkForUpdates: () => { checks++; },
-    quitAndInstall: () => { installs++; },
+  const revealed: string[] = [];
+  let choice = 0;
+  let downloads = 0;
+  let checks = 0;
+  let source: () => Promise<typeof release | null> = async () => release;
+  const updates = new AppUpdates({ enabled, version: "0.1.0",
+    latest: () => { checks++; return source(); },
+    download: async () => { downloads++; return "/tmp/worket-fake.zip"; },
+    reveal: path => { revealed.push(path); },
+    showDialog: async options => { messages.push(options.message); return { response: choice, checkboxChecked: false }; },
   });
-  const updates = new AppUpdates({ enabled, updater: updater as never,
-    version: "0.1.1", arch: "arm64",
-    beforeInstall: () => prepare(),
-    showDialog: async (options) => {
-      messages.push(options.message);
-      return { response, checkboxChecked: false };
-    },
-  });
-  return { updates, emitter, messages, checks: () => checks, installs: () => installs,
-    choose: (value: number) => { response = value; },
-    prepare: (fn: () => Promise<void>) => { prepare = fn; },
-  };
+  return { updates, messages, revealed, choose: (value: number) => { choice = value; },
+    source: (value: typeof source) => { source = value; }, downloads: () => downloads, checks: () => checks };
 }
-const settle = () => new Promise(resolve => setImmediate(resolve));
-
-test("feed identifies repository, architecture and installed version", () => {
-  assert.equal(updateFeed("0.1.1", "arm64"), "https://update.electronjs.org/TobeALeg/worket/darwin-arm64/0.1.1");
+test("developer mode never checks and dismissing a release never downloads", async () => {
+  const dev = harness(false); dev.updates.start(); await dev.updates.check(true); assert.equal(dev.checks(), 0);
+  const h = harness(); await h.updates.check(); await h.updates.check();
+  assert.equal(h.downloads(), 0); assert.equal(h.messages.length, 1);
+  await h.updates.check(true); assert.equal(h.messages.length, 2);
 });
-test("development build does not contact update service", async () => {
-  const h = harness(false); h.updates.start(); h.updates.check(true);
-  await settle(); assert.equal(h.checks(), 0); assert.equal(h.messages.length, 1);
+test("only explicit download consent downloads and reveals archive", async () => {
+  const h = harness(); h.choose(1); await h.updates.check();
+  assert.equal(h.downloads(), 1); assert.deepEqual(h.revealed, ["/tmp/worket-fake.zip"]);
+  assert.ok(h.messages.includes("新版已下载"));
 });
-test("concurrent checks are coalesced, network error permits retry", async () => {
-  const h = harness(); h.updates.check(); h.updates.check();
-  assert.equal(h.checks(), 1);
-  h.emitter.emit("error", new Error("offline"));
-  assert.equal(h.messages.length, 0);
-  h.updates.check(true); h.emitter.emit("error", new Error("offline"));
-  await settle(); assert.equal(h.checks(), 2); assert.equal(h.messages[0], "更新失败");
-  h.updates.check(true); assert.equal(h.checks(), 3);
-});
-test("later keeps app running; retrying downloaded update waits for capture before install", async () => {
-  const h = harness(); h.emitter.emit("update-downloaded");
-  await settle(); assert.equal(h.installs(), 0);
-  let finish!: () => void;
-  h.prepare(() => new Promise<void>(resolve => { finish = resolve; }));
-  h.choose(1); h.updates.check(true); await settle();
-  assert.equal(h.installs(), 0); assert.equal(h.checks(), 0);
-  h.updates.check(true); finish(); await settle();
-  assert.equal(h.installs(), 1);
-});
-test("failed preparation does not quit the app", async () => {
-  const h = harness(); h.choose(1);
-  h.prepare(async () => { throw new Error("capture failed"); });
-  h.emitter.emit("update-downloaded"); await settle();
-  assert.equal(h.installs(), 0); assert.ok(h.messages.includes("暂时无法重启更新"));
+test("duplicate checks coalesce and failures permit retries; background errors stay quiet", async () => {
+  const h = harness(); let finish!: (value: null) => void;
+  h.source(() => new Promise(resolve => { finish = resolve; }));
+  const first = h.updates.check(); await h.updates.check(true); assert.equal(h.checks(), 1);
+  finish(null); await first;
+  h.source(async () => { throw new Error("offline"); });
+  h.messages.length = 0; await h.updates.check(); assert.equal(h.messages.length, 0);
+  await h.updates.check(true); assert.deepEqual(h.messages, ["更新失败"]);
+  h.source(async () => null); await h.updates.check(true); assert.equal(h.messages.at(-1), "暂无可用更新");
 });

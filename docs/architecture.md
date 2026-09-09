@@ -265,6 +265,6 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 
 ### 桌面应用更新
 
-`desktop/app-updates.ts` 封装 Electron 原生 autoUpdater 的检查并发控制、错误提示和重启确认；主进程菜单调用更新模块，安装前等待当前记录同步并保存桌宠位置，退出沿用既有服务清理。数据目录和 bundle ID 保持稳定。正式构建标记决定是否启用，开发参数始终禁用。
+`desktop/app-updates.ts` 管理检查并发、下载确认、提示及 Finder 定位；`desktop/github-release.ts` 读取公开 GitHub `releases/latest`，比较稳定版本，按严格文件名选择本机架构 ZIP 和 SHA256。主进程注入 Electron net.fetch，下载流式写入系统下载目录中的独立临时文件夹，大小和 SHA256 校验通过后才将 .part 改名为 ZIP。失败清理，不解压或执行附件。
 
-更新流：GitHub 稳定 Release ZIP → update.electronjs.org 按平台/架构/版本提供 feed → Squirrel.Mac 下载及签名校验 → 用户确认 → quitAndInstall。状态为闲置/检查下载中/已下载/安装中；重复检查不会重复下载，失败允许重试。`scripts/release-mac.mjs` 负责签名、公证、ZIP 及解压验证，不自动公开发布。证书和公证凭据只在构建机钥匙串中保存。
+状态流：闲置 → 检查 → 用户确认 → 下载校验 → Finder 定位；稍后、无更新或失败返回闲置。用户自行退出、替换和重开应用；不存在 autoUpdater 或原生安装调用。开发模式不检查。`scripts/release-mac.mjs` 负责免费 ad-hoc 签名、打包及解压 QA，不要求 Apple 公证，不自动发布。GitHub token 不进入客户端，数据目录和 bundle ID 保持稳定。

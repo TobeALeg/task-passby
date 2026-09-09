@@ -1,6 +1,7 @@
+import { latestRelease, downloadRelease } from "./desktop/github-release.js";
 import { AppUpdates } from "./desktop/app-updates.js";
 import { createDefaultExecutors } from "./executors/defaults.js";
-import { existsSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { DistillationDesktop } from "./distillation/desktop.js";
 import { WorketAIClient } from "./ai-service/client.js";
 import { ServiceCredentials } from "./ai-service/credentials.js";
@@ -9,7 +10,7 @@ import { join } from "node:path";
 
 import {
   app,
-  autoUpdater,
+  net,
   BrowserWindow,
   dialog,
   ipcMain,
@@ -32,7 +33,6 @@ import {
 
 let quitting = false;
 let updates: AppUpdates;
-let captureSync: Promise<void> | undefined;
 let petDrag: { cursor: { x: number; y: number }; x: number; y: number } | null =
   null;
 const petPositionPath = () =>
@@ -56,8 +56,7 @@ let captureTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function syncRecordedWorks(): Promise<void> {
   try {
-    captureSync = service?.syncRecordedWorks();
-    await captureSync;
+    await service?.syncRecordedWorks();
   } finally {
     if (service && !quitting)
       captureTimer = setTimeout(() => void syncRecordedWorks(), 5_000);
@@ -401,18 +400,12 @@ function registerIpc(): void {
 app.whenReady().then(async () => {
   await configureDock();
   updates = new AppUpdates({
-    updater: autoUpdater,
     showDialog: (options) => dialog.showMessageBox(options),
-    enabled: process.platform === "darwin" && app.isPackaged &&
-      !process.argv.includes("--dev") &&
-      existsSync(join(process.resourcesPath, "worket-update-enabled.json")),
-    version: app.getVersion(), arch: process.arch,
-    beforeInstall: async () => {
-      // Finish the in-flight capture before the native updater closes windows.
-      await captureSync;
-      if (petWindow && !petWindow.isDestroyed())
-        savePetPosition(petWindow, petPositionPath());
-    },
+    enabled: process.platform === "darwin" && app.isPackaged && !process.argv.includes("--dev"),
+    version: app.getVersion(),
+    latest: () => latestRelease((url, init) => net.fetch(url, init), app.getVersion(), process.arch),
+    download: (release) => downloadRelease((url, init) => net.fetch(url, init), release, app.getPath("downloads")),
+    reveal: (path) => shell.showItemInFolder(path),
   });
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: "Worket", submenu: [

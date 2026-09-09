@@ -72,33 +72,41 @@ npm run qa:desktop-roundtrip
 
 完整产品与领域定义见 [docs/product.md](docs/product.md) 和 [docs/architecture.md](docs/architecture.md)。
 
-## 应用内更新与 GitHub 发布
+## 半自动更新与 GitHub 发布
 
-正式版通过 `GitHub Releases → update.electronjs.org → Electron autoUpdater` 更新，不需要自建服务器。当前更新仓库固定为 `TobeALeg/worket`，只支持 macOS ARM64 稳定版。更新入口在 macOS 的 **Worket → 检查更新…** 菜单以及桌宠右键菜单。
+无需 Apple 付费开发者会员。应用直接读取公开仓库 `TobeALeg/worket` 的 GitHub 最新稳定 Release。入口位于 macOS 的 **Worket → 检查更新…** 和桌宠右键菜单。
 
-正式发布包启动时检查更新，此后每小时检查。新版在后台下载，完成后提示“稍后 / 重启更新”；不会自动强制重启。选择“稍后”后也可能在正常退出时安装。重启前请保存面板里尚未提交的编辑；已落盘数据继续使用 `~/Library/Application Support/WorkPet`，不要更改 bundle ID `dev.workpet.desktop` 或用户数据目录。更新不承诺保留未提交的表单输入，也不保证重启间隙持续录制。原有绑定会在重新启动后继续同步。
+正常启动的打包应用会在启动时检查，此后每小时检查。发现新版后提示“稍后 / 下载新版”；只有点击下载才下载安装包。同一版本选择稍后后，本次运行不再自动提醒，仍可手动检查。开发启动 `npm run dev` 或 `--dev` 不检查更新。
 
-`npm start`、`npm run package:mac` 生成的本地包不启用自动更新；只有正式发布脚本生成的签名包携带更新标记。`--dev` 始终禁用自动更新。尚未内置更新功能的旧版本，需要手动安装一次新版到 `/Applications/Worket.app`，此后才能在应用内升级。
+### 用户如何更新
 
-### 首次准备（发布者）
+1. 点击“下载新版”，等待下载与 SHA256 校验完成。下载期间可以继续使用 Worket；失败后可以手动重试。
+2. 应用自动在 Finder 中选中下载好的 ZIP，位置为系统“下载”目录下独立的 `Worket-update-*` 文件夹。
+3. **保存尚未提交的编辑，退出 Worket**，双击 ZIP 解压，将 `Worket.app` 拖到“应用程序”文件夹，确认替换。
+4. 重新打开 `/Applications/Worket.app`；如接入配置更新，按提示重启 Codex / WorkBuddy。
 
-1. 在 macOS 钥匙串中安装带私钥的 **Developer ID Application** 证书。ad-hoc 临时签名不能作为这条正式发布流程的替代品。后续版本保持相同开发者身份和 bundle ID。
-2. 使用 `xcrun notarytool store-credentials worket-notary` 交互式保存 Apple 公证凭据。不要把密码、证书私钥或 GitHub token 写入仓库或客户端。
-3. 使用本机 `gh auth login` 登录，然后以 `gh auth status`、`gh api user --jq .login` 验证发布权限；发布仓库必须公开。普通用户无需 GitHub 登录。
+应用不会自动解压、替换、安装或重启。已保存的工作和设置继续保存在 `~/Library/Application Support/WorkPet`，替换应用包不删除此目录。重启间隙暂停录制，重新启动后按原有绑定继续同步；未提交表单需自行保存。
 
-### 每次发布
+已有旧版仍需先手动安装一次带本功能的版本。免费发布包采用 ad-hoc 临时签名，**不是 Apple Developer ID 签名，也没有 Apple 公证**，macOS 可能提示无法验证开发者；仅在确认来源可信后，按系统“隐私与安全性”的提示允许打开。半自动更新不会绕过系统检查。
 
-先完成改动并递增 `package.json` / `package-lock.json` 的版本，例如 `npm version 0.1.1 --no-git-tag-version`，然后提交。版本必须大于已发布版本；不要覆盖同版本安装包。当前官方更新源按稳定发布使用，**draft / prerelease 不作为面向用户的更新渠道**。
+### 发布者每次发布
+
+保持 `dev.workpet.desktop` bundle ID 和现有用户数据目录不变。递增 `package.json` 与 `package-lock.json` 的版本，例如 `npm version 0.1.1 --no-git-tag-version`，然后提交。使用递增的 `x.y.z` 稳定版本，不覆盖同版本附件。
 
 ```bash
-export WORKET_SIGN_IDENTITY='Developer ID Application: 你的名称 (TEAMID)'
-export WORKET_NOTARY_PROFILE='worket-notary'
 npm run release:mac
 ```
 
-脚本要求干净工作区，依次执行测试、打包、启用更新、正式签名、公证及 stapling 验证、ZIP 打包、解压签名验证、解压后真实应用 QA，最后生成 SHA256。任何一步失败都不得发布。产物为 `release/Worket-<版本>-darwin-arm64.zip` 和对应 `.sha256`；文件名必须包含 `-darwin-arm64`，官方服务以此识别架构。发布脚本不会自动上传或公开 Release。
+脚本要求 macOS ARM64 和干净工作区，执行测试、打包、ad-hoc 签名、ZIP 打包、解压签名验证、真实应用 QA，最后生成 SHA256。不需要证书、Apple 账号或公证凭据；不会自动上传或公开发布。
 
-以 `0.1.1` 为例，在与构建一致的提交创建 tag 和草稿，上传完整附件：
+必须同时上传以下两个附件，名称须严格匹配版本和架构：
+
+- `Worket-<版本>-darwin-arm64.zip`
+- `Worket-<版本>-darwin-arm64.zip.sha256`
+
+SHA256 文件内容为 `哈希值  ZIP文件名`。校验用于检测下载损坏，不等同于 Apple 公证或独立发布者身份认证。缺失附件、校验失败或网络中断时不会向用户交付不完整安装包。
+
+先用本机 `gh auth status`、`gh api user --jq .login` 确认发布账号；未登录时执行 `gh auth login`。编写 `/tmp/worket-release-notes.md` 后，以版本 `0.1.1` 为例：
 
 ```bash
 git tag v0.1.1
@@ -110,13 +118,12 @@ gh release create v0.1.1 \
   --title 'Worket 0.1.1' --notes-file /tmp/worket-release-notes.md
 ```
 
-先编写上述发布说明文件。草稿附件检查完成后，在 GitHub 页面发布为稳定版；发布即让现有正式版用户有机会收到更新。只有上传源码 ZIP、只建 tag、或只提交代码都不会触发应用升级。不要将 GitHub 网页地址直接作为 `autoUpdater` feed。
+检查草稿附件后，在 GitHub 发布为稳定版并标记为 Latest。当前只读取 `releases/latest`，**草稿和 prerelease 不会提示更新**。只推代码、只建 tag 或只上传 GitHub 自动生成的源码 ZIP 都不够。用户无需登录 GitHub，客户端不包含 token；网络或 GitHub 限流会导致检查失败，稍后可重试。
 
-### 升级验收与故障处理
+### 验收与故障处理
 
-- 发布前在隔离的测试应用中用受控更新源验证两个不同版本、相同签名身份的真实包：发现新版 → 下载 → 稍后不重启 → 菜单再次提示 → 重启安装 → 版本变化 → 工作记录、设置、绑定仍在。草稿不会被生产更新源发现；首次接入尚需这一真实签名升级验收，不能用模拟事件测试代替。
-- 稳定版发布后，再用旧正式版验证生产地址 `https://update.electronjs.org/TobeALeg/worket/darwin-arm64/<旧版本>` 以及完整升级链。官方服务可能有缓存延迟。
-- GitHub 或更新服务不可达时，后台失败只记录日志，不影响使用；手动检查会提示失败。下载依赖用户能访问 GitHub。
-- 出现发布问题时先撤回有问题的 Release，停止新增分发；已下载的客户端仍可能安装。用更高版本发布修复，不依赖降版本回滚。数据结构变更需要单独验证兼容性与备份恢复。
+发布后用旧版本验证：发现新版 → 稍后不下载 → 手动检查并下载 → SHA256 一致 → Finder 选中 ZIP → 退出并拖动替换 → 新版本正常启动 → 原有记录和设置保留。首次发布前可用合成 Release 验证下载链，不能把它当成生产 Release 已上线。真实 Electron 下载验收脚本为 `node scripts/qa-updates.mjs`（使用本机合成 HTTP 服务和临时下载目录，不访问真实工作数据）。
 
-实现见 `src/desktop/app-updates.ts`、`scripts/release-mac.mjs`。协议依据：[Electron 更新指南](https://www.electronjs.org/docs/latest/tutorial/updates)、[官方更新服务与附件命名](https://github.com/electron/update.electronjs.org)。
+下载中断会清理此次临时文件夹；若进程被强制结束，可能留下 `.part` 文件，可删除后重试。发现错误发布时撤回 Release，并用更高版本发布修复；已下载文件不会自动撤回。数据结构变更须另行验证迁移和恢复。
+
+实现见 `src/desktop/app-updates.ts`、`src/desktop/github-release.ts`、`scripts/release-mac.mjs`。[GitHub Releases API 文档](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)。

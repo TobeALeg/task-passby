@@ -1,9 +1,10 @@
+import { createEnrollmentHandler } from "./enrollment.mjs";
 import { join } from "node:path";
 import { ImprovementStore } from "./improvement.mjs";
 import { AdminStore } from "./admin/store.mjs";
 import { createAdminHandler, runtimeConfig } from "./admin/http.mjs";
 import { createAIService } from "./service.mjs";
-export function createManagedService({ directory, providerFactory } = {}) {
+export function createManagedService({ directory, providerFactory, automaticEnrollment = false, globalDailyCalls = 200, trustProxy = false } = {}) {
   if (!directory) throw new Error("SERVER_DATA_DIR_REQUIRED");
   const store = new AdminStore(directory);
   const improvement = new ImprovementStore(join(directory, "improvement.sqlite"));
@@ -19,6 +20,8 @@ export function createManagedService({ directory, providerFactory } = {}) {
     ...runtimeConfig(store, providerFactory),
     databasePath: join(directory, "metadata.sqlite"),
     adminHandler,
+    enrollmentHandler: automaticEnrollment ? createEnrollmentHandler(store, { trustProxy }) : undefined,
+    globalDailyCalls,
     improvement,
     isAdminBusy: adminHandler.isTesting,
   });

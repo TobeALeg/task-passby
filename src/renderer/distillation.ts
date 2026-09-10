@@ -90,22 +90,18 @@ export function setupDistillation(
         ),
     );
   document.querySelector("#service-settings")!.addEventListener("click", () => {
-    show(
-      "Worket 服务",
-      `<p>使用 Worket 访问凭据。模型供应商密钥由后台管理。凭据加密保存在系统安全存储保护下。</p><label class="field">服务地址<input id="service-url" type="url"></label><label class="field">Worket 访问令牌<input id="service-token" type="password" autocomplete="off"></label><p>当前提供开发联调凭据入口；正式账号登录尚待接入身份服务。</p><button id="save-service">保存并检查连接</button><button id="improvement-data">改进数据</button>`,
-    );
-    bind("#improvement-data", openImprovementData);
-    bind("#save-service", async () => {
-      await window.workpet.configureWorketService({
-        url: value("#service-url"),
-        token: value("#service-token"),
-      });
-      const capability = await api("capabilities");
-      show(
-        "服务已连接",
-        `<p>最多 ${esc(capability.limits.maxSources)} 份来源；${esc(capability.limits.maxBytes)} 字节；结果暂存 ${esc(capability.limits.resultTtlMs / 60_000)} 分钟。</p><p>${esc(capability.dataPolicy.provider)}</p>`,
-      );
-    });
+    void openServiceSettings().catch(error => window.alert(String(error)));
+  });
+}
+async function openServiceSettings(connected = false): Promise<void> {
+  const status = await window.workpet.getWorketServiceStatus();
+  show("Worket 服务", `<p>${connected ? "已连接" : status.automatic ? "自动连接 Worket 服务" : "使用自定义服务"}</p><p>${esc(status.url)}</p><p>${status.automatic ? "此安装使用独立接入，凭据由应用自动获取并安全保存。" : "接入由服务管理员提供。"}</p><button id="check-service">检查连接</button><button id="improvement-data">改进数据</button><details><summary>高级连接设置</summary><label class="field">服务地址<input id="service-url" type="url" value="${esc(status.url)}"></label><label class="field">Worket 访问令牌<input id="service-token" type="password" autocomplete="off"></label><button id="save-service">保存并检查连接</button></details>`);
+  bind("#improvement-data", openImprovementData);
+  bind("#check-service", async () => { await api("capabilities"); await openServiceSettings(true); });
+  bind("#save-service", async () => {
+    await window.workpet.configureWorketService({ url: value("#service-url"), token: value("#service-token") });
+    await api("capabilities");
+    await openServiceSettings(true);
   });
 }
 export async function renderDefinitions(): Promise<void> {

@@ -1,0 +1,6 @@
+[Unit]
+Description=Renew Worket IP certificate
+After=network-online.target worket-edge.service
+[Service]
+Type=oneshot
+ExecStart=/opt/worket-certbot/bin/certbot renew --cert-name worket-ip --no-random-sleep-on-renew --deploy-hook /etc/worket/install-certificate.sh

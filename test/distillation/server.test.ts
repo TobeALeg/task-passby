@@ -94,6 +94,19 @@ async function done(f: any, id: string) {
   }
   throw new Error("timeout");
 }
+
+test("global daily model budget applies across installation identities", async () => {
+  const f = await fixture({ globalDailyCalls: 2 });
+  try {
+    const first = await f.send("/v1/definition-extractions", "POST", request, "global-first", "alice");
+    assert.equal(first.status, 202);
+    assert.equal((await done(f, first.body.requestId)).status, "SUCCEEDED");
+    const second = await f.send("/v1/definition-extractions", "POST", request, "global-second", "bob");
+    assert.equal(second.status, 429);
+    assert.equal(second.body.code, "QUOTA_EXCEEDED");
+    assert.equal(f.calls(), 2);
+  } finally { await f.service.close(); }
+});
 test("A18 all remote operations are subject isolated, authentication required", async () => {
   const f = await fixture();
   try {

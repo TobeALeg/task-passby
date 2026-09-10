@@ -6,7 +6,12 @@ if (!Number.isInteger(port) || port < 1 || port > 65535)
 const directory = resolve(
   process.env.WORKET_SERVER_DATA_DIR ?? ".worket-server",
 );
-const service = createManagedService({ directory });
+const service = createManagedService({
+  directory,
+  automaticEnrollment: process.env.WORKET_AUTOMATIC_ENROLLMENT === "true",
+  trustProxy: process.env.WORKET_TRUST_LOOPBACK_PROXY === "true",
+  globalDailyCalls: Number(process.env.WORKET_GLOBAL_DAILY_CALLS ?? 200),
+});
 service.server.on("error", (error) => {
   console.error(
     error.code === "EADDRINUSE"

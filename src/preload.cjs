@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("workpet", {
   exportWorkPackage: (workId) => ipcRenderer.invoke("distillation:export", workId),
   copyWorkPackage: (workId) => ipcRenderer.invoke("distillation:copy", workId),
   configureWorketService: (input) => ipcRenderer.invoke("distillation:configure", input),
+  getWorketServiceStatus: () => ipcRenderer.invoke("distillation:connection"),
   recordCurrentContextFromPet: () => ipcRenderer.invoke("panel:record-current-context"),
   getPetView: () => ipcRenderer.invoke("pet:get-view"),
   togglePanelFromPet: () => ipcRenderer.invoke("panel:toggle"),

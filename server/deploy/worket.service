@@ -1,0 +1,25 @@
+[Unit]
+Description=Worket API and improvement samples
+After=network-online.target
+Wants=network-online.target
+[Service]
+User=worket
+Group=worket
+WorkingDirectory=/opt/worket/current
+ExecStart=/opt/worket/runtime/node /opt/worket/current/server/start.mjs
+Environment=NODE_ENV=production
+Environment=PORT=8788
+Environment=WORKET_SERVER_DATA_DIR=/var/lib/worket/data
+Environment=WORKET_AUTOMATIC_ENROLLMENT=true
+Environment=WORKET_TRUST_LOOPBACK_PROXY=true
+Environment=WORKET_GLOBAL_DAILY_CALLS=200
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+StateDirectory=worket
+UMask=0077
+[Install]
+WantedBy=multi-user.target

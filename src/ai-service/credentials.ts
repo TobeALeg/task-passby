@@ -8,12 +8,13 @@ import {
 } from "node:fs";
 import { dirname } from "node:path";
 import { ensure, object, string } from "../contracts/definition.js";
+import type { ServiceConfig } from "./connection.js";
 export class ServiceCredentials {
   constructor(
     readonly path: string,
     readonly development: boolean,
   ) {}
-  read(): { url: string; token: string; development: boolean } {
+  read(): ServiceConfig {
     if (!existsSync(this.path))
       return { url: "", token: "", development: this.development };
     ensure(
@@ -23,13 +24,16 @@ export class ServiceCredentials {
     );
     const value = JSON.parse(
       safeStorage.decryptString(readFileSync(this.path)),
-    ) as { url: string; token: string };
+    ) as ServiceConfig;
     return { ...value, development: this.development };
   }
   save(value: unknown): void {
     object(value);
     string(value.url);
     string(value.token);
+    this.write({ url: value.url, token: value.token });
+  }
+  write(value: ServiceConfig): void {
     const url = new URL(value.url);
     ensure(
       url.protocol === "https:" ||
@@ -49,7 +53,7 @@ export class ServiceCredentials {
     writeFileSync(
       tmp,
       safeStorage.encryptString(
-        JSON.stringify({ url: value.url, token: value.token }),
+        JSON.stringify(value),
       ),
       { mode: 0o600 },
     );

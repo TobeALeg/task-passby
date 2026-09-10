@@ -1,4 +1,5 @@
 import {
+  createHash,
   randomBytes,
   randomUUID,
   scryptSync,
@@ -284,21 +285,34 @@ export class AdminStore {
         expiresAt: new Date(now + days * 86400000).toISOString(),
         revokedAt: null,
       };
-    const header = Buffer.from(
-      JSON.stringify({ alg: "RS256", typ: "JWT" }),
-    ).toString("base64url");
-    const payload = Buffer.from(
-      JSON.stringify({
-        sub: client.id,
-        iss: ISSUER,
-        aud: AUDIENCE,
-        iat: Math.floor(now / 1000),
-        exp: Math.floor(new Date(client.expiresAt).getTime() / 1000),
-      }),
-    ).toString("base64url");
-    const token = `${header}.${payload}.${sign("RSA-SHA256", Buffer.from(`${header}.${payload}`), this.privateKey).toString("base64url")}`;
     this.write({ ...this.data, clients: [...this.data.clients, client] });
-    return { ...client, token };
+    return { ...client, token: this.tokenFor(client) };
+  }
+  tokenFor(client) {
+    const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
+    const payload = Buffer.from(JSON.stringify({
+      sub: client.id, iss: ISSUER, aud: AUDIENCE,
+      iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.parse(client.expiresAt) / 1000),
+    })).toString("base64url");
+    return `${header}.${payload}.${sign("RSA-SHA256", Buffer.from(`${header}.${payload}`), this.privateKey).toString("base64url")}`;
+  }
+  enrollInstallation(secret) {
+    ensure(this.initialized(), "MODEL_UNAVAILABLE");
+    ensure(typeof secret === "string" && /^[a-f0-9]{64}$/.test(secret), "INVALID_INPUT");
+    const secretHash = createHash("sha256").update(secret).digest("hex");
+    let client = this.data.clients.find(c => c.installationHash === secretHash);
+    ensure(!client?.revokedAt, "AUTH_REVOKED");
+    if (!client) {
+      ensure(this.data.clients.length < 1000, "QUOTA_EXCEEDED");
+      const id = randomUUID();
+      client = { id, name: `自动接入 ${id.slice(0, 8)}`, installationHash: secretHash,
+        createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(), revokedAt: null };
+      this.write({ ...this.data, clients: [...this.data.clients, client] });
+    } else if (Date.parse(client.expiresAt) < Date.now() + 86400000) {
+      client = { ...client, expiresAt: new Date(Date.now() + 30 * 86400000).toISOString() };
+      this.write({ ...this.data, clients: this.data.clients.map(c => c.id === client.id ? client : c) });
+    }
+    return { subject: client.id, expiresAt: client.expiresAt, token: this.tokenFor(client) };
   }
   revoke(id) {
     const client = this.data.clients.find((c) => c.id === id);

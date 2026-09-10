@@ -270,3 +270,9 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 `desktop/app-updates.ts` 管理检查并发、下载确认、提示及 Finder 定位；`desktop/github-release.ts` 读取公开 GitHub `releases/latest`，比较稳定版本，按严格文件名选择本机架构 ZIP 和 SHA256。主进程注入 Electron net.fetch，下载流式写入系统下载目录中的独立临时文件夹，大小和 SHA256 校验通过后才将 .part 改名为 ZIP。失败清理，不解压或执行附件。
 
 状态流：闲置 → 检查 → 用户确认 → 下载校验 → Finder 定位；稍后、无更新或失败返回闲置。用户自行退出、替换和重开应用；不存在 autoUpdater 或原生安装调用。开发模式不检查。`scripts/release-mac.mjs` 负责免费 ad-hoc 签名、打包及解压 QA，不要求 Apple 公证，不自动发布。GitHub token 不进入客户端，数据目录和 bundle ID 保持稳定。
+
+### VPS 安装身份与自动连接
+
+`AutomaticConnection` 使用 `ServiceCredentials` 保存每安装 32 字节随机秘密，`WorketAIClient` 在请求前确保接入就绪。后台 `/v1/installations` 只存秘密的 SHA256，签发 RS256 令牌并按原安装续期；撤销后同秘密不能重建身份。客户端改进队列以服务地址和安装秘密的哈希标识目的地，令牌续期不改变目的地；手动凭据仍按原指纹规则处理。网络请求进行中若手动切换服务，迟到注册结果不能覆盖新配置。
+
+自动接入由服务端显式环境开关开启；单 IP 每小时最多 60 次注册/续期请求、服务每小时最多 1000 次、最多 1000 个接入主体。公网代理覆盖来源地址头，服务仅在配置为信任本机代理时使用该头。模型调用按全局滚动 24 小时默认 200 次限额预占，保留原每主体限额和并发限制；这是调用次数限额，不是固定金额承诺。后台默认绑定 loopback，VPS 部署用独立 `worket` 和 `worket-edge` 服务。

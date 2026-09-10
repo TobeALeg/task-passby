@@ -92,3 +92,11 @@ ssh -L 8789:127.0.0.1:8788 your-server
 `node --experimental-strip-types scripts/qa-distillation.mjs --improvement` 验证打包桌面的授权、自动采集、复用验收、重启、停止与删除；只使用合成模型和临时数据库。
 
 详细证据见 `docs/acceptance/worket-backend-admin.md` 和 `docs/acceptance/work-distillation-v1.md`。
+
+## VPS 自动接入
+
+设置 `WORKET_AUTOMATIC_ENROLLMENT=true` 开放 `/v1/installations`。每个安装用自己的 32 字节随机秘密领取/续期 30 天令牌，服务仅保存秘密哈希；管理员可在原接入列表撤销。默认最多 1000 个主体，注册/续期每 IP 60 次/小时、总计 1000 次/小时。`WORKET_GLOBAL_DAILY_CALLS` 默认 200，控制所有主体合计的滚动 24 小时模型调用预占。自动接入不等于正式账户注册或设备归属验证。
+
+`WORKET_TRUST_LOOPBACK_PROXY=true` 仅用于本机反向代理已覆盖 `X-Worket-Client-IP` 的部署，禁止直接把该头作为公网客户端自报来源。部署模板见 `server/deploy/`；服务运行在独立系统用户下，IP 证书由 Certbot 签发并通过专用 timer 自动续期，管理页仅通过 SSH 隧道访问。
+
+首次配置可使用 `scripts/configure-worket-vps.mjs`，它通过 SSH stdin 加密传输本机已配置的模型参数，在 VPS 创建独立管理员密码；交付文件保存在被 Git 忽略的 `.worket-server/vps-admin-access.json`，权限 600。不会导入本地工作记录；重复初始化拒绝覆盖。

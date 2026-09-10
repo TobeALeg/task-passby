@@ -1,0 +1,28 @@
+{
+  admin 127.0.0.1:2020
+  auto_https off
+}
+:80 {
+  handle /.well-known/acme-challenge/* {
+    root * /var/www/worket-acme
+    file_server
+  }
+  handle {
+    respond "Not found" 404
+  }
+}
+https://124.223.223.215 {
+  tls /var/lib/worket-edge/tls/fullchain.pem /var/lib/worket-edge/tls/privkey.pem
+  request_body {
+    max_size 4MB
+  }
+  @api path /health /v1/*
+  handle @api {
+    reverse_proxy 127.0.0.1:8788 {
+      header_up X-Worket-Client-IP {remote_host}
+    }
+  }
+  handle {
+    respond "Not found" 404
+  }
+}

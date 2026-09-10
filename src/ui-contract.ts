@@ -147,6 +147,7 @@ export interface WorkPetApi {
   exportWorkPackage(workId: string): Promise<string | null>;
   copyWorkPackage(workId: string): Promise<void>;
   configureWorketService(input: { url: string; token: string }): Promise<void>;
+  getWorketServiceStatus(): Promise<{ url: string; automatic: boolean; hasCredential: boolean; expiresAt: string | null }>;
   recordCurrentContextFromPet(): Promise<DashboardView>;
   getPetView(): Promise<PetView>;
   togglePanelFromPet(): Promise<void>;

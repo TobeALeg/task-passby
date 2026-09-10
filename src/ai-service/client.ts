@@ -1,4 +1,5 @@
 import { hash } from "../definitions/storage.js";
+import type { ServiceConfig } from "./connection.js";
 import type { SampleUpload } from "../contracts/improvement.js";
 import {
   ContractError,
@@ -24,11 +25,8 @@ export interface AIClient {
 }
 export class WorketAIClient implements AIClient {
   constructor(
-    readonly config: () => {
-      url: string;
-      token: string;
-      development?: boolean;
-    },
+    readonly config: () => ServiceConfig,
+    readonly connect?: () => Promise<void>,
   ) {}
   async request(
     path: string,
@@ -36,6 +34,7 @@ export class WorketAIClient implements AIClient {
     body?: unknown,
     key?: string,
   ): Promise<any> {
+    await this.connect?.();
     const config = this.config();
     ensure(config.url, "MODEL_UNAVAILABLE", "请先配置 Worket 服务并登录");
     ensure(config.token, "AUTH_REQUIRED");
@@ -79,7 +78,7 @@ export class WorketAIClient implements AIClient {
   }
   improvementIdentity() {
     const c = this.config();
-    return hash([c.url.replace(/\/$/, ""), c.token]);
+    return hash([c.url.replace(/\/$/, ""), c.installationSecret ?? c.token]);
   }
   uploadSample(input: SampleUpload) {
     return this.request("/v1/improvement-samples", "POST", input);

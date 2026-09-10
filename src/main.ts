@@ -5,6 +5,7 @@ import { writeFileSync } from "node:fs";
 import { DistillationDesktop } from "./distillation/desktop.js";
 import { WorketAIClient } from "./ai-service/client.js";
 import { ServiceCredentials } from "./ai-service/credentials.js";
+import { AutomaticConnection, DEFAULT_SERVICE_URL } from "./ai-service/connection.js";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -262,6 +263,12 @@ function registerIpc(): void {
       throw new Error("INVALID_SENDER");
     credentials.save(input);
   });
+  ipcMain.handle("distillation:connection", (event) => {
+    if (event.sender !== panelWindow?.webContents) throw new Error("INVALID_SENDER");
+    const current = credentials.read();
+    return { url: current.url, automatic: !!current.installationSecret,
+      hasCredential: !!current.token, expiresAt: current.expiresAt ?? null };
+  });
   ipcMain.handle("distillation:choose-file", async (event) => {
     if (event.sender !== panelWindow?.webContents)
       throw new Error("INVALID_SENDER");
@@ -428,9 +435,12 @@ app.whenReady().then(async () => {
     join(dataDirectory, "worket-service.enc"),
     !app.isPackaged || process.argv.includes("--dev"),
   );
+  const connection = new AutomaticConnection(credentials,
+    !app.isPackaged ? process.env.WORKET_SERVICE_URL ?? DEFAULT_SERVICE_URL : DEFAULT_SERVICE_URL);
+  connection.initialize();
   distillation = new DistillationDesktop(
     service,
-    new WorketAIClient(() => credentials.read()),
+    new WorketAIClient(() => credentials.read(), () => connection.ready()),
   );
   bridge = new WorkPetHttpBridge({
     configPath:
@@ -448,6 +458,7 @@ app.whenReady().then(async () => {
   await bridge.start();
   createWindows();
   registerIpc();
+  if (process.env.WORKPET_SKIP_INTEGRATIONS !== "1") void connection.ready().catch(() => {});
   if (process.env.WORKPET_SKIP_INTEGRATIONS !== "1")
     void new IntegrationInstaller(
       integrationResourceRoot(),

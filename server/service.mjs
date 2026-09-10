@@ -68,6 +68,8 @@ export function createAIService(config) {
     "AUTH_REQUIRED",
     "生产环境拒绝开发身份",
   );
+  const globalDailyCalls = config.globalDailyCalls ?? 200;
+  ensure(Number.isInteger(globalDailyCalls) && globalDailyCalls > 0, "INVALID_INPUT");
   const db = new DatabaseSync(config.databasePath ?? ":memory:");
   db.exec(
     `CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, subject TEXT NOT NULL, command_key TEXT NOT NULL, hash TEXT NOT NULL, status TEXT NOT NULL, created INTEGER NOT NULL, updated INTEGER NOT NULL, calls INTEGER NOT NULL, usage_json TEXT NOT NULL, error TEXT, UNIQUE(subject,command_key)) STRICT;`,
@@ -197,6 +199,7 @@ export function createAIService(config) {
         );
         return;
       }
+      if (config.enrollmentHandler && await config.enrollmentHandler(req, res)) return;
       const subject = authenticate(
         req.headers.authorization?.replace(/^Bearer /, ""),
         config,
@@ -300,6 +303,8 @@ export function createAIService(config) {
           )
           .get(subject, day).total;
         ensure(total + budget <= limits.dailyCalls, "QUOTA_EXCEEDED");
+        const globalTotal = db.prepare("SELECT COALESCE(SUM(calls),0) AS total FROM requests WHERE created>?").get(day).total;
+        ensure(globalTotal + budget <= globalDailyCalls, "QUOTA_EXCEEDED");
         const id = randomUUID(),
           now = Date.now();
         db.prepare(
@@ -367,6 +372,8 @@ export function createAIService(config) {
       );
     }
   });
+  server.requestTimeout = 30000;
+  server.headersTimeout = 10000;
   const cleanup = setInterval(() => { expire(); config.improvement?.expire(); }, Math.min(limits.resultTtlMs, 60_000));
   cleanup.unref();
   return {

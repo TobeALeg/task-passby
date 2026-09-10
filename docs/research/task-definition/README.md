@@ -19,6 +19,8 @@ Abstract 与 Memory 也不是互斥能力。现代 Memory 已经会归纳经验�
 
 以上结论分别展开于下文及四份专题：[人类问题形成](human-problem-formulation.md)、[LLM 澄清实证](llm-clarification-evidence.md)、[产品与协议现状](product-and-protocol-landscape.md)、[Abstract 与 Memory](memory-and-abstraction.md)。专题保存论文设置、准确版本、原始链接和限制，便于后续复查。
 
+**后续补充：同类工作反复执行。** 已有 AgentMemoryBench 等基准在顺序执行新任务时持续更新记忆，也有 MemoryArena 将记忆用于跨会话行动。因此，不能把 Memory 评测全部概括为对话问答。用户提出的“同一用户、一类工作、五个独立实例、逐次交付与反馈”需要进一步区分在线经验迁移、一次大任务续做和同题重复测试；具体证据及研究方案见 [重复工作序列评测](repeated-work-evaluation.md)。
+
 ## 2. 一项任务到底是什么
 
 本文采用一个用于产品研究的定义：**任务是在具体情境下，为某个主体达成一种结果或取得足以支持下一步的认识，在一定行动边界内开展，并有办法判断进展或完成的一项工作。** 它不要求结果一定是文件，也不要求执行方法预先固定。

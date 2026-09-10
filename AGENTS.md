@@ -4,9 +4,13 @@
 
 ## VPS 登录
 
-访问 Worket 候选 VPS `124.223.223.215:22` 时，使用本机密钥 `/Users/dandi/Desktop/idd_tecent_dstui.pem`（实际拼写为 `tecent`），SSH 指定 `-i` 与 `-o IdentitiesOnly=yes`。密钥留在本机，权限为 `600`；仓库只记录路径，不保存密钥内容。
+访问 Worket VPS `124.223.223.215:22` 时，默认使用已验证的 `ubuntu` 账号与本机密钥（实际拼写为 `tecent`）：
 
-2026-09-10 检查：SSH 可达，但 `root`、`ubuntu` 均未接受该密钥；实际用户名及实例密钥绑定待确认。确认成功后更新本节的登录账号。服务器性能与部署条件须登录后核实，当前未部署 Worket；客户端按用户要求暂不打包、发布。
+```sh
+ssh -i /Users/dandi/Desktop/idd_tecent_dstui.pem -o IdentitiesOnly=yes ubuntu@124.223.223.215
+```
+
+密钥留在本机，权限为 `600`；仓库只记录路径，不保存密钥内容。部署或排查服务器时，先读 [VPS 检查记录](docs/deployment/vps-readiness.md)，再核实实时资源与已有服务；保留现有 DeepSeek Harness 和 Caddy。2026-09-10 已验证登录与免密 sudo。
 
 ## 持续积累 BP 素材
 

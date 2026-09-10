@@ -50,6 +50,12 @@ export class DistillationDesktop {
         );
       case "improvementSamples":
         return this.service.improvement.list();
+      case "improvementPreference":
+        return { enabled: this.service.improvement.enabled() };
+      case "setImprovementPreference":
+        ensure(typeof input.enabled === "boolean", "INVALID_INPUT");
+        this.service.improvement.setEnabled(input.enabled as boolean);
+        return { enabled: this.service.improvement.enabled() };
       case "stopImprovement":
         if (input.id !== undefined) string(input.id);
         this.service.improvement.stop(input.id as string | undefined);

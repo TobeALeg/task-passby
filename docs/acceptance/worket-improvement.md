@@ -2,6 +2,17 @@
 
 日期：2026-09-09。范围：用户选择的第 1 项“样本库”和第 4 项“授权后的自动采集”。未执行本机真实样本导入和真实效果评测，没有调用 DeepSeek。
 
+## 2026-09-10 默认参与与持久取消（源码验收，未打包发布）
+
+按用户最新要求，沉淀和复用页面的“参与改进”直接展示并默认勾选；本地数据库保存用户选择。取消勾选或停止全部时，停止已有样本后续采集并清空待发正文，跨页面、刷新范围及进程重启均保持关闭。停止单个样本不修改全局偏好；重新开启不恢复已停止样本。以下 2026-09-09 的默认不勾选描述是历史版本验收记录。
+
+- `npm test`：103/103 通过，包括持久取消、禁止旧样本恢复、上传进行中取消后丢弃后续队列。
+- `node --experimental-strip-types scripts/qa-distillation.mjs --improvement --unpackaged`：开发态 Electron 在隔离本地数据与合成后台完成默认选择、取消并重开范围、沉淀、人工修订、发布定义、复用、验收、停止、删除和再次重启；样本包含来源及反馈链，448px 窗口无横向溢出。
+- `node --experimental-strip-types scripts/qa-distillation.mjs --unpackaged`：取消参与后，沉淀、复用、验收和重启恢复均通过；未启用样本接收服务，普通流程可完成。报告：`output/distillation/desktop-report.json`。
+- 报告：`output/improvement-desktop/desktop-report.json`；截图：`01-confirm-range.png`、`07-stop-collection.png`、`09-opt-out-after-restart.png`（位于同目录）。本轮检查实际开发态窗口；未生成或验证新安装包，未创建或发布 Release。
+
+后台自动接入尚待确定服务地址和首次身份接入方式。本次合成验收不代表真实用户已自动连接或样本已到账。
+
 ## 可验收行为
 
 | 场景 | 结果与证据 |

@@ -257,7 +257,7 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 
 `src/contracts/improvement.ts` 集中定义协议与 90 天期限；`server/improvement.mjs` 在独立私有 `improvement.sqlite` 保存授权、事件、评审及接收开关，正文不会进入 `metadata.sqlite`。样本键从认证主体和客户端样本 ID 推导；同事件 ID 重传幂等，正文变化拒绝。客户端只可提交或删除自己的样本，读取正文与写评审须后台会话及 CSRF。Provider 无样本库查询权限，上传接口与模型配置、调用和 ack 无依赖。
 
-`ImprovementCollector` 在工作库中维护明确授权的 subscriptions 与 outbox；仅排队固定范围，已收到的队列项清空正文。同步校验授权时的服务/凭据指纹；身份变化暂停发送。`DistillationService.collectFeedback` 从已授权任务、原始候选及持久化 `review_events` 补齐修改、发布、验收，因此应用在保存后退出也能恢复反馈。复用文件输入被替换为仅选择标记，不上传路径或内容；沉淀快照排除 `reasoning.summary`，本地旧记录不修改。
+`ImprovementCollector` 在工作库中维护明确授权的 subscriptions 与 outbox，以及单行 `improvement_preferences` 持久偏好（缺省开启）；桌面通过 `improvementPreference` / `setImprovementPreference` 读取和修改。取消勾选或停止全部时，以同一事务保存关闭偏好、停止全部活动订阅并清空待发正文；停止单个样本不改变全局偏好，重新开启不复活旧订阅。范围页直接展示选项，提交前等待设置保存，重启后从工作库恢复；仅排队固定范围，已收到的队列项清空正文。同步校验授权时的服务/凭据指纹；身份变化暂停发送。`DistillationService.collectFeedback` 从已授权任务、原始候选及持久化 `review_events` 补齐修改、发布、验收，因此应用在保存后退出也能恢复反馈。复用文件输入被替换为仅选择标记，不上传路径或内容；沉淀快照排除 `reasoning.summary`，本地旧记录不修改。
 
 状态流：ACTIVE → STOPPED（停止并清空待发正文）或 DELETE_PENDING → DELETED（服务确认删除）。上传和删除串行；已发出的上传可能在停止之后到达，随后删除仍清除它。服务端删除原材料、候选、反馈、评审并保留只含哈希键的 tombstone，阻止迟到重传复活；SQLite 开启 secure_delete。90 天按授权时间固定，到期在服务启动、请求或定时清理时移除，不因反馈续期。首版不产生另存正文的评测派生副本。每主体最多 1000 份样本、每样本最多 1000 条事件，单事件包最多 4 MiB。
 

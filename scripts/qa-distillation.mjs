@@ -76,17 +76,20 @@ const header = Buffer.from(JSON.stringify({ alg: "HS256" })).toString(
     }),
   ).toString("base64url");
 const token = `${header}.${body}.${createHmac("sha256", "local-ui-fixture-secret").update(`${header}.${body}`).digest("base64url")}`;
-const executable = join(
+const unpackaged = process.argv.includes("--unpackaged");
+const executable = process.env.WORKPET_EXECUTABLE_PATH ?? join(
   process.cwd(),
-  "release/Worket-darwin-arm64/Worket.app/Contents/MacOS/Worket",
+  unpackaged ? "node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+    : "release/Worket-darwin-arm64/Worket.app/Contents/MacOS/Worket",
 );
 async function launch() {
   const app = await electron.launch({
     executablePath: executable,
-    args: [`--user-data-dir=${directory}`, "--dev"],
+    args: [...(unpackaged ? ["."] : []), `--user-data-dir=${directory}`, "--dev"],
     cwd: process.cwd(),
     env: {
       ...process.env,
+      WORKPET_SKIP_INTEGRATIONS: "1",
       WORKPET_DATA_DIR: directory,
       WORKPET_BRIDGE_CONFIG: join(directory, "bridge.json"),
     },
@@ -122,11 +125,18 @@ try {
   assert.equal(await panel.locator("[data-distill-work]").isChecked(), true);
   await panel.locator("#distill-selected").click();
   await panel.locator("#consent").check();
+  assert.equal(await panel.locator("#improvement-consent").isChecked(), true);
+  assert.equal(await panel.locator("#improvement-consent").isVisible(), true);
+  // An unchecked choice survives closing, reopening, and refreshing the material range.
+  await panel.locator("#improvement-consent").uncheck();
+  await panel.locator("[data-close]").click();
+  await panel.locator("#distill-selected").click();
   assert.equal(await panel.locator("#improvement-consent").isChecked(), false);
-  if (improvementQA) {
-    await panel.getByText("参与改进 Worket（可选）", { exact: true }).click();
-    await panel.locator("#improvement-consent").check();
-  }
+  await panel.locator("#apply-range").click();
+  await panel.getByRole("heading", { name: "确认沉淀范围", exact: true }).waitFor();
+  assert.equal(await panel.locator("#improvement-consent").isChecked(), false);
+  if (improvementQA) await panel.locator("#improvement-consent").check();
+  await panel.locator("#consent").check();
   assert.equal(calls, 0);
   await panel.screenshot({ path: join(output, "01-confirm-range.png") });
   await panel.locator("#start-distillation").click();
@@ -141,11 +151,7 @@ try {
   await panel.locator("#use-definition").click();
   await panel.locator('[data-input="customer"]').fill("客户丙");
   await panel.locator('[data-input="market"]').fill("欧洲市场");
-  assert.equal(await panel.locator("#improvement-consent").isChecked(), false);
-  if (improvementQA) {
-    await panel.getByText("参与改进 Worket（可选）", { exact: true }).click();
-    await panel.locator("#improvement-consent").check();
-  }
+  assert.equal(await panel.locator("#improvement-consent").isChecked(), improvementQA);
   await panel.locator("#create-defined-work").click();
   await panel.locator("#definition-dialog").waitFor({ state: "hidden" });
   const dashboard = await panel.evaluate(() => window.workpet.getDashboard());
@@ -214,7 +220,8 @@ try {
     await panel.locator("#service-settings").click();
     await panel.locator("#improvement-data").click();
     await panel.getByRole("heading", { name: "改进数据", exact: true }).waitFor();
-    await panel.locator("#stop-all-improvement").click();
+    await panel.locator("#improvement-consent").uncheck();
+    await panel.waitForFunction(() => !document.querySelector("#improvement-consent")?.disabled);
     assert.ok((await panel.evaluate(() => window.workpet.distillation("improvementSamples"))).every(s => s.state === "STOPPED"));
     await panel.screenshot({ path: join(output, "07-stop-collection.png") });
     const sampleId = improvement.list()[0].client_id;
@@ -226,6 +233,16 @@ try {
     assert.equal(improvement.list().length, 1);
     await panel.screenshot({ path: join(output, "08-delete-sample.png") });
   }
+  // Persist the opt-out across a full process restart, including the reuse page.
+  await app.close();
+  app = null;
+  ({ app, panel } = await launch());
+  assert.deepEqual(await panel.evaluate(() => window.workpet.distillation("improvementPreference")), { enabled: false });
+  await panel.locator("#tab-definitions").click();
+  await panel.locator("[data-definition]").click();
+  await panel.locator("#use-definition").click();
+  assert.equal(await panel.locator("#improvement-consent").isChecked(), false);
+  await panel.screenshot({ path: join(output, "09-opt-out-after-restart.png") });
   const metrics = await panel.evaluate(() => ({
     width: innerWidth,
     scrollWidth: document.documentElement.scrollWidth,
@@ -241,7 +258,10 @@ try {
     directory,
     metrics,
     restart: true,
-    screenshots: improvementQA ? 8 : 6,
+    screenshots: improvementQA ? 9 : 7,
+    unpackaged,
+    defaultEnabled: true,
+    persistentOptOut: true,
   };
   writeFileSync(
     join(output, "desktop-report.json"),

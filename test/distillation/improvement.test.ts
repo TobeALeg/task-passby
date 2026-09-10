@@ -87,7 +87,7 @@ test("improvement HTTP: no model call, client isolation, admin auth/CSRF, pause 
   } finally { await service.close(); rmSync(directory, { recursive: true, force: true }); }
 });
 
-test("local collector: opt-in only, durable retry, stop, service changes and deletion prevent resurrection", async () => {
+test("local collector: submitted scopes only, durable retry, stop, service changes and deletion prevent resurrection", async () => {
   const directory = mkdtempSync(join(tmpdir(), "worket-outbox-"));
   const path = join(directory, "local.sqlite");
   let db = new DatabaseSync(path), destination = "first", offline = true;
@@ -120,6 +120,67 @@ test("local collector: opt-in only, durable retry, stop, service changes and del
     offline = true; c.remove("job"); await c.flush(); assert.equal(c.list()[0].state, "DELETE_PENDING");
     offline = false; await c.flush(); assert.equal(c.list()[0].state, "DELETED"); assert.equal(store.list().length, 0);
   } finally { db.close(); store.close(); rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("improvement preference: default on, persistent opt-out, no historical restart and independent sample stop", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "worket-preference-"));
+  const path = join(directory, "work.sqlite");
+  let db = new DatabaseSync(path);
+  const client: any = {
+    improvementIdentity: () => "fixture",
+    capabilities: async () => ({ improvement: { ...IMPROVEMENT_POLICY, enabled: true } }),
+    uploadSample: async () => {}, deleteSample: async () => {},
+  };
+  let c = new ImprovementCollector(db, client);
+  try {
+    assert.equal(c.enabled(), true);
+    assert.equal(c.list().length, 0);
+    c.enroll("first", "DISTILLATION", "first", { request });
+    c.enroll("second", "DISTILLATION", "second", { request });
+    c.stop("first");
+    assert.equal(c.enabled(), true);
+    assert.equal(c.active().length, 1);
+    c.setEnabled(false);
+    assert.ok(c.list().every(s => s.state === "STOPPED" && s.pending === 0));
+    await assert.rejects(() => c.authorize(IMPROVEMENT_POLICY.version), /参与改进已关闭/);
+    assert.throws(() => c.enroll("blocked", "DISTILLATION", "blocked", { request }), /COLLECTION_DISABLED/);
+    db.close(); db = new DatabaseSync(path); c = new ImprovementCollector(db, client);
+    assert.equal(c.enabled(), false);
+    await c.authorize(undefined); // Local work without improvement collection remains available.
+    c.setEnabled(true);
+    assert.equal(c.active().length, 0);
+    c.enroll("first", "DISTILLATION", "first", { request });
+    assert.equal(c.active().length, 0);
+    c.enroll("new", "DISTILLATION", "new", { request });
+    assert.equal(c.active().length, 1);
+    c.stop();
+    assert.equal(c.enabled(), false);
+    assert.throws(() => c.setEnabled("false" as any), /INVALID_INPUT/);
+  } finally { db.close(); rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("opting out during an upload discards queued bodies and prevents further feedback", async () => {
+  const db = new DatabaseSync(":memory:");
+  let finishUpload!: () => void;
+  const pendingUpload = new Promise<void>(resolve => { finishUpload = resolve; });
+  let calls = 0;
+  const c = new ImprovementCollector(db, {
+    improvementIdentity: () => "fixture",
+    uploadSample: async () => { calls++; await pendingUpload; },
+  } as any);
+  try {
+    c.enroll("work", "DISTILLATION", "work", { request });
+    c.record("work", "edit", "EDIT", { text: "queued feedback" });
+    const flushing = c.flush();
+    assert.equal(calls, 1);
+    c.setEnabled(false);
+    finishUpload(); await flushing;
+    c.record("work", "later", "EDIT", { text: "after opt-out" });
+    await c.flush();
+    assert.equal(calls, 1);
+    assert.equal(c.list()[0].pending, 0);
+    assert.equal(c.list()[0].state, "STOPPED");
+  } finally { db.close(); }
 });
 
 test("desktop collection: opted source, original candidate, edits, publication; separate reuse consent and acceptance", async () => {

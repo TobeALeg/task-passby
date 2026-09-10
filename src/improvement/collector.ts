@@ -24,16 +24,28 @@ export class ImprovementCollector {
       id TEXT PRIMARY KEY, scope TEXT NOT NULL, label TEXT NOT NULL, consent TEXT NOT NULL,
       destination TEXT NOT NULL, state TEXT NOT NULL, error TEXT);
       CREATE TABLE IF NOT EXISTS improvement_outbox (
-      sample_id TEXT NOT NULL, event_key TEXT NOT NULL, payload TEXT, PRIMARY KEY(sample_id,event_key));`);
+      sample_id TEXT NOT NULL, event_key TEXT NOT NULL, payload TEXT, PRIMARY KEY(sample_id,event_key));
+      CREATE TABLE IF NOT EXISTS improvement_preferences (
+      id INTEGER PRIMARY KEY CHECK(id=1), enabled INTEGER NOT NULL CHECK(enabled IN (0,1)));`);
+  }
+  enabled(): boolean {
+    return this.db.prepare("SELECT enabled FROM improvement_preferences WHERE id=1").get()?.enabled !== 0;
+  }
+  setEnabled(enabled: boolean): void {
+    ensure(typeof enabled === "boolean", "INVALID_INPUT");
+    if (!enabled) { this.stop(); return; }
+    this.db.prepare("INSERT INTO improvement_preferences VALUES (1,1) ON CONFLICT(id) DO UPDATE SET enabled=1").run();
   }
   async authorize(version: unknown): Promise<void> {
     if (version === undefined) return;
+    ensure(this.enabled(), "COLLECTION_DISABLED", "参与改进已关闭，请先开启后再提交");
     ensure(version === IMPROVEMENT_POLICY.version, "CONSENT_REQUIRED");
     ensure(this.client.improvementIdentity && this.client.uploadSample && this.client.deleteSample, "COLLECTION_UNAVAILABLE");
     const c = await this.client.capabilities() as { improvement?: { version: string; enabled: boolean; retentionDays: number } };
     ensure(c.improvement?.enabled && c.improvement.version === version && c.improvement.retentionDays === IMPROVEMENT_POLICY.retentionDays, "COLLECTION_UNAVAILABLE", "后台当前不接收此版本的改进样本");
   }
   enroll(id: string, scope: SampleUpload["consent"]["scope"], label: string, data: Record<string, unknown>): void {
+    ensure(this.enabled(), "COLLECTION_DISABLED");
     if (this.db.prepare("SELECT id FROM improvement_subscriptions WHERE id=?").get(id)) return;
     const consent = { version: IMPROVEMENT_POLICY.version, at: new Date().toISOString(), scope };
     transaction(this.db, () => {
@@ -70,6 +82,7 @@ export class ImprovementCollector {
         this.db.prepare("UPDATE improvement_subscriptions SET state='STOPPED',error=NULL WHERE id=? AND state='ACTIVE'").run(id);
         this.db.prepare("UPDATE improvement_outbox SET payload=NULL WHERE sample_id=?").run(id);
       } else {
+        this.db.prepare("INSERT INTO improvement_preferences VALUES (1,0) ON CONFLICT(id) DO UPDATE SET enabled=0").run();
         this.db.prepare("UPDATE improvement_subscriptions SET state='STOPPED',error=NULL WHERE state='ACTIVE'").run();
         this.db.prepare("UPDATE improvement_outbox SET payload=NULL").run();
       }

@@ -17,11 +17,11 @@ const esc = (value: unknown) =>
         c
       ]!,
   );
-function improvementConsent(scope: "DISTILLATION" | "REUSE"): string {
+function improvementConsent(scope: "DISTILLATION" | "REUSE", enabled: boolean): string {
   const materials = scope === "DISTILLATION"
     ? "本次所选文本与附件范围、候选原稿、问题、后续保存的修改、确认或取消状态"
     : "本次定义版本、非文件输入及后续逐项验收结果；不采集文件路径、文件正文或新工作对话";
-  return `<details><summary>参与改进 Worket（可选）</summary><p>用于产品诊断、质量评测和功能改进。保存${materials}，关联来源与版本，供后台管理员评审。自本次授权起保存 ${IMPROVEMENT_POLICY.retentionDays} 天，到期删除。此授权不会增加模型调用。</p><p>可在“Worket 服务 → 改进数据”停止后续采集或删除样本。停止会丢弃待同步反馈；已发送的数据可单独删除。每次新范围需重新勾选。</p><label class="file-choice"><input id="improvement-consent" type="checkbox">我同意将上述范围用于改进 Worket并保存 90 天</label></details>`;
+  return `<section class="state-section"><h3>参与改进 Worket</h3><p>用于产品诊断、质量评测和功能改进。保存${materials}，关联来源与版本，供后台管理员评审。自本次授权起保存 ${IMPROVEMENT_POLICY.retentionDays} 天，到期删除。此授权不会增加模型调用。</p><p>可在“Worket 服务 → 改进数据”停止后续采集或删除样本。停止会丢弃待同步反馈；已发送的数据可单独删除。此选项默认开启，取消后会记住选择并停止全部样本的后续采集；重新开启仅适用于此后提交的范围。</p><label class="file-choice"><input id="improvement-consent" type="checkbox" ${enabled ? "checked" : ""}>参与改进 Worket，保存上述范围 90 天</label></section>`;
 }
 const improvementVersion = () => modal.querySelector<HTMLInputElement>("#improvement-consent")?.checked ? IMPROVEMENT_POLICY.version : undefined;
 const commandId = () => crypto.randomUUID();
@@ -29,11 +29,28 @@ const modal = document.createElement("dialog");
 modal.id = "definition-dialog";
 document.body.append(modal);
 let changed: (dashboard?: DashboardView) => void = () => {};
+let preferenceSave: Promise<unknown> = Promise.resolve();
 function show(title: string, html: string): void {
   modal.innerHTML = `<div class="dialog-card definition-card"><div class="source-heading"><h2>${esc(title)}</h2><button data-close aria-label="关闭">×</button></div><div id="definition-error" class="notice" hidden role="alert"></div>${html}</div>`;
   modal
     .querySelector("[data-close]")!
     .addEventListener("click", () => modal.close());
+  const preference = modal.querySelector<HTMLInputElement>("#improvement-consent");
+  preference?.addEventListener("change", () => {
+    const enabled = preference.checked;
+    preference.disabled = true;
+    preferenceSave = api("setImprovementPreference", { enabled })
+      .then(async () => {
+        if (preference.hasAttribute("data-refresh-improvement")) await openImprovementData();
+      })
+      .catch((error) => {
+        preference.checked = !enabled;
+        const notice = modal.querySelector<HTMLElement>("#definition-error")!;
+        notice.hidden = false;
+        notice.textContent = `未能保存参与改进设置：${String(error)}`;
+      })
+      .finally(() => { preference.disabled = false; });
+  });
   if (!modal.open) modal.showModal();
 }
 function bind(selector: string, action: () => Promise<void>): void {
@@ -41,7 +58,7 @@ function bind(selector: string, action: () => Promise<void>): void {
     event.preventDefault();
     const button = event.currentTarget as HTMLButtonElement;
     button.disabled = true;
-    void action()
+    void preferenceSave.then(action)
       .catch((error) => {
         const notice = modal.querySelector<HTMLElement>("#definition-error");
         if (notice) {
@@ -133,17 +150,18 @@ export async function openPreparation(workIds: string[]): Promise<void> {
     workIds,
     includedFileIds: [],
   });
-  function render() {
+  async function render() {
+    const { enabled } = await api("improvementPreference");
     show(
       "确认沉淀范围",
-      `<p>可选择同类工作的多次记录。采集截止：${esc(new Date(snapshot.capturedAt).toLocaleString())}</p>${snapshot.sources.map((s) => `<section class="state-section"><h3>${esc(s.title)}</h3><p>${s.events.length} 条可见事件 · ${s.status === "OPEN" ? "记录仍在变化，仅使用当前已记录内容" : esc(s.status)}</p>${s.files.map((f) => `<label class="file-choice"><input type="checkbox" data-file-id="${esc(f.id)}" ${f.content !== undefined ? "checked" : ""}> ${esc(f.name)} — ${f.content !== undefined ? "分析文本内容" : "仅文件元数据，未分析内容"}</label>`).join("")}</section>`).join("")}<button id="apply-range">更新附件内容范围</button><p class="consent">点击开始后，以上选定文本及附件范围将经 Worket 后台和模型供应商处理。未勾选改进授权时，后台不持久保存正文；结果内存暂存最多 10 分钟，收取或取消后清除；无正文运行元数据默认保留 30 天。正文可能含敏感信息，ID 替换不代表匿名化。供应商留存以服务公布政策为准。</p><label class="file-choice"><input id="consent" type="checkbox">我确认本次范围及云端处理</label>${improvementConsent("DISTILLATION")}<button id="start-distillation" class="primary">开始沉淀</button>`,
+      `<p>可选择同类工作的多次记录。采集截止：${esc(new Date(snapshot.capturedAt).toLocaleString())}</p>${snapshot.sources.map((s) => `<section class="state-section"><h3>${esc(s.title)}</h3><p>${s.events.length} 条可见事件 · ${s.status === "OPEN" ? "记录仍在变化，仅使用当前已记录内容" : esc(s.status)}</p>${s.files.map((f) => `<label class="file-choice"><input type="checkbox" data-file-id="${esc(f.id)}" ${f.content !== undefined ? "checked" : ""}> ${esc(f.name)} — ${f.content !== undefined ? "分析文本内容" : "仅文件元数据，未分析内容"}</label>`).join("")}</section>`).join("")}<button id="apply-range">更新附件内容范围</button><p class="consent">点击开始后，以上选定文本及附件范围将经 Worket 后台和模型供应商处理。未勾选改进授权时，后台不持久保存正文；结果内存暂存最多 10 分钟，收取或取消后清除；无正文运行元数据默认保留 30 天。正文可能含敏感信息，ID 替换不代表匿名化。供应商留存以服务公布政策为准。</p><label class="file-choice"><input id="consent" type="checkbox">我确认本次范围及云端处理</label>${improvementConsent("DISTILLATION", enabled)}<button id="start-distillation" class="primary">开始沉淀</button>`,
     );
     bind("#apply-range", async () => {
       const ids = [
         ...modal.querySelectorAll<HTMLInputElement>("[data-file-id]:checked"),
       ].map((e) => e.dataset.fileId!);
       snapshot = await api("prepare", { workIds, includedFileIds: ids });
-      render();
+      await render();
     });
     const id = commandId();
     bind("#start-distillation", async () => {
@@ -170,7 +188,7 @@ export async function openPreparation(workIds: string[]): Promise<void> {
       await openJob(job.id);
     });
   }
-  render();
+  await render();
 }
 export async function openJob(id: string): Promise<void> {
   const job: Job = await api("job", { jobId: id });
@@ -442,9 +460,10 @@ async function openDefinition(id: string): Promise<void> {
 }
 async function useDefinition(d: Definition): Promise<void> {
   const examples: any[] = await api("examples", { definitionId: d.id });
+  const { enabled } = await api("improvementPreference");
   show(
     `使用：${d.content.name}`,
-    `<p>固定使用 v${d.version}。默认不附带旧成果。</p>${d.content.inputs.map((i) => `<label class="field">${esc(i.text)} ${i.required ? "*" : ""}${i.valueType === "BOOLEAN" ? `<select data-input="${i.key}"><option value="">请选择</option><option value="true" ${i.defaultValue === true ? "selected" : ""}>是</option><option value="false" ${i.defaultValue === false ? "selected" : ""}>否</option></select>` : i.valueType === "CHOICE" ? `<select data-input="${i.key}"><option value="">请选择</option>${i.choices!.map((c) => `<option ${i.defaultValue === c ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>` : `<input data-input="${i.key}" type="${i.valueType === "NUMBER" ? "number" : "text"}" value="${esc(i.defaultValue ?? "")}">`}${i.valueType === "FILE" ? `<button data-input-file="${i.key}">选择本次文件</button>` : ""}</label>`).join("")}<section><h3>固定资料</h3>${d.materials.map((m) => `<p>${esc(m.role)} · ${esc(m.originalPath)}</p>`).join("") || "<p>无</p>"}</section><details><summary>可选旧参考案例（默认不附带）</summary>${examples.map((a) => `<label class="file-choice"><input type="checkbox" data-example="${esc(a.id)}">${esc(a.filename)}</label>`).join("") || "<p>无可用旧成果</p>"}</details>${improvementConsent("REUSE")}<button id="create-defined-work" class="primary">创建本次工作</button>`,
+    `<p>固定使用 v${d.version}。默认不附带旧成果。</p>${d.content.inputs.map((i) => `<label class="field">${esc(i.text)} ${i.required ? "*" : ""}${i.valueType === "BOOLEAN" ? `<select data-input="${i.key}"><option value="">请选择</option><option value="true" ${i.defaultValue === true ? "selected" : ""}>是</option><option value="false" ${i.defaultValue === false ? "selected" : ""}>否</option></select>` : i.valueType === "CHOICE" ? `<select data-input="${i.key}"><option value="">请选择</option>${i.choices!.map((c) => `<option ${i.defaultValue === c ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>` : `<input data-input="${i.key}" type="${i.valueType === "NUMBER" ? "number" : "text"}" value="${esc(i.defaultValue ?? "")}">`}${i.valueType === "FILE" ? `<button data-input-file="${i.key}">选择本次文件</button>` : ""}</label>`).join("")}<section><h3>固定资料</h3>${d.materials.map((m) => `<p>${esc(m.role)} · ${esc(m.originalPath)}</p>`).join("") || "<p>无</p>"}</section><details><summary>可选旧参考案例（默认不附带）</summary>${examples.map((a) => `<label class="file-choice"><input type="checkbox" data-example="${esc(a.id)}">${esc(a.filename)}</label>`).join("") || "<p>无可用旧成果</p>"}</details>${improvementConsent("REUSE", enabled)}<button id="create-defined-work" class="primary">创建本次工作</button>`,
   );
   modal.querySelectorAll<HTMLElement>("[data-input-file]").forEach(
     (b) =>
@@ -553,8 +572,9 @@ export async function workDefinitionAction(
 
 async function openImprovementData(): Promise<void> {
   const samples: any[] = await api("improvementSamples");
+  const { enabled } = await api("improvementPreference");
   const labels: Record<string, string> = { ACTIVE: "采集中", STOPPED: "已停止", DELETE_PENDING: "等待删除确认", DELETED: "已删除" };
-  show("改进数据", `<div class="dialog-actions"><button id="stop-all-improvement">停止全部后续采集</button><button id="sync-improvement">同步并刷新</button></div><p>停止后已发出的请求可能仍会到达后台。删除会清除后台样本及待同步反馈，不影响本机工作和正式定义。离线删除将在恢复原服务连接后完成。</p>${samples.map(s => `<section class="state-section"><h3>${esc(s.label)}</h3><p>${esc(labels[s.state])} · ${esc(s.pending)} 条待同步 · ${esc(JSON.parse(s.consent).at)}</p>${s.error ? `<p class="notice">${esc(s.error)}</p>` : ""}${s.state === "ACTIVE" ? `<button data-stop-sample="${esc(s.id)}">停止此样本采集</button>` : ""}${!["DELETED", "DELETE_PENDING"].includes(s.state) ? `<details><summary>删除后台样本</summary><label class="field">输入“删除样本”<input data-delete-confirm="${esc(s.id)}"></label><button data-delete-sample="${esc(s.id)}">确认删除样本</button></details>` : ""}</section>`).join("") || '<p>尚未授权任何改进样本。</p>'}`);
+  show("改进数据", `<label class="file-choice"><input id="improvement-consent" data-refresh-improvement type="checkbox" ${enabled ? "checked" : ""}>参与改进 Worket</label><p>默认开启，用于产品诊断、质量评测和功能改进。沉淀时保存所选材料、候选及修改，复用时保存定义、非文件输入及验收反馈，供后台管理员查看，保存 90 天。每次提交前展示本次范围。取消后记住选择，并停止全部样本后续采集；重新开启仅适用于此后提交的范围。</p><div class="dialog-actions"><button id="stop-all-improvement">停止全部后续采集</button><button id="sync-improvement">同步并刷新</button></div><p>停止后已发出的请求可能仍会到达后台。删除会清除后台样本及待同步反馈，不影响本机工作和正式定义。离线删除将在恢复原服务连接后完成。</p>${samples.map(s => `<section class="state-section"><h3>${esc(s.label)}</h3><p>${esc(labels[s.state])} · ${esc(s.pending)} 条待同步 · ${esc(JSON.parse(s.consent).at)}</p>${s.error ? `<p class="notice">${esc(s.error)}</p>` : ""}${s.state === "ACTIVE" ? `<button data-stop-sample="${esc(s.id)}">停止此样本采集</button>` : ""}${!["DELETED", "DELETE_PENDING"].includes(s.state) ? `<details><summary>删除后台样本</summary><label class="field">输入“删除样本”<input data-delete-confirm="${esc(s.id)}"></label><button data-delete-sample="${esc(s.id)}">确认删除样本</button></details>` : ""}</section>`).join("") || '<p>尚未授权任何改进样本。</p>'}`);
   bind("#stop-all-improvement", async () => { await api("stopImprovement"); await openImprovementData(); });
   bind("#sync-improvement", async () => { await api("syncImprovement"); await openImprovementData(); });
   for (const s of samples) {

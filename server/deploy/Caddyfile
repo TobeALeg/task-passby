@@ -1,6 +1,7 @@
 {
   admin 127.0.0.1:2020
   auto_https off
+  default_sni 124.223.223.215
 }
 :80 {
   handle /.well-known/acme-challenge/* {

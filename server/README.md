@@ -99,4 +99,6 @@ ssh -L 8789:127.0.0.1:8788 your-server
 
 `WORKET_TRUST_LOOPBACK_PROXY=true` 仅用于本机反向代理已覆盖 `X-Worket-Client-IP` 的部署，禁止直接把该头作为公网客户端自报来源。部署模板见 `server/deploy/`；服务运行在独立系统用户下，IP 证书由 Certbot 签发并通过专用 timer 自动续期，管理页仅通过 SSH 隧道访问。
 
-首次配置可使用 `scripts/configure-worket-vps.mjs`，它通过 SSH stdin 加密传输本机已配置的模型参数，在 VPS 创建独立管理员密码；交付文件保存在被 Git 忽略的 `.worket-server/vps-admin-access.json`，权限 600。不会导入本地工作记录；重复初始化拒绝覆盖。
+首次执行 `node scripts/configure-worket-vps.mjs --admin-only`，通过 SSH 在 VPS 创建独立管理员密码；交付文件保存在被 Git 忽略的 `.worket-server/vps-admin-access.json`，权限 600。此步骤不读取或迁移本机模型密钥，重复初始化拒绝覆盖。模型可在远程管理页配置；获得用户对密钥迁移的明确授权后，才可执行 `node scripts/configure-worket-vps.mjs --allow-model-key-transfer`，将本机 Worket 已配置的模型参数通过 SSH stdin 传输并在 VPS 加密保存。两种模式均不导入本地工作记录。
+
+IP 地址客户端可能不发送 TLS SNI，且 VPS 的公网地址可能经过 NAT；Caddy 配置中的 `default_sni 124.223.223.215` 保证这种连接仍选择正确的 IP 证书。不要通过关闭客户端证书校验绕过证书选择问题。

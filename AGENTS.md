@@ -2,6 +2,12 @@
 
 领域术语以 [CONTEXT.md](CONTEXT.md) 为准；产品与架构现状分别见 [docs/product.md](docs/product.md) 和 [docs/architecture.md](docs/architecture.md)。
 
+## VPS 登录
+
+访问 Worket 候选 VPS `124.223.223.215:22` 时，使用本机密钥 `/Users/dandi/Desktop/idd_tecent_dstui.pem`（实际拼写为 `tecent`），SSH 指定 `-i` 与 `-o IdentitiesOnly=yes`。密钥留在本机，权限为 `600`；仓库只记录路径，不保存密钥内容。
+
+2026-09-10 检查：SSH 可达，但 `root`、`ubuntu` 均未接受该密钥；实际用户名及实例密钥绑定待确认。确认成功后更新本节的登录账号。服务器性能与部署条件须登录后核实，当前未部署 Worket；客户端按用户要求暂不打包、发布。
+
 ## 持续积累 BP 素材
 
 在本项目讨论中，只要出现 Worket 相对其他产品的潜在优势、自身价值、对产品或组织设计的 insight，或值得在 BP 中表达和展示的点，就在本轮结束前主动更新 [BP 素材清单](docs/bp/benefits-and-insights.md)，无需用户再次提醒。

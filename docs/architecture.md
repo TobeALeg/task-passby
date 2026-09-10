@@ -276,3 +276,5 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 `AutomaticConnection` 使用 `ServiceCredentials` 保存每安装 32 字节随机秘密，`WorketAIClient` 在请求前确保接入就绪。后台 `/v1/installations` 只存秘密的 SHA256，签发 RS256 令牌并按原安装续期；撤销后同秘密不能重建身份。客户端改进队列以服务地址和安装秘密的哈希标识目的地，令牌续期不改变目的地；手动凭据仍按原指纹规则处理。网络请求进行中若手动切换服务，迟到注册结果不能覆盖新配置。
 
 自动接入由服务端显式环境开关开启；单 IP 每小时最多 60 次注册/续期请求、服务每小时最多 1000 次、最多 1000 个接入主体。公网代理覆盖来源地址头，服务仅在配置为信任本机代理时使用该头。模型调用按全局滚动 24 小时默认 200 次限额预占，保留原每主体限额和并发限制；这是调用次数限额，不是固定金额承诺。后台默认绑定 loopback，VPS 部署用独立 `worket` 和 `worket-edge` 服务。
+
+当前 VPS 代码由 `/opt/worket/current` 指向版本目录，数据独立放在 `/var/lib/worket/data`。Caddy 仅代理 HTTPS `/v1/*` 和 `/health`，管理员从 SSH 隧道访问 loopback。Certbot 的 IP 证书经部署 hook 复制到 Caddy 的只读证书目录，每日两次检查续期，已通过带 hook 的续期演练。IP 客户端不发 SNI 时通过 `default_sni` 选取证书；客户端保持正常证书校验。模型密钥迁移与管理员初始化分开执行，前者需明确迁移授权。实测范围和待完成项目见 [VPS 部署记录](deployment/vps-operation.md)。

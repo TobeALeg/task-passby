@@ -1,0 +1,21 @@
+[Unit]
+Description=Worket HTTPS edge
+After=network-online.target
+Wants=network-online.target
+[Service]
+User=worket-edge
+Group=worket-edge
+ExecStart=/usr/bin/caddy run --config /etc/worket/Caddyfile --adapter caddyfile
+ExecReload=/usr/bin/caddy reload --config /etc/worket/Caddyfile --adapter caddyfile --address 127.0.0.1:2020
+Restart=on-failure
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+StateDirectory=worket-edge
+Environment=XDG_DATA_HOME=/var/lib/worket-edge
+Environment=XDG_CONFIG_HOME=/var/lib/worket-edge
+[Install]
+WantedBy=multi-user.target

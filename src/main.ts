@@ -308,7 +308,7 @@ function registerIpc(): void {
   ipcMain.handle("panel:toggle", () => togglePanel());
   ipcMain.handle("pet:get-view", async () => ({
     ...await requireService().getPetView(),
-    recordingUploadEnabled: distillation.service.improvement.enabled(),
+    recordingUploadNoticeRequired: distillation.service.recordings.noticeRequired(),
   }));
   ipcMain.handle("panel:record-current-context", async () => {
     const dashboard = await requireService().recordCurrentContext();

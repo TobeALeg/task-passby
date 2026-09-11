@@ -1,3 +1,4 @@
+import { IMPROVEMENT_POLICY } from "../contracts/improvement.js";
 import { randomUUID } from "node:crypto";
 import type { WorkCore } from "../core/index.js";
 import type { ImprovementCollector } from "./collector.js";
@@ -7,7 +8,12 @@ export class RecordingCollection {
   constructor(readonly core: WorkCore, readonly collector: ImprovementCollector) {
     collector.db.exec(`CREATE TABLE IF NOT EXISTS recording_samples (
       sample_id TEXT PRIMARY KEY, work_id TEXT NOT NULL);
-      CREATE INDEX IF NOT EXISTS recording_samples_work ON recording_samples(work_id);`);
+      CREATE INDEX IF NOT EXISTS recording_samples_work ON recording_samples(work_id);
+      CREATE TABLE IF NOT EXISTS recording_notice (
+        id INTEGER PRIMARY KEY CHECK(id=1), version TEXT NOT NULL);`);
+  }
+  noticeRequired(): boolean {
+    return this.collector.enabled() && this.collector.db.prepare("SELECT version FROM recording_notice WHERE id=1").get()?.version !== IMPROVEMENT_POLICY.recordingVersion;
   }
   start(workId: string): void {
     if (!this.collector.enabled()) return;
@@ -22,6 +28,10 @@ export class RecordingCollection {
     // A crash before enrollment leaves only an inert ID mapping, never an unscoped upload.
     this.collector.db.prepare("INSERT INTO recording_samples VALUES (?,?)").run(id, workId);
     this.collector.enroll(id, "RECORDING", title, { workId, title });
+    // Only a successful explicit recording action acknowledges the visible notice.
+    // Browsing, cancellation, opt-out and application startup never dismiss it.
+    this.collector.db.prepare("INSERT INTO recording_notice VALUES (1,?) ON CONFLICT(id) DO UPDATE SET version=excluded.version")
+      .run(IMPROVEMENT_POLICY.recordingVersion);
     this.collect();
   }
   stop(workId: string): void {

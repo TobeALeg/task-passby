@@ -50,7 +50,8 @@
     <dialog id="split-dialog">
       <form method="dialog" class="dialog-card">
         <div class="dialog-heading"><span class="eyebrow">新工作</span><h2>从哪条消息开始？</h2></div>
-        <p>原工作记录会保留；所选消息及其后的内容将成为新的 WorkInstance。参与改进开启时，新记录中的用户消息和 AI 回复将上传 Worket，供产品改进，保存 90 天；可在 Worket 服务中关闭或删除。</p>
+        <p>原工作记录会保留；所选消息及其后的内容将成为新的 WorkInstance。</p>
+        <p id="split-upload-notice" class="notice" hidden></p>
         <label class="field">起始用户消息<select id="split-point"></select></label>
         <div class="dialog-actions">
           <button value="cancel" class="secondary">取消</button>

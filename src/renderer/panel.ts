@@ -23,6 +23,7 @@ const splitDialog = required<HTMLDialogElement>("#split-dialog");
 const cancelRecordingDialog = required<HTMLDialogElement>("#cancel-recording-dialog");
 const splitPointSelect = required<HTMLSelectElement>("#split-point");
 let dashboard: DashboardView;
+let recordingNoticeRequired = true;
 type PanelTab = WorkStatus | "RECENT" | "DEFINITIONS";
 let filter: PanelTab = "OPEN";
 const selectedDistillationIds = new Set<string>();
@@ -133,7 +134,7 @@ function renderDetail(work: WorkDetailView | null): void {
   detail.innerHTML = `
     <div class="detail-head">${work.reusableDefinitionId ? `<p class="notice">${work.dispatchStatus === "NOT_DISPATCHED" ? "尚未交给执行者" : work.dispatchStatus === "FAILED" ? "启动失败，可重试" : work.dispatchStatus === "BOUND" && work.dispatchReadAt ? "已绑定本次对话，工作包已读取" : "等待执行端确认接手"}</p>` : ""}<span class="eyebrow">${escapeHtml(work.agentName)}</span><h2>${escapeHtml(work.title)}</h2><p class="detail-meta">${work.eventCount} 条来源记录 · ${work.episodeCount} 段执行</p>${work.captureStatus === "waiting" ? `<p class="capture-guidance">${CAPTURE_WAITING_GUIDANCE}</p>` : ""}</div>
     <div class="detail-actions">${actions}${work.bindings.some((binding) => binding.status === "ACTIVE" && binding.conversationId.startsWith("pending:")) || (work.reusableDefinitionId && !work.bindings.some((binding) => binding.status === "ACTIVE") && ["STARTING", "WAITING"].includes(work.dispatchStatus ?? "")) ? '<button data-action="cancel-handoff">取消未确认交接</button>' : ""}<button data-action="distill">沉淀</button><button data-action="copy">复制工作包</button><button data-action="export">导出工作包</button><button data-action="cancel-recording">取消记录</button></div>
-    <p class="notice">${RECORDING_UPLOAD_NOTICE}</p>
+    ${recordingNoticeRequired ? `<p class="notice">${RECORDING_UPLOAD_NOTICE}</p>` : ""}
     ${Object.entries(WORK_STATE_LABELS)
       .map(([field, label]) =>
         stateSection(work, field as WorkStateField, label),
@@ -169,6 +170,16 @@ function stateSection(
           .join("")
       : `<p class="empty-field">暂无</p>`
   }</section>`;
+}
+
+async function renderWithRecordingNotice(): Promise<void> {
+  try {
+    const state = await window.workpet.distillation("recordingNotice");
+    recordingNoticeRequired = state.required;
+  } catch {
+    recordingNoticeRequired = true;
+  }
+  render();
 }
 
 async function selectWork(workId: string): Promise<void> {
@@ -235,11 +246,14 @@ async function runAction(workId: string, action: string): Promise<void> {
   if (!operation) return;
   dashboard = await operation();
   filter = dashboard.selectedWork?.status ?? filter;
-  render();
+  await renderWithRecordingNotice();
 }
 
 async function openSplit(workId: string): Promise<void> {
   const points = await window.workpet.listSplitPoints(workId);
+  const uploadNotice = required<HTMLElement>("#split-upload-notice");
+  uploadNotice.textContent = RECORDING_UPLOAD_NOTICE;
+  uploadNotice.hidden = !recordingNoticeRequired;
   splitPointSelect.innerHTML = points
     .map(
       (point) =>
@@ -283,7 +297,7 @@ required<HTMLButtonElement>("#confirm-split").addEventListener(
     pendingSplitWorkId = null;
     splitDialog.close();
     filter = "OPEN";
-    render();
+    await renderWithRecordingNotice();
   },
 );
 required<HTMLButtonElement>("#confirm-cancel-recording").addEventListener(
@@ -337,17 +351,19 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(".filter")) {
 const recordingSources = setupRecordingSources((result) => {
   dashboard = result;
   filter = result.selectedWork?.status ?? "OPEN";
-  render();
+  void renderWithRecordingNotice();
 });
 let refreshing = false;
 async function refreshPanel(): Promise<void> {
   if (refreshing) return;
   refreshing = true;
   try {
-    const [result] = await Promise.allSettled([
+    const [result, disclosure] = await Promise.allSettled([
       window.workpet.getDashboard(),
+      window.workpet.distillation("recordingNotice"),
       recordingSources.refresh(),
     ]);
+    recordingNoticeRequired = disclosure.status === "fulfilled" ? disclosure.value.required : true;
     if (result.status === "fulfilled") {
       dashboard = result.value;
       render();

@@ -21,6 +21,7 @@ export function setupRecordingSources(
   let nextCursor: string | null = null;
   let loading = false;
   let recording = false;
+  let noticeRequired = true;
 
   function showError(element: HTMLElement, error: unknown): void {
     element.hidden = !error;
@@ -34,10 +35,12 @@ export function setupRecordingSources(
     empty: string,
   ): void {
     container.replaceChildren();
-    const disclosure = document.createElement("p");
-    disclosure.className = "notice";
-    disclosure.textContent = RECORDING_UPLOAD_NOTICE;
-    container.append(disclosure);
+    if (noticeRequired) {
+      const disclosure = document.createElement("p");
+      disclosure.className = "notice";
+      disclosure.textContent = RECORDING_UPLOAD_NOTICE;
+      container.append(disclosure);
+    }
     if (!sources.length) {
       const message = document.createElement("p");
       message.className = "source-empty";
@@ -118,10 +121,11 @@ export function setupRecordingSources(
     executor.disabled = true;
     showError(historyError, null);
     try {
-      const page = await window.workpet.listConversationHistory(
-        executor.value,
-        cursor,
-      );
+      const [page, notice] = await Promise.all([
+        window.workpet.listConversationHistory(executor.value, cursor),
+        window.workpet.distillation("recordingNotice"),
+      ]);
+      noticeRequired = notice.required;
       threads = [
         ...new Map(
           [...(cursor ? threads : []), ...page.threads].map((thread) => [
@@ -144,7 +148,11 @@ export function setupRecordingSources(
   async function refresh(): Promise<void> {
     if (recording) return;
     try {
-      const result = await window.workpet.listRecentConversations();
+      const [result, notice] = await Promise.all([
+        window.workpet.listRecentConversations(),
+        window.workpet.distillation("recordingNotice"),
+      ]);
+      noticeRequired = notice.required;
       const sources = result.threads;
       renderSources(
         recent,

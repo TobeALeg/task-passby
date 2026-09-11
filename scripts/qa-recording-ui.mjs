@@ -22,13 +22,15 @@ page.on('pageerror', e => errors.push(e.message));
 await page.addInitScript(() => {
   const thread = { id: 'synthetic', executorId: 'fixture', agentName: 'Fixture', title: '合成测试 · 整理客户周报', cwd: '/tmp/fixture', updatedAt: new Date().toISOString() };
   window.workpet = {
-    getPetView: async () => ({ petState: 'awake', recordingUploadEnabled: !window.fixtureOptOut, currentConversation: { adapter: 'fixture', applicationName: 'Fixture', mark: 'F', title: thread.title, needsSelection: false, workId: null, workStatus: null, isRecording: false } }),
+    getPetView: async () => ({ petState: 'awake', recordingUploadNoticeRequired: !localStorage.getItem("noticeAccepted") && !localStorage.getItem("optOut"), currentConversation: { adapter: 'fixture', applicationName: 'Fixture', mark: 'F', title: thread.title, needsSelection: false, workId: null, workStatus: null, isRecording: false } }),
+    recordCurrentContextFromPet: async () => { localStorage.setItem("noticeAccepted", "yes"); },
+    createWorkFromConversation: async () => { localStorage.setItem("noticeAccepted", "yes"); return { petState: 'sleeping', works: [], selectedWorkId: null, selectedWork: null, notice: null }; },
     getDashboard: async () => ({ petState: 'sleeping', works: [], selectedWorkId: null, selectedWork: null, notice: null }),
     listRecentConversations: async () => ({ threads: [thread], errors: [] }),
     listExecutors: async () => [{ id: 'fixture', name: 'Fixture' }],
     listConversationHistory: async () => ({ threads: [thread], nextCursor: null }),
     consumeSourceSelection: async () => null, onPanelShown() {}, setPetMousePassthrough() {},
-    distillation: async action => action === 'improvementPreference' ? { enabled: true } : [],
+    distillation: async action => action === 'recordingNotice' ? { required: !localStorage.getItem('noticeAccepted') && !localStorage.getItem('optOut') } : action === 'improvementPreference' ? { enabled: true } : [],
   };
 });
 const url = `http://127.0.0.1:${server.address().port}`;
@@ -39,9 +41,18 @@ try {
   assert.ok(box && box.y >= 0 && box.x >= 0 && box.x + box.width <= 304);
   assert.match(await page.locator('#recording-upload-notice').textContent(), /记录即上传/);
   await page.screenshot({ path: output + '/pet.png' });
-  await page.evaluate(() => { window.fixtureOptOut = true; });
-  await page.waitForFunction(() => document.querySelector('#recording-upload-notice').textContent.includes('仅本机记录'));
+  await page.locator('#paper-action').click();
+  await page.locator('#recording-upload-notice').waitFor({ state: 'hidden' });
+  await page.reload();
+  await page.locator('#context-bubble').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#recording-upload-notice').isVisible(), false);
+  await page.screenshot({ path: output + '/pet-after-recording.png' });
+  await page.evaluate(() => { localStorage.removeItem('noticeAccepted'); localStorage.setItem('optOut', 'yes'); });
+  await page.reload();
+  await page.locator('#context-bubble').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#recording-upload-notice').isVisible(), false);
   await page.screenshot({ path: output + '/pet-opt-out.png' });
+  await page.evaluate(() => { localStorage.clear(); });
   await page.setViewportSize({ width: 448, height: 760 });
   await page.goto(url + '/renderer/panel.html');
   await page.locator('#tab-recent').click();
@@ -53,7 +64,18 @@ try {
   await page.locator('#history-sources .source-row').waitFor();
   assert.match(await page.locator('#history-sources .notice').textContent(), /已有及后续/);
   await page.screenshot({ path: output + '/history.png' });
+  await page.locator('#history-sources .source-row button').click();
+  await page.locator('#tab-recent').click();
+  await page.waitForFunction(() => document.querySelector('#recent-sources .source-row') && !document.querySelector('#recent-sources .notice'));
+  await page.screenshot({ path: output + '/recent-after-recording.png' });
+  await page.locator('#record-history').click();
+  await page.locator('#history-sources .source-row').waitFor();
+  assert.equal(await page.locator('#history-sources .notice').count(), 0);
+  await page.reload();
+  await page.locator('#tab-recent').click();
+  await page.locator('#recent-sources .source-row').waitFor();
+  assert.equal(await page.locator('#recent-sources .notice').count(), 0);
   assert.deepEqual(errors, []);
-  await writeFile(output + '/report.json', JSON.stringify({ passed: true, synthetic: true, uploaded: false, screenshots: 4 }, null, 2));
+  await writeFile(output + '/report.json', JSON.stringify({ passed: true, synthetic: true, uploaded: false, screenshots: 6, noticeOnce: true, reloadPersistence: true }, null, 2));
   console.log('PASS: recording disclosures, opt-out, and narrow layouts');
 } finally { await browser.close(); await new Promise(r => server.close(r)); }

@@ -73,12 +73,21 @@ test("record selection uploads messages over HTTP without distillation; durable 
     // A pre-existing local work remains unregistered, including after upgrade/restart.
     app.core().createWork({ definition: { key: "old", name: "old", version: 1 }, executor: { type: "AGENT", name: "Fixture" }, environment: { type: "fixture", name: "Fixture" }, source: { adapter: "fixture", conversationId: "old" } });
     desktop!.service.collectFeedback(); assert.equal(desktop!.service.improvement.list().length, 0);
+    assert.deepEqual(await desktop!.call("recordingNotice"), { required: true });
+    desktop!.service.recordings.start("missing-work");
+    assert.equal(desktop!.service.recordings.noticeRequired(), true);
+    desktop!.service.improvement.setEnabled(false);
+    assert.equal(desktop!.service.recordings.noticeRequired(), false);
+    desktop!.service.improvement.setEnabled(true);
+    assert.equal(desktop!.service.recordings.noticeRequired(), true);
     const selected = await app.createWorkFromConversation({ executorId: "fixture", threadId: "chosen" });
     const workId = selected.selectedWorkId!;
+    assert.equal(desktop!.service.recordings.noticeRequired(), false);
     await desktop!.call("syncImprovement");
     assert.equal(desktop!.service.improvement.list()[0].pending, 3);
     assert.equal(app.core().getWork(workId)!.sourceArchive.length, 5);
     desktop!.service.close(); app.close(); app = open();
+    assert.equal(desktop!.service.recordings.noticeRequired(), false);
     offline = false;
     await desktop!.call("syncImprovement");
     const rows = (await admin("samples")).items;
@@ -105,7 +114,11 @@ test("record selection uploads messages over HTTP without distillation; durable 
     assert.equal((await admin(`samples/${id}`)).events.length, count);
     await desktop!.call("setImprovementPreference", { enabled: true });
     await desktop!.call("syncImprovement"); assert.equal((await admin("samples")).items.length, 1);
+    assert.equal(desktop!.service.recordings.noticeRequired(), false);
+    desktop!.service.improvement.db.prepare("UPDATE recording_notice SET version='previous-policy' WHERE id=1").run();
+    assert.equal(desktop!.service.recordings.noticeRequired(), true);
     app.completeWork(workId); app.resumeWork(workId);
+    assert.equal(desktop!.service.recordings.noticeRequired(), false);
     await desktop!.call("syncImprovement"); assert.equal((await admin("samples")).items.length, 2);
     offline = true; f.add("user.prompt", "cancel-pending"); await app.syncRecordedWorks();
     await desktop!.call("syncImprovement"); app.cancelRecording(workId, "取消记录");

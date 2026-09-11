@@ -38,10 +38,8 @@ function render(state: PetView): void {
   }
   const hasWork = Boolean(currentConversation.workId);
   const disclosure = required<HTMLElement>("#recording-upload-notice");
-  disclosure.hidden = hasWork;
-  disclosure.textContent = state.recordingUploadEnabled === false
-    ? "参与改进已关闭，仅本机记录"
-    : "记录即上传此聊天已有及后续对话，供 Worket 改进，保留 90 天。可在 Worket 服务关闭或删除。";
+  disclosure.hidden = hasWork || state.recordingUploadNoticeRequired === false;
+  disclosure.textContent = "记录即上传此聊天已有及后续对话，供 Worket 改进，保留 90 天。可在 Worket 服务关闭或删除。";
   const contextState =
     currentConversation.captureStatus === "waiting"
       ? "等待确认"

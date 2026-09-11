@@ -13,6 +13,7 @@ const output = join(process.cwd(), "output", "vps-live");
 mkdirSync(output, { recursive: true });
 const directory = mkdtempSync(join(tmpdir(), "worket-vps-live-"));
 const marker = `WORKET-QA-${randomUUID().slice(0, 8)}`;
+writeFileSync(join(output, "run.json"), JSON.stringify({ marker, directory }, null, 2));
 const core = createWorkCore({ databasePath: join(directory, "workpet.sqlite") });
 const original = source(core, `${marker}，端到端验证专用合成材料。请完成一项可复用工作：项目周报整理。每次输入恰好是两个必填文本字段：project_name（项目名称）和 progress_notes（本周进展记录）。目标：仅依据本次输入整理周报。交付物：一份 Markdown 周报，包含状态、已完成事项、风险、下一步四个小节。约束：不虚构事实，不查询外部资料，不发送消息；没有记录的事项明确写未提供。验收标准：四个小节齐全，事实均来自本次输入，未提供的信息明确标记。无固定附件或材料，方法仅供参考。本次项目叫测试项目甲，进展是文档已完成、界面待验收，风险未提供，下一步检查界面。`);
 core.completeWork(original.instance.id);
@@ -37,6 +38,15 @@ async function launch() {
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith("/panel.html"))?.show());
 }
 const call = (action, input = {}) => panel.evaluate(({ action, input }) => window.workpet.distillation(action, input), { action, input });
+async function waitForSamples(check) {
+  for (let i = 0; i < 60; i++) {
+    await call("syncImprovement");
+    const rows = await call("improvementSamples");
+    if (check(rows)) return rows;
+    await new Promise(r => setTimeout(r, 250));
+  }
+  assert.fail("样本同步未在 15 秒内完成");
+}
 try {
   await launch();
   const initial = await panel.evaluate(() => window.workpet.getWorketServiceStatus());
@@ -57,7 +67,7 @@ try {
   await panel.locator("#consent").check();
   await panel.locator("#start-distillation").click();
   let job;
-  for (let i = 0; i < 150; i++) {
+  for (let i = 0; i < 330; i++) {
     const jobs = await call("jobs");
     if (jobs[0]) job = await call("job", { jobId: jobs[0].id });
     if (["AWAITING_REVIEW", "FAILED", "INTERRUPTED", "NEEDS_SELECTION"].includes(job?.status)) break;
@@ -91,8 +101,7 @@ try {
   await panel.locator("[data-output]").check();
   await panel.locator("#accept-output").click();
   await panel.locator("#definition-dialog").waitFor({ state: "hidden" });
-  await call("syncImprovement");
-  const subscriptions = await call("improvementSamples");
+  const subscriptions = await waitForSamples(rows => rows.length === 2 && rows.every(s => s.pending === 0 && !s.error));
   assert.equal(subscriptions.length, 2);
   assert.ok(subscriptions.every(s => s.pending === 0 && !s.error));
   console.log("真实模型沉淀、人工修改、复用与合成成果验收已同步至 VPS");
@@ -121,7 +130,7 @@ try {
   assert.ok((await call("improvementSamples")).every(s => s.state === "STOPPED"));
   const reuse = subscriptions.find(s => s.scope === "REUSE");
   await call("deleteImprovement", { id: reuse.id, confirmation: "删除样本" });
-  await call("syncImprovement");
+  await waitForSamples(rows => rows.find(s => s.id === reuse.id)?.state === "DELETED");
   const after = await admin.evaluate(() => fetch("/admin/api/samples").then(r => r.json()));
   assert.ok(!after.items.some(s => s.client_id === reuse.id));
   await panel.screenshot({ path: join(output, "04-stop-and-delete.png") });
@@ -133,6 +142,7 @@ try {
   const saved = await call("improvementSamples");
   assert.equal(saved.find(s => s.id === reuse.id).state, "DELETED");
   const clients = await admin.evaluate(() => fetch("/admin/api/config").then(r => r.json()));
+  assert.ok(clients.clients.some(client => client.id === subject));
   // Report public identifiers only; never include the access token or installation secret.
   const report = { passed: true, marker, directory, subject, sourceSampleId: owned.find(s => s.client_id !== reuse.id).id,
     https: true, automaticConnection: true, realModel: true, syntheticSource: true, realExecutor: false,

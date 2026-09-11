@@ -109,3 +109,10 @@ button { font: inherit; }
 .pet-motion-ghost { position: absolute; width: 78px; height: 70.5px; pointer-events: none; transform-origin: center; z-index: 10; }
 .pet-motion-ghost .pet-body { animation: none; transition: none; transform: none; }
 .pet-motion-ghost .status-dot { display: none; }
+
+/* Recording stays visible while docked without moving the eyes or paws. */
+.docked .pet.awake .status-dot { animation: recording-glow 2.8s ease-in-out infinite; }
+@keyframes recording-glow { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) {
+  .docked .pet.awake .status-dot { animation: none; }
+}

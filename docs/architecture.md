@@ -326,3 +326,5 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 2026-09-11 来源与状态同步：`AppService.#readBoundWork` 按工作合并并发读取，并在归档后统一调用状态更新。`work_records.extracted_sequence` 记录已处理的来源序号，与状态写入同一事务；旧记录默认为 0，下一次活动同步补算历史缺口，失败时保留游标等待重试。保存状态前再次核验工作仍在记录且绑定未变化。新建记录与从消息创建工作同步设置游标；复用记录插入显式列名以兼容新字段。`latestActivity` 直接来自最近的 `agent.response`，保留来源 ID，页面显示前三段内容，不依赖摘要规则。
 
 2026-09-11 发布验收补足桌宠透明窗口底部空间：`PET_SIZE` 为 304×271，增加 1px 阴影余量，角色中心及紧凑收纳尺寸不变。
+
+2026-09-11 签名安装包启动复核：先创建窗口并设置跨工作区显示，再恢复 Dock 图标；避免 `setVisibleOnAllWorkspaces` 的进程类型切换覆盖提前设置的 Dock 可见性。接口行为见 [Electron BrowserWindow](https://www.electronjs.org/docs/latest/api/browser-window#winsetvisibleonallworkspacesvisible-options)。

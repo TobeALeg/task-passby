@@ -404,7 +404,6 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(async () => {
-  await configureDock();
   updates = new AppUpdates({
     showDialog: (options) => dialog.showMessageBox(options),
     enabled: process.platform === "darwin" && app.isPackaged && !process.argv.includes("--dev"),
@@ -459,6 +458,8 @@ app.whenReady().then(async () => {
   await bridge.start();
   createWindows();
   registerIpc();
+  // Workspace visibility changes the macOS process type; restore the Dock afterwards.
+  await configureDock();
   if (process.env.WORKPET_SKIP_INTEGRATIONS !== "1") void connection.ready().catch(() => {});
   if (process.env.WORKPET_SKIP_INTEGRATIONS !== "1")
     void new IntegrationInstaller(

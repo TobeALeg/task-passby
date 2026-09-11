@@ -64,6 +64,8 @@ export interface AppServiceOptions {
   databasePath: string;
   executors: ExecutorAdapter[];
   foreground?: ForegroundApplicationDetector;
+  onRecordingStarted?: (workId: string) => void;
+  onRecordingStopped?: (workId: string) => void;
 }
 export class AppService {
   readonly #core: WorkCore;
@@ -76,7 +78,7 @@ export class AppService {
   #sourceSelection: string | undefined;
   readonly #cloudExtractionWorkIds = new Set<string>();
   readonly #handoffs = new Set<string>();
-  constructor(options: AppServiceOptions) {
+  constructor(readonly options: AppServiceOptions) {
     this.#core = createWorkCore({ databasePath: options.databasePath });
     this.#executors = new ExecutorRegistry(options.executors);
     this.#foreground =
@@ -311,6 +313,7 @@ export class AppService {
       work.activeBinding?.id
     )
       this.#core.applyExtractorPatch(work.instance.id, patch);
+    this.options.onRecordingStarted?.(work.instance.id);
     this.#notice = `已记录 ${adapter.name} 聊天，导入 ${work.sourceArchive.length} 条可见事件。`;
     return this.dashboard(work.instance.id);
   }
@@ -378,6 +381,8 @@ export class AppService {
       });
       this.#core.applyExtractorPatch(work.instance.id, patch);
       if (allowCloud) this.#cloudExtractionWorkIds.add(work.instance.id);
+      this.options.onRecordingStopped?.(sourceWork.instance.id);
+      this.options.onRecordingStarted?.(work.instance.id);
       this.#notice = "已从指定消息创建新的工作记录。";
       return this.dashboard(work.instance.id);
     } catch (error) {
@@ -566,11 +571,13 @@ export class AppService {
   }
   completeWork(workId: string): DashboardView {
     this.#core.completeWork(workId);
+    this.options.onRecordingStopped?.(workId);
     this.#notice = "工作已完成，自动写入已停止。";
     return this.dashboard(workId);
   }
   archiveWork(workId: string): DashboardView {
     this.#core.archiveWork(workId);
+    this.options.onRecordingStopped?.(workId);
     this.#notice = "工作已归档。";
     return this.dashboard(workId);
   }
@@ -587,6 +594,7 @@ export class AppService {
       environment: adapter.environment,
       source: { adapter: adapter.id, conversationId: binding.conversationId },
     });
+    this.options.onRecordingStarted?.(workId);
     this.#notice = "已继续原工作，并恢复原执行者的记录。";
     return this.dashboard(workId);
   }
@@ -716,6 +724,7 @@ export class AppService {
     if (confirmation !== "取消记录")
       throw new Error("请输入“取消记录”进行二次确认");
     this.#core.deleteWorkPermanently(workId, { confirmation: workId });
+    this.options.onRecordingStopped?.(workId);
     this.#cloudExtractionWorkIds.delete(workId);
     this.#selectedWorkId = null;
     this.#petState = "sleeping";

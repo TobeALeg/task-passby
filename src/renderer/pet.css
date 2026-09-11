@@ -71,3 +71,5 @@ button { font: inherit; }
 @keyframes nudge { 33% { transform: rotate(-5deg); } 66% { transform: rotate(5deg); } }
 
 .dragging .pet-body { cursor: grabbing; animation: none; transition: none; transform: none; }
+
+#recording-upload-notice { font-size: 10px; line-height: 1.4; color: #e5ded7; }

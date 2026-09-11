@@ -8,6 +8,7 @@ import {
   WORK_STATE_LABELS,
   CAPTURE_STATUS_LABELS,
   CAPTURE_WAITING_GUIDANCE,
+  RECORDING_UPLOAD_NOTICE,
   type DashboardView,
   type WorkDetailView,
   type WorkStateField,
@@ -132,6 +133,7 @@ function renderDetail(work: WorkDetailView | null): void {
   detail.innerHTML = `
     <div class="detail-head">${work.reusableDefinitionId ? `<p class="notice">${work.dispatchStatus === "NOT_DISPATCHED" ? "尚未交给执行者" : work.dispatchStatus === "FAILED" ? "启动失败，可重试" : work.dispatchStatus === "BOUND" && work.dispatchReadAt ? "已绑定本次对话，工作包已读取" : "等待执行端确认接手"}</p>` : ""}<span class="eyebrow">${escapeHtml(work.agentName)}</span><h2>${escapeHtml(work.title)}</h2><p class="detail-meta">${work.eventCount} 条来源记录 · ${work.episodeCount} 段执行</p>${work.captureStatus === "waiting" ? `<p class="capture-guidance">${CAPTURE_WAITING_GUIDANCE}</p>` : ""}</div>
     <div class="detail-actions">${actions}${work.bindings.some((binding) => binding.status === "ACTIVE" && binding.conversationId.startsWith("pending:")) || (work.reusableDefinitionId && !work.bindings.some((binding) => binding.status === "ACTIVE") && ["STARTING", "WAITING"].includes(work.dispatchStatus ?? "")) ? '<button data-action="cancel-handoff">取消未确认交接</button>' : ""}<button data-action="distill">沉淀</button><button data-action="copy">复制工作包</button><button data-action="export">导出工作包</button><button data-action="cancel-recording">取消记录</button></div>
+    <p class="notice">${RECORDING_UPLOAD_NOTICE}</p>
     ${Object.entries(WORK_STATE_LABELS)
       .map(([field, label]) =>
         stateSection(work, field as WorkStateField, label),

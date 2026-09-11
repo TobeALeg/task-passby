@@ -37,7 +37,7 @@ export class ImprovementStore {
     return transaction(this.db, () => {
       let sample = this.db.prepare("SELECT * FROM samples WHERE id=?").get(id);
       if (!sample) {
-        ensure(["SOURCE", "REUSE"].includes(input.event.kind), "SAMPLE_SOURCE_REQUIRED");
+        ensure(["SOURCE", "REUSE", "RECORDING"].includes(input.event.kind), "SAMPLE_SOURCE_REQUIRED");
         ensure(this.db.prepare("SELECT COUNT(*) AS n FROM samples WHERE subject=?").get(subject).n < 1000, "QUOTA_EXCEEDED");
         this.db.prepare("INSERT INTO samples (id,subject,client_id,consent,created,expires) VALUES (?,?,?,?,?,?)").run(id, subject, input.sampleId, canonical(input.consent), Date.now(), Date.parse(input.consent.at) + IMPROVEMENT_POLICY.retentionDays * 86400000);
         sample = this.db.prepare("SELECT * FROM samples WHERE id=?").get(id);

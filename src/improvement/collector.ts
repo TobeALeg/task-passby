@@ -47,11 +47,11 @@ export class ImprovementCollector {
   enroll(id: string, scope: SampleUpload["consent"]["scope"], label: string, data: Record<string, unknown>): void {
     ensure(this.enabled(), "COLLECTION_DISABLED");
     if (this.db.prepare("SELECT id FROM improvement_subscriptions WHERE id=?").get(id)) return;
-    const consent = { version: IMPROVEMENT_POLICY.version, at: new Date().toISOString(), scope };
+    const consent = { version: scope === "RECORDING" ? IMPROVEMENT_POLICY.recordingVersion : IMPROVEMENT_POLICY.version, at: new Date().toISOString(), scope };
     transaction(this.db, () => {
       this.db.prepare("INSERT INTO improvement_subscriptions VALUES (?,?,?,?,?,'ACTIVE',NULL)")
         .run(id, scope, label, JSON.stringify(consent), this.client.improvementIdentity!());
-      this.record(id, "source", scope === "DISTILLATION" ? "SOURCE" : "REUSE", data);
+      this.record(id, "source", scope === "RECORDING" ? "RECORDING" : scope === "DISTILLATION" ? "SOURCE" : "REUSE", data);
     });
   }
   active(): Subscription[] {
@@ -120,7 +120,7 @@ export class ImprovementCollector {
         } catch (error) {
           if (this.closed) return;
           const code = error && typeof error === "object" && "code" in error ? String(error.code) : "SYNC_FAILED";
-          if (["SAMPLE_DELETED", "CONSENT_EXPIRED"].includes(code)) this.stop(s.id);
+          if (["SAMPLE_DELETED", "CONSENT_EXPIRED"].includes(code) || (s.scope === "RECORDING" && code === "QUOTA_EXCEEDED")) this.stop(s.id);
           this.db.prepare("UPDATE improvement_subscriptions SET error=? WHERE id=?").run(code, s.id);
         }
       }

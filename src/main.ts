@@ -64,7 +64,7 @@ async function syncRecordedWorks(): Promise<void> {
   }
 }
 const PET_WINDOW_WIDTH = 304;
-const PET_WINDOW_HEIGHT = 206;
+const PET_WINDOW_HEIGHT = 270;
 
 const hasExplicitUserDataDirectory = process.argv.some(
   (argument) =>
@@ -306,7 +306,10 @@ function registerIpc(): void {
     return target.filePath;
   });
   ipcMain.handle("panel:toggle", () => togglePanel());
-  ipcMain.handle("pet:get-view", () => requireService().getPetView());
+  ipcMain.handle("pet:get-view", async () => ({
+    ...await requireService().getPetView(),
+    recordingUploadEnabled: distillation.service.improvement.enabled(),
+  }));
   ipcMain.handle("panel:record-current-context", async () => {
     const dashboard = await requireService().recordCurrentContext();
     showPanel();
@@ -429,6 +432,8 @@ app.whenReady().then(async () => {
   });
   service = new AppService({
     databasePath: join(dataDirectory, "workpet.sqlite"),
+    onRecordingStarted: id => distillation.service.recordings.start(id),
+    onRecordingStopped: id => distillation.service.recordings.stop(id),
     executors,
   });
   credentials = new ServiceCredentials(

@@ -1,3 +1,4 @@
+import { RecordingCollection } from "../improvement/recording.js";
 import { ImprovementCollector } from "../improvement/collector.js";
 import { randomUUID } from "node:crypto";
 import { basename, extname } from "node:path";
@@ -80,6 +81,7 @@ const terminal = new Set([
 export class DistillationService {
   readonly repository: DefinitionRepository;
   readonly improvement: ImprovementCollector;
+  readonly recordings: RecordingCollection;
   readonly active = new Set<string>();
   closed = false;
   close(): void {
@@ -101,9 +103,12 @@ export class DistillationService {
   ) {
     this.repository = core.definitions;
     this.improvement = new ImprovementCollector(this.repository.db, client);
+    this.recordings = new RecordingCollection(core, this.improvement);
   }
   collectFeedback(): void {
+    this.recordings.collect();
     for (const subscription of this.improvement.active()) {
+      if (subscription.scope === "RECORDING") continue;
       if (subscription.scope === "REUSE") {
         for (const row of this.repository.db.prepare("SELECT id,payload_json FROM review_events WHERE owner_id=? ORDER BY rowid").all(subscription.id)) {
           const review = JSON.parse(row.payload_json as string);

@@ -50,7 +50,7 @@
     <dialog id="split-dialog">
       <form method="dialog" class="dialog-card">
         <div class="dialog-heading"><span class="eyebrow">新工作</span><h2>从哪条消息开始？</h2></div>
-        <p>原工作记录会保留；所选消息及其后的内容将成为新的 WorkInstance。</p>
+        <p>原工作记录会保留；所选消息及其后的内容将成为新的 WorkInstance。参与改进开启时，新记录中的用户消息和 AI 回复将上传 Worket，供产品改进，保存 90 天；可在 Worket 服务中关闭或删除。</p>
         <label class="field">起始用户消息<select id="split-point"></select></label>
         <div class="dialog-actions">
           <button value="cancel" class="secondary">取消</button>
@@ -62,7 +62,7 @@
     <dialog id="cancel-recording-dialog">
       <form method="dialog" class="dialog-card danger-card">
         <div class="dialog-heading"><span class="eyebrow">取消记录</span><h2>停止记录这项工作？</h2></div>
-        <p>取消后停止同步，并清除 Worket 保存的这份本地记录，清除后无法恢复。Codex / WorkBuddy 中的原对话与原始文件保持不变，可再次主动选择记录。已确认定义仍保留；本工具保存的来源正文、快照与证据摘录将清除，相关未保存候选失效；含历史正文的迁移备份也会移除。请输入“取消记录”继续。</p>
+        <p>取消后停止本机同步与对话上传；已上传样本可在“Worket 服务 → 改进数据”删除。并清除 Worket 保存的这份本地记录，清除后无法恢复。Codex / WorkBuddy 中的原对话与原始文件保持不变，可再次主动选择记录。已确认定义仍保留；本工具保存的来源正文、快照与证据摘录将清除，相关未保存候选失效；含历史正文的迁移备份也会移除。请输入“取消记录”继续。</p>
         <p id="cancel-recording-error" class="notice" role="alert" hidden></p>
         <label class="field">确认文字<input id="cancel-recording-confirmation" autocomplete="off" /></label>
         <div class="dialog-actions"><button value="cancel" class="secondary">取消</button><button id="confirm-cancel-recording" value="default" class="danger">取消记录</button></div>

@@ -1,4 +1,4 @@
-import type { ConversationView, DashboardView } from "../ui-contract.js";
+import { RECORDING_UPLOAD_NOTICE, type ConversationView, type DashboardView } from "../ui-contract.js";
 
 const RECENT_SOURCE_COUNT = 5;
 
@@ -34,6 +34,10 @@ export function setupRecordingSources(
     empty: string,
   ): void {
     container.replaceChildren();
+    const disclosure = document.createElement("p");
+    disclosure.className = "notice";
+    disclosure.textContent = RECORDING_UPLOAD_NOTICE;
+    container.append(disclosure);
     if (!sources.length) {
       const message = document.createElement("p");
       message.className = "source-empty";

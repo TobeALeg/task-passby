@@ -336,7 +336,7 @@ document.querySelectorAll("[data-tab]").forEach(
 void session().catch((error) => message(error.message, true));
 
 let collectionPolicy;
-const eventLabels = { SOURCE: "所选材料与来源证据", REUSE: "新工作范围", CANDIDATE: "模型候选原稿", EDIT: "用户保存的修改", PUBLISH: "用户确认发布", STATUS: "任务状态与结果", ACCEPTANCE: "用户验收" };
+const eventLabels = { RECORDING: "所选工作对话", MESSAGE: "用户消息 / AI 回复", SOURCE: "所选材料与来源证据", REUSE: "新工作范围", CANDIDATE: "模型候选原稿", EDIT: "用户保存的修改", PUBLISH: "用户确认发布", STATUS: "任务状态与结果", ACCEPTANCE: "用户验收" };
 function element(tag, text, parent) {
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;
@@ -354,7 +354,7 @@ async function samples() {
   for (const sample of result.items) {
     const row = element("div", undefined, list);
     row.className = "client-item";
-    const button = element("button", `${sample.consent.scope === "REUSE" ? "工作复用" : "工作沉淀"} · ${new Date(sample.created).toLocaleString()}`, row);
+    const button = element("button", `${sample.consent.scope === "RECORDING" ? "工作记录" : sample.consent.scope === "REUSE" ? "工作复用" : "工作沉淀"} · ${new Date(sample.created).toLocaleString()}`, row);
     element("p", `${configuration.clients.find(c => c.id === sample.subject)?.name ?? sample.subject} · ${sample.eventCount} 条证据 · ${sample.review.status === "REVIEWED" ? "已评审" : "待评审"}`, row);
     button.onclick = () => void sampleDetail(sample.id).catch(e => message(e.message, true));
   }

@@ -2,9 +2,11 @@
 
 领域术语以 [CONTEXT.md](CONTEXT.md) 为准；产品与架构现状分别见 [docs/product.md](docs/product.md) 和 [docs/architecture.md](docs/architecture.md)。
 
-## VPS 登录
+## VPS 管理
 
-访问 Worket VPS `124.223.223.215:22` 时，默认使用已验证的 `ubuntu` 账号与本机密钥（实际拼写为 `tecent`）：
+管理 Worket VPS 时优先使用 Codex 的 `lighthouse` MCP（腾讯云 Lighthouse），先按公网 IP `124.223.223.215` 核实目标实例与地域。MCP 不可用或不支持所需操作时，再使用 SSH。
+
+通过 SSH 访问 `124.223.223.215:22` 时，使用已验证的 `ubuntu` 账号与本机密钥（实际拼写为 `tecent`）：
 
 ```sh
 ssh -i /Users/dandi/Desktop/idd_tecent_dstui.pem -o IdentitiesOnly=yes ubuntu@124.223.223.215

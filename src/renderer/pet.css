@@ -81,14 +81,14 @@ button { font: inherit; }
 .docked .pet { position: absolute; left: 0; top: 0; width: 68px; height: 32px; zoom: 1; transform-origin: 0 0; }
 .docked[data-edge="left"] .pet { top: 68px; transform: rotate(-90deg); }
 .docked[data-edge="right"] .pet { left: 32px; transform: rotate(90deg); }
-.docked .pet .pet-body { position: absolute; left: 10px; top: -21px; width: 48px; height: 40px; border-radius: 24px 24px 16px 16px; animation: none; transition: none; transform: none; box-shadow: 0 2px 5px rgba(82,48,9,.2), inset 0 -3px 5px rgba(157,83,4,.13); }
+.docked .pet .pet-body { position: absolute; left: 10px; top: -15px; width: 48px; height: 34px; border-radius: 50%; animation: none; transition: none; transform: none; box-shadow: 0 2px 5px rgba(82,48,9,.2), inset 0 -3px 5px rgba(157,83,4,.13); }
 .docked .face { bottom: 7px; height: 7px; }
 .docked .pet .eye { top: 0; width: 5px; height: 7px; }
 .docked .pet.sleeping .eye { top: 4px; width: 6px; height: 2px; }
 .docked .eye.left { left: 14px; }
 .docked .eye.right { right: 14px; }
 .docked .mouth { display: none; }
-.docked .edge-paws { display: block; position: absolute; top: 21px; left: -4px; right: -4px; height: 7px; }
+.docked .edge-paws { display: block; position: absolute; top: 15px; left: -4px; right: -4px; height: 7px; }
 .docked .edge-paws i { position: absolute; top: 0; width: 11px; height: 7px; border-radius: 0 0 5px 5px; background: var(--pet-light); border-bottom: 1px solid rgba(143,94,23,.3); box-shadow: 0 1px 2px rgba(54,34,9,.15); }
 .docked .edge-paws i:first-child { left: 0; }
 .docked .edge-paws i:last-child { right: 0; }

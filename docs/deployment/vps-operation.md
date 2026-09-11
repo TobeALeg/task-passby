@@ -1,6 +1,6 @@
 # Worket VPS 部署与验收
 
-2026-09-10：后台已部署，HTTPS、自动安装身份、合成样本收集与桌面取消持久化通过实测。真实模型配置仍等待用户明确授权迁移现有 DeepSeek Key，不能将本记录视为真实模型沉淀或真实执行者复用验收。桌面端未打包、未发布，现有用户不会因此自动升级。
+2026-09-10：后台已部署，HTTPS、自动安装身份、合成样本收集与桌面取消持久化通过实测。2026-09-11 用户明确同意后，已有 DeepSeek Key 经 SSH stdin 迁移并在 VPS 加密保存，后台已载入 `deepseek-v4-pro` 配置。桌面端未打包、未发布，现有用户不会因此自动升级。
 
 ## 入口与管理
 
@@ -18,7 +18,7 @@ ssh -i /Users/dandi/Desktop/idd_tecent_dstui.pem -o IdentitiesOnly=yes -o ExitOn
 
 | 路径或服务 | 用途 |
 | --- | --- |
-| `/opt/worket/releases/<commit>`、`/opt/worket/current` | 已编译的后台版本与当前链接；当前业务代码版本 `2c85aa7` |
+| `/opt/worket/releases/<commit>`、`/opt/worket/current` | 已编译的后台版本与当前链接；当前业务代码版本 `c8dd3e7` |
 | `/opt/worket/runtime/node` | Node v24.19.0 独立可执行文件 |
 | `/var/lib/worket/data` | 管理配置、签名身份、加密主密钥、用量元数据及样本 SQLite；仅 worket 用户访问 |
 | `worket.service` | 独立 worket 用户运行后台，异常退出自动重启 |
@@ -31,6 +31,8 @@ ssh -i /Users/dandi/Desktop/idd_tecent_dstui.pem -o IdentitiesOnly=yes -o ExitOn
 既有 `deepseek-harness.service` 和 `dsh-auth-caddy.service` 保持运行。模板见 `server/deploy/`。该部署未配置异机备份或故障转移；当前是单 VPS 单实例。
 
 首次签发证书有效期到 `2026-09-17 05:55:32 UTC`。已完成 `certbot renew --dry-run --run-deploy-hooks`：公网挑战与证书复制、Caddy 重载链路通过；之后由 timer 检查续期。IP 无 SNI 连接由 Caddy 的 `default_sni` 选择证书。
+
+模型 Key 只通过 SSH stdin 传输，由远端 `AdminStore` 加密保存；迁移命令、日志和 Git 不包含 Key。载入配置后的公网健康检查为 `{"ok":true,"configured":true}`。
 
 ## 配置与更新
 
@@ -53,6 +55,12 @@ sudo journalctl -u worket-certificate -n 50 --no-pager
 
 `node scripts/qa-vps-samples.mjs`：真实 HTTPS、安装注册/续期主体稳定、采集器上传六类合成事件、SSH 管理页可查看、不同安装不能删除对方样本、停止后不继续上报、删除同步和桌面重启保留取消选择。结果与截图位于 `output/vps-samples/`。这项测试不调用模型，也不代表真实用户使用验证。
 
-随后重启 `worket.service` 并重新登录管理页，安装身份、样本与评审均保留；后台现保留一份已标记和评审的合成来源样本，其他本轮合成测试样本已清理。
+随后重启 `worket.service` 并重新登录管理页，安装身份、样本与评审均保留；首轮保留一份已标记和评审的合成来源样本，其他该轮合成测试样本已清理。
 
-真实模型配置完成后，保持 SSH 隧道并执行 `node --experimental-strip-types scripts/qa-vps.mjs --live-model`，验证真实提取、人工修改、定义发布与合成复用验收的数据闭环。此脚本目前尚未执行；即使通过，合成成果也不能计作真实执行者交付验收。
+2026-09-11 真实模型验收：`node --experimental-strip-types scripts/qa-vps.mjs --live-model` 使用独立 Electron 数据目录，经公网 HTTPS 调用 `deepseek-v4-pro`。修复前模型将目标输出为字符串，返回 `INVALID_MODEL_OUTPUT`；诊断复现还发现中间改写文本被当作原文摘录。提示版本 `work-definition-v1.2` 明确 Item 对象结构和聚合阶段只引用来源/事件键，保持原有校验规则；107/107 回归通过。
+
+修复后真实提取返回无待确认问题的候选，保留两个必填文本输入、来源依据、约束与验收标准。桌面修改名称、发布定义、输入新项目、创建实例、附加合成成果并逐项验收；后台收到 SOURCE、CANDIDATE、EDIT、PUBLISH、REUSE、ACCEPTANCE 六类事件。后半段因测试脚本将两个“更多”菜单混淆而中断；修正定位后以 `--resume-feedback` 继续同一数据目录，未重复模型调用，完成后台查看、停止、删除和重启后保持取消选择。
+
+结果：`output/vps-live/report.json` 为 `passed:true`、`realModel:true`、`syntheticSource:true`、`realExecutor:false`、`desktopPackaged:false`。当前保留 `WORKET-QA-f37ca63a` 的已评审来源/候选/修改/发布样本，测试复用样本按删除流程移除，初次失败样本已清理。正式版本目录切换后再次重启，模型配置、安装身份与成功样本仍在，公网健康检查通过。
+
+此结果证明真实供应商与当前应用数据闭环可运行；材料和成果为合成 QA，不能计作真实执行者交付、真实用户数据到账、广泛模型质量或沉淀收益验收。完整新测试使用 `--live-model`；仅在前半程已经完成并保留 `run.json` 时使用 `--resume-feedback` 续测后半程。

@@ -1,11 +1,13 @@
 import { readDockSpace } from "./dock-space.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { screen, type BrowserWindow } from "electron";
-import { bottomPetDock, dockPet, nearestPetEdge, PET_SIZE, PET_BODY_SIZE, PET_DOCK_SIZE, PET_BODY_CENTER, placeFloatingPet, petMovementArea, validPetEdge, type PetPlacement, type Point, type Rectangle } from "./pet-layout.js";
+import { bottomPetDock, dockPet, nearestPetEdge, PET_SIZE, PET_BODY_SIZE, PET_DOCK_SIZE, PET_BODY_CENTER, PET_ABSORB_DURATION, placeFloatingPet, petMovementArea, validPetEdge, type PetPlacement, type Point, type Rectangle } from "./pet-layout.js";
 
 export class PetPosition {
   placement: PetPlacement = { edge: null };
   private center: Point = { x: 0, y: 0 };
+  private settling: { timer: ReturnType<typeof setTimeout>; bounds: Rectangle; edge: Exclude<PetPlacement["edge"], null> } | null = null;
+  private motionId = 0;
   private drag: { origin: Point; center: Point; latest: Point; moved: boolean } | null = null;
   get edge() { return this.placement.edge; }
   private dockSpace: { width: number; bottom: boolean } | null = null;
@@ -24,12 +26,36 @@ export class PetPosition {
       this.window.setBounds(bounds);
     this.window.webContents.send("pet:placement", placement);
   }
-  private float(center: Point): void {
+  private float(center: Point, emerge?: PetPlacement["emerge"]): void {
     const display = screen.getDisplayNearestPoint(center);
     const area = petMovementArea(center, display.bounds, display.workArea, this.protectedDockWidth(display.bounds));
     const layout = placeFloatingPet(center, area);
     this.center = layout.center;
-    this.apply(layout.bounds, { edge: null, body: layout.body });
+    this.apply(layout.bounds, { edge: null, body: layout.body, ...(emerge ? { emerge } : {}) });
+  }
+  private finishSettling(): void {
+    const settling = this.settling;
+    if (!settling) return;
+    clearTimeout(settling.timer);
+    this.settling = null;
+    if (!this.window.isDestroyed()) this.apply(settling.bounds, { edge: settling.edge });
+  }
+  private absorb(bounds: Rectangle, edge: Exclude<PetPlacement["edge"], null>): void {
+    const current = this.window.getBounds();
+    const body = this.placement.body!;
+    const x = Math.min(current.x, bounds.x), y = Math.min(current.y, bounds.y);
+    const stage = { x, y, width: Math.max(current.x + current.width, bounds.x + bounds.width) - x,
+      height: Math.max(current.y + current.height, bounds.y + bounds.height) - y };
+    const to = { x: bounds.x + bounds.width / 2 - x, y: bounds.y + bounds.height / 2 - y };
+    if (edge === "left") to.x = bounds.x - x - 10;
+    if (edge === "right") to.x = bounds.x + bounds.width - x + 10;
+    if (edge === "top") to.y = bounds.y - y - 10;
+    if (edge === "bottom") to.y = bounds.y + bounds.height - y + 10;
+    this.settling = { bounds, edge, timer: setTimeout(() => this.finishSettling(), PET_ABSORB_DURATION + 60) };
+    this.apply(stage, { edge, dock: { x: bounds.x - x, y: bounds.y - y }, motion: {
+      id: ++this.motionId, duration: PET_ABSORB_DURATION,
+      from: { x: current.x + body.x - x, y: current.y + body.y - y }, to,
+    } });
   }
   restore(): void {
     const area = screen.getPrimaryDisplay().workArea;
@@ -48,6 +74,7 @@ export class PetPosition {
     this.recover();
   }
   recover(): void {
+    this.finishSettling();
     const display = screen.getDisplayNearestPoint(this.center);
     if (this.edge) {
       const bounds = this.edge === "bottom"
@@ -60,6 +87,7 @@ export class PetPosition {
     this.save();
   }
   start(cursor: Point): void {
+    this.finishSettling();
     void this.refreshDockSpace();
     const bounds = this.window.getBounds();
     const body = this.placement.body;
@@ -74,12 +102,13 @@ export class PetPosition {
     if (!drag || Math.hypot(cursor.x - drag.origin.x, cursor.y - drag.origin.y) < 5 && !drag.moved) return;
     drag.moved = true;
     drag.latest = cursor;
+    const emerge = this.edge ?? undefined;
     if (this.edge) {
       // Keep the visible head under the pointer when detaching the compact window.
       drag.origin = cursor;
       drag.center = cursor;
     }
-    this.float({ x: drag.center.x + cursor.x - drag.origin.x, y: drag.center.y + cursor.y - drag.origin.y });
+    this.float({ x: drag.center.x + cursor.x - drag.origin.x, y: drag.center.y + cursor.y - drag.origin.y }, emerge);
   }
   end(): void {
     const drag = this.drag;
@@ -91,14 +120,14 @@ export class PetPosition {
       if (edge) {
         const bounds = bottom ?? dockPet(edge, drag.latest, display.workArea);
         this.center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
-        this.apply(bounds, { edge });
+        this.absorb(bounds, edge);
       } else this.float(this.center);
       this.save();
     }
     this.window.setIgnoreMouseEvents(true, { forward: true });
   }
   private save(): void {
-    const { x, y } = this.window.getBounds();
+    const { x, y } = this.settling?.bounds ?? this.window.getBounds();
     try { writeFileSync(this.path, JSON.stringify({ x, y, center: this.center, ...(this.edge ? { edge: this.edge } : {}) }), "utf8"); }
     catch (error) { console.warn("无法保存桌宠位置", error); }
   }

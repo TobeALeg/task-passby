@@ -7,7 +7,14 @@ export const PET_SNAP_DISTANCE = 24;
 // The normal character is bottom-right inside the transparent window (75% scale).
 export const PET_BODY_SIZE = { width: 78, height: 70.5 };
 export const PET_BODY_CENTER = { x: 231, y: 197.75 };
-export type PetPlacement = { edge: PetEdge; body?: Point };
+export type PetPlacement = {
+  edge: PetEdge;
+  body?: Point;
+  dock?: Point;
+  motion?: { id: number; from: Point; to: Point; duration: number };
+  emerge?: Exclude<PetEdge, null>;
+};
+export const PET_ABSORB_DURATION = 260;
 const clamp = (value: number, min: number, max: number) => Math.round(Math.max(min, Math.min(value, Math.max(min, max))));
 export function constrainPet(bounds: Rectangle, area: Rectangle): Rectangle {
   return { ...bounds, x: clamp(bounds.x, area.x, area.x + area.width - bounds.width), y: clamp(bounds.y, area.y, area.y + area.height - bounds.height) };

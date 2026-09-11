@@ -1,3 +1,4 @@
+import { createPetMotion } from "./pet-motion.js";
 import type { PetPlacement } from "../desktop/pet-layout.js";
 import type { CurrentConversationView, PetView } from "../ui-contract.js";
 
@@ -19,7 +20,11 @@ function required<T extends Element>(selector: string): T {
   return element;
 }
 
+const renderMotion = createPetMotion(root, pet);
 function renderPlacement(placement: PetPlacement): void {
+  renderMotion(placement);
+  root.style.setProperty("--dock-x", `${placement.dock?.x ?? 0}px`);
+  root.style.setProperty("--dock-y", `${placement.dock?.y ?? 0}px`);
   root.dataset.edge = placement.edge ?? "free";
   root.classList.toggle("docked", Boolean(placement.edge));
   const body = placement.body ?? { x: 192, y: 162.5 };

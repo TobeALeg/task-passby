@@ -302,3 +302,5 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 2026-09-11 贴边头部进一步调整为 48×34 椭圆，取消平底圆角，保持 19 像素露出高度、内收眼睛和贴边双爪。
 
 2026-09-11 拖动与底部吸附统一空白区域规则：petMovementArea 按完整角色宽度判断 Dock 两侧通道，将通道内可移动区域延伸到 display.bounds 底部，中央仍用 workArea。renderer 用 requestAnimationFrame 合并 pointermove，结束拖动前同步发送最后坐标；主进程跳过相同 bounds 的原生窗口更新。qa-pet-drag 在松手前验证底部通道中的角色中心跟随指针，防止两套边界再次产生跳跃。
+
+2026-09-11 PetPosition.absorb 暂时扩展原生窗口覆盖起始与目标位置，placement.motion 传递起点、终点、时长及动作 ID；renderer/pet-motion.ts 用 Web Animations 执行缩入与显露，完成后移除临时角色。320 毫秒后主进程收小窗口，保存仍使用最终坐标。新拖动和显示器恢复会结束未完成收纳，拖出通过 emerge 做短展开；中间状态不写入偏好。

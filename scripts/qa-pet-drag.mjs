@@ -60,7 +60,8 @@ try {
   const area = await application.evaluate(({ screen }, rectangle) => screen.getDisplayMatching(rectangle).workArea, recovered);
   assert.ok(recovered.x >= area.x && recovered.y >= area.y, "Disconnected display recovers pet");
   const center = { x: area.x + area.width / 2, y: area.y + area.height / 2 };
-  async function dragVisiblePetTo(to) {
+  let absorptionSamples = 0;
+  async function dragVisiblePetTo(to, expectAbsorption = false) {
     const b = await bounds();
     const body = await pet.locator("#pet").boundingBox();
     const from = { x: b.x + body.x + body.width / 2, y: b.y + body.y + body.height / 2 };
@@ -68,6 +69,18 @@ try {
       window.workpet.dragPet("start", from); window.workpet.dragPet("move", to); window.workpet.dragPet("end");
     }, { from, to });
     await pet.waitForTimeout(100);
+    if (expectAbsorption) {
+      const sample = await pet.evaluate(() => {
+        const ghost = document.querySelector(".pet-motion-ghost");
+        return { settling: document.querySelector("#pet-root").dataset.settling,
+          scale: ghost ? new DOMMatrix(getComputedStyle(ghost).transform).a : null };
+      });
+      assert.equal(sample.settling, "true", "The full animation stage remains until absorption completes");
+      assert.ok(sample.scale > .18 && sample.scale < 1, "The character visibly shrinks through intermediate frames");
+      absorptionSamples++;
+    }
+    await pet.waitForFunction(() => document.querySelector("#pet-root").dataset.settling !== "true");
+    assert.equal(await pet.locator(".pet-motion-ghost").count(), 0, "Finished animation removes its temporary visual");
   }
   for (const target of [{ x: area.x + 80, y: area.y + 50 }, { x: area.x + 48, y: area.y + 170 }]) {
     await dragVisiblePetTo(target);
@@ -81,7 +94,7 @@ try {
     const target = edge === "left" ? { x: area.x + 2, y: center.y }
       : edge === "right" ? { x: area.x + area.width - 2, y: center.y }
       : { x: center.x, y: area.y - 10 };
-    await dragVisiblePetTo(target);
+    await dragVisiblePetTo(target, true);
     await pet.waitForFunction(edge => document.querySelector("#pet-root").dataset.edge === edge, edge);
     const compact = await bounds();
     assert.equal(compact.width, edge === "top" ? 68 : 32);
@@ -132,7 +145,7 @@ try {
     "Bottom approach must follow pointer through the empty Dock lane before release");
   await pet.evaluate(() => window.workpet.dragPet("end"));
   for (const x of [fullDisplay.x + 80, fullDisplay.x + fullDisplay.width - 80]) {
-    await dragVisiblePetTo({ x, y: fullDisplay.y + fullDisplay.height - 1 });
+    await dragVisiblePetTo({ x, y: fullDisplay.y + fullDisplay.height - 1 }, true);
     await pet.waitForFunction(() => document.querySelector("#pet-root").dataset.edge === "bottom");
     assert.equal((await bounds()).y + (await bounds()).height, fullDisplay.y + fullDisplay.height);
   }
@@ -144,6 +157,23 @@ try {
   assert.deepEqual(await bounds(), bottomBounds, "Restart preserves physical bottom docking");
   await dragVisiblePetTo({ x: fullDisplay.x + fullDisplay.width / 2, y: fullDisplay.y + fullDisplay.height - 1 });
   assert.equal(await pet.locator("#pet-root").getAttribute("data-edge"), "free", "Dock center remains protected");
+  const interruptedBounds = await bounds();
+  const interruptedBody = await pet.locator("#pet").boundingBox();
+  const interruptedFrom = { x: interruptedBounds.x + interruptedBody.x + interruptedBody.width / 2,
+    y: interruptedBounds.y + interruptedBody.y + interruptedBody.height / 2 };
+  const interruptedTarget = { x: fullDisplay.x + 80, y: fullDisplay.y + fullDisplay.height - 1 };
+  await pet.evaluate(({ from, to }) => {
+    window.workpet.dragPet("start", from); window.workpet.dragPet("move", to); window.workpet.dragPet("end");
+  }, { from: interruptedFrom, to: interruptedTarget });
+  await pet.waitForFunction(() => document.querySelector("#pet-root").dataset.settling === "true");
+  await pet.evaluate(to => {
+    window.workpet.dragPet("start", to);
+    window.workpet.dragPet("move", { x: to.x, y: to.y - 150 });
+    window.workpet.dragPet("end");
+  }, interruptedTarget);
+  await pet.waitForTimeout(400);
+  assert.equal(await pet.locator("#pet-root").getAttribute("data-edge"), "free", "A new drag interrupts absorption without a stale timer snapping back");
+  assert.equal(await pet.locator(".pet-motion-ghost").count(), 0);
   await dock("left");
   await application.evaluate(({ BrowserWindow, screen }) => {
     BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith("/pet.html")).setPosition(-10000, -10000);
@@ -160,7 +190,7 @@ try {
     app.emit("second-instance", {}, [], process.cwd());
   });
   const report = { destroyedWindowActivationSafe: true, passed: true, before, after, restartRestored: true, recovered,
-    edgeDocking: ["left", "right", "top", "bottom"], visibleBodyBoundaries: true, bottomApproachFollowsPointer: true, bottomRestart: true, dockCenterProtected: true, compactRestart: true, nativePointerDetach: true, dockedClick: true, dockRecovered,
+    absorptionSamples, absorptionInterruptible: true, edgeDocking: ["left", "right", "top", "bottom"], visibleBodyBoundaries: true, bottomApproachFollowsPointer: true, bottomRestart: true, dockCenterProtected: true, compactRestart: true, nativePointerDetach: true, dockedClick: true, dockRecovered,
     unpackaged, cursor: "Playwright pointer events and placement IPC; native Electron window and renderer" };
   await writeFile(join(output, "report.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));

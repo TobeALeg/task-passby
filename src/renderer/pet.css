@@ -102,6 +102,10 @@ button { font: inherit; }
 .context-bubble::after { right: auto; left: var(--bubble-arrow-x, 199px); }
 .bubble-below .context-bubble { bottom: auto; top: var(--bubble-top); }
 .bubble-below .context-bubble::after { bottom: auto; top: -7px; }
-.docked .pet-anchor { left: 0; top: 0; width: 100%; height: 100%; }
+.docked .pet-anchor { left: var(--dock-x, 0px); top: var(--dock-y, 0px); width: 68px; height: 32px; }
 
 .docked[data-edge="bottom"] .pet { left: 68px; top: 32px; transform: rotate(180deg); }
+
+.pet-motion-ghost { position: absolute; width: 78px; height: 70.5px; pointer-events: none; transform-origin: center; z-index: 10; }
+.pet-motion-ghost .pet-body { animation: none; transition: none; transform: none; }
+.pet-motion-ghost .status-dot { display: none; }

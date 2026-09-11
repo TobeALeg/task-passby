@@ -264,18 +264,38 @@ bind("logout", "click", async () => {
   $("issued-client").hidden = true;
   await session();
 });
+function configBusy(busy) {
+  for (const id of ["save-config", "save-limits", "test-connection"]) $(id).disabled = busy;
+}
+function limitsStatus(text) {
+  $("limits-save-status").textContent = text;
+  $("limits-save-status").hidden = false;
+}
+for (const id of ["limit-daily", "limit-user", "limit-global", "limit-sources", "limit-timeout"]) {
+  $(id).addEventListener("input", () => limitsStatus("调用额度已修改，尚未保存"));
+}
 bind("config-form", "submit", async () => {
-  await api("config", "PUT", input());
-  await load();
-  $("test-result").hidden = true;
-  message("配置已保存并启用");
+  configBusy(true);
+  limitsStatus("正在保存…");
+  try {
+    await api("config", "PUT", input());
+    await load();
+    $("test-result").hidden = true;
+    limitsStatus("调用额度已保存并启用");
+    message("配置已保存并启用");
+  } catch (error) {
+    limitsStatus(`保存失败：${error.message}`);
+    throw error;
+  } finally {
+    configBusy(false);
+  }
 });
 bind("test-connection", "click", async () => {
   if (!$("config-form").reportValidity()) return;
   $("test-result").hidden = false;
   $("test-result").className = "inline-result";
   $("test-result").textContent = "正在发送固定检测文本…";
-  $("save-config").disabled = true;
+  configBusy(true);
   try {
     const result = await api("test", "POST", input());
     $("test-result").textContent =
@@ -284,7 +304,7 @@ bind("test-connection", "click", async () => {
     $("test-result").className = "inline-result error";
     $("test-result").textContent = error.message;
   } finally {
-    $("save-config").disabled = false;
+    configBusy(false);
   }
 });
 bind("client-form", "submit", async () => {

@@ -1,3 +1,4 @@
+import type { PetPlacement } from "../desktop/pet-layout.js";
 import type { CurrentConversationView, PetView } from "../ui-contract.js";
 
 const root = required<HTMLElement>("#pet-root");
@@ -18,14 +19,23 @@ function required<T extends Element>(selector: string): T {
   return element;
 }
 
-function renderPlacement(edge: PetView["edge"]): void {
-  root.dataset.edge = edge ?? "free";
-  root.classList.toggle("docked", Boolean(edge));
+function renderPlacement(placement: PetPlacement): void {
+  root.dataset.edge = placement.edge ?? "free";
+  root.classList.toggle("docked", Boolean(placement.edge));
+  const body = placement.body ?? { x: 192, y: 162.5 };
+  root.style.setProperty("--pet-x", `${body.x}px`);
+  root.style.setProperty("--pet-y", `${body.y}px`);
+  const bubbleX = Math.max(0, Math.min(body.x + 78 - 238, innerWidth - 238));
+  root.style.setProperty("--bubble-x", `${bubbleX}px`);
+  root.style.setProperty("--bubble-bottom", `${innerHeight - body.y + 18}px`);
+  root.style.setProperty("--bubble-top", `${body.y + 70.5 + 18}px`);
+  root.style.setProperty("--bubble-arrow-x", `${Math.max(12, Math.min(212, body.x + 39 - bubbleX))}px`);
+  root.classList.toggle("bubble-below", body.y < 130);
 }
 window.workpet.onPetPlacement?.(renderPlacement);
 
 function render(state: PetView): void {
-  renderPlacement(state.edge);
+  renderPlacement(state.placement ?? { edge: state.edge ?? null });
   pet.className = `pet ${state.petState}`;
   currentConversation = state.currentConversation;
   const hasConversation = Boolean(currentConversation);

@@ -44,7 +44,8 @@ try {
   assert.equal(after.x, before.x + 20);
   assert.equal(after.y, before.y + 10);
   assert.equal(await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith("/panel.html")).isVisible()), false, "Drag must not open panel");
-  assert.deepEqual(JSON.parse(await readFile(join(directory, "pet-position.json"), "utf8")), { x: after.x, y: after.y });
+  const savedFree = JSON.parse(await readFile(join(directory, "pet-position.json"), "utf8"));
+  assert.equal(savedFree.x, after.x); assert.equal(savedFree.y, after.y);
   await pet.locator("#pet-body").click({ position: { x: 25, y: 45 } });
   await pet.waitForTimeout(100);
   assert.equal(await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith("/panel.html")).isVisible()), true, "Click still opens panel");
@@ -59,16 +60,28 @@ try {
   const area = await application.evaluate(({ screen }, rectangle) => screen.getDisplayMatching(rectangle).workArea, recovered);
   assert.ok(recovered.x >= area.x && recovered.y >= area.y, "Disconnected display recovers pet");
   const center = { x: area.x + area.width / 2, y: area.y + area.height / 2 };
+  async function dragVisiblePetTo(to) {
+    const b = await bounds();
+    const body = await pet.locator("#pet").boundingBox();
+    const from = { x: b.x + body.x + body.width / 2, y: b.y + body.y + body.height / 2 };
+    await pet.evaluate(({ from, to }) => {
+      window.workpet.dragPet("start", from); window.workpet.dragPet("move", to); window.workpet.dragPet("end");
+    }, { from, to });
+    await pet.waitForTimeout(100);
+  }
+  for (const target of [{ x: area.x + 80, y: area.y + 50 }, { x: area.x + 48, y: area.y + 170 }]) {
+    await dragVisiblePetTo(target);
+    const b = await bounds(); const body = await pet.locator("#pet").boundingBox();
+    assert.ok(Math.abs(b.x + body.x + body.width / 2 - target.x) <= 1, "No invisible left margin");
+    assert.ok(Math.abs(b.y + body.y + body.height / 2 - target.y) <= 1, "No invisible upper margin");
+  }
+  await pet.screenshot({ path: join(output, "upper-left-free.png") });
   async function dock(edge) {
     const b = await bounds();
     const target = edge === "left" ? { x: area.x + 2, y: center.y }
       : edge === "right" ? { x: area.x + area.width - 2, y: center.y }
       : { x: center.x, y: area.y - 10 };
-    await pet.evaluate(({ from, to }) => {
-      window.workpet.dragPet("start", from);
-      window.workpet.dragPet("move", to);
-      window.workpet.dragPet("end");
-    }, { from: { x: b.x + b.width / 2, y: b.y + b.height / 2 }, to: target });
+    await dragVisiblePetTo(target);
     await pet.waitForFunction(edge => document.querySelector("#pet-root").dataset.edge === edge, edge);
     const compact = await bounds();
     assert.equal(compact.width, edge === "top" ? 68 : 32);
@@ -102,6 +115,20 @@ try {
   assert.equal((await bounds()).height, 270);
   assert.equal(await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith("/panel.html")).isVisible()), false, "Detach drag must not open panel");
   await pet.screenshot({ path: join(output, "detached.png") });
+  const fullDisplay = await application.evaluate(({ screen }, point) => screen.getDisplayNearestPoint(point).bounds, center);
+  for (const x of [fullDisplay.x + 80, fullDisplay.x + fullDisplay.width - 80]) {
+    await dragVisiblePetTo({ x, y: fullDisplay.y + fullDisplay.height - 1 });
+    await pet.waitForFunction(() => document.querySelector("#pet-root").dataset.edge === "bottom");
+    assert.equal((await bounds()).y + (await bounds()).height, fullDisplay.y + fullDisplay.height);
+  }
+  await pet.screenshot({ path: join(output, "bottom.png") });
+  const bottomBounds = await bounds();
+  await application.close();
+  pet = await launch();
+  await pet.waitForFunction(() => document.querySelector("#pet-root").dataset.edge === "bottom");
+  assert.deepEqual(await bounds(), bottomBounds, "Restart preserves physical bottom docking");
+  await dragVisiblePetTo({ x: fullDisplay.x + fullDisplay.width / 2, y: fullDisplay.y + fullDisplay.height - 1 });
+  assert.equal(await pet.locator("#pet-root").getAttribute("data-edge"), "free", "Dock center remains protected");
   await dock("left");
   await application.evaluate(({ BrowserWindow, screen }) => {
     BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith("/pet.html")).setPosition(-10000, -10000);
@@ -118,7 +145,7 @@ try {
     app.emit("second-instance", {}, [], process.cwd());
   });
   const report = { destroyedWindowActivationSafe: true, passed: true, before, after, restartRestored: true, recovered,
-    edgeDocking: ["left", "right", "top"], compactRestart: true, nativePointerDetach: true, dockedClick: true, dockRecovered,
+    edgeDocking: ["left", "right", "top", "bottom"], visibleBodyBoundaries: true, bottomRestart: true, dockCenterProtected: true, compactRestart: true, nativePointerDetach: true, dockedClick: true, dockRecovered,
     unpackaged, cursor: "Playwright pointer events and placement IPC; native Electron window and renderer" };
   await writeFile(join(output, "report.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));

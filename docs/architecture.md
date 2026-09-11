@@ -293,4 +293,4 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 
 记录提示频率：`recording_notice` 在本机工作库保存已确认的说明版本。`RecordingCollection.noticeRequired()` 根据参与改进偏好与当前 `recordingVersion` 决定是否展示；只有主动记录成功登记后写入版本，不根据历史订阅、页面打开或启动推断。桌宠和面板通过同一应用层状态控制首次提示，后续记录及重启共享确认状态。关闭再开启参与改进不重置同版提示，版本变化会重新展示；此状态只控制提示频率，不扩大上传范围，也不恢复已停止的订阅。
 
-桌宠贴边状态为 free/left/right/top，存储中 free 沿用旧版 `{x,y}`，吸附时额外保存 `edge`，旧配置无需迁移。拖动结束按 pointer 的桌面坐标选择最近显示器与工作区边缘，原生窗口同步缩小为侧边 32×68 或顶部 68×32；拖离时在角色位置附近恢复 304×270。`pet:placement` 单向通知 renderer 即时切换双爪姿态，`pet:get-view` 同时携带当前 edge 供启动恢复。主进程校验 IPC 发送窗口和坐标，拖动期间继续关闭鼠标穿透，点击不改变吸附状态。显示器移除或尺寸变化通过同一控制器恢复边缘与位置；关闭窗口时清空控制器引用。
+桌宠贴边状态为 free/left/right/top/bottom；保存窗口坐标、可见角色中心 center 与 edge，兼容旧版坐标配置。自由状态由 placeFloatingPet 约束角色边界，并计算角色在透明窗口内的位置；pet:placement 与 pet:get-view 传递相同 placement，气泡靠近顶部时向下展开。底部吸附使用 display.bounds，其他边缘使用 workArea。dock-space.ts 只读 Dock plist 中的图标数量、尺寸和方向，估算中央避让宽度；失败时保守预留中央 80% 屏宽，不请求辅助功能权限。无边框桌宠启用 enableLargerThanScreen，避免 macOS 将底部窗口推回 Dock 上方，实际可见性仍由 PetPosition 约束。重启及显示器变化恢复角色中心和吸附状态；点击和拖动保持分离。

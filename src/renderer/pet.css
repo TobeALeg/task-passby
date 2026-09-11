@@ -94,3 +94,14 @@ button { font: inherit; }
 .docked .edge-paws i:last-child { right: 0; }
 .docked .edge-paws i::after { content: ""; position: absolute; top: 3px; left: 4px; width: 3px; height: 3px; border-left: 1px solid rgba(143,94,23,.25); border-right: 1px solid rgba(143,94,23,.25); }
 .docked .status-dot { width: 8px; height: 8px; right: -1px; bottom: 4px; border-width: 1px; }
+
+/* Position the visible pet independently of the transparent bubble area. */
+.pet-root { position: relative; display: block; padding: 0; }
+.pet-anchor { position: absolute; left: var(--pet-x, 192px); top: var(--pet-y, 162.5px); width: 78px; height: 70.5px; }
+.context-bubble { position: absolute; left: var(--bubble-x, 32px); bottom: var(--bubble-bottom, 125.5px); }
+.context-bubble::after { right: auto; left: var(--bubble-arrow-x, 199px); }
+.bubble-below .context-bubble { bottom: auto; top: var(--bubble-top); }
+.bubble-below .context-bubble::after { bottom: auto; top: -7px; }
+.docked .pet-anchor { left: 0; top: 0; width: 100%; height: 100%; }
+
+.docked[data-edge="bottom"] .pet { left: 68px; top: 32px; transform: rotate(180deg); }

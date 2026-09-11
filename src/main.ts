@@ -106,6 +106,8 @@ function createWindows(): void {
     ...PET_SIZE,
     transparent: true,
     frame: false,
+    // Position is constrained by PetPosition; allow the empty strip beside the Dock.
+    enableLargerThanScreen: true,
     resizable: false,
     alwaysOnTop: true,
     hasShadow: false,
@@ -303,6 +305,7 @@ function registerIpc(): void {
     ...await requireService().getPetView(),
     recordingUploadNoticeRequired: distillation.service.recordings.noticeRequired(),
     edge: petPosition?.edge ?? null,
+    placement: petPosition?.placement,
   }));
   ipcMain.handle("panel:record-current-context", async () => {
     const dashboard = await requireService().recordCurrentContext();

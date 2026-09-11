@@ -36,6 +36,8 @@ ssh -i /Users/dandi/Desktop/idd_tecent_dstui.pem -o IdentitiesOnly=yes -o ExitOn
 
 ## 配置与更新
 
+2026-09-11 管理页补丁 `b880496`：调用额度卡片增加“保存并启用”按钮及就近保存状态。已验证保存后刷新保留数值、失败保留编辑、提交时按钮互斥及窄屏显示。本次仅热更新当前后台的 `server/admin/index.html` 与 `admin.js`，没有重启服务或修改线上额度；补丁和旧文件保存在 `/opt/worket/admin-ui/b880496/new`、`previous`。SSH 隧道实际返回文件与本机验证源码完全一致。后台模型逻辑仍为 `c8dd3e7`，当前目录另包含此页面补丁。
+
 新建管理员与迁移已有模型密钥是两个独立步骤，见 [后台说明](../../server/README.md)。当前管理员已初始化，不要再次运行 `--admin-only`。模型可以直接在 SSH 隧道中的管理页填写；若采用脚本迁移，需要用户明确授权 `--allow-model-key-transfer`，不把密码或 Key 放入命令行、Git 或日志。
 
 脚本写入配置后需 `sudo systemctl restart worket` 载入；管理页面保存模型时会直接更新运行时。重启会结束管理会话，需要重新登录。更新业务代码采用新版本目录再切换 current，只重启 Worket；回滚链接也只影响代码，不回滚已有样本与身份。

@@ -564,7 +564,7 @@ export class AppService {
         : {}),
     };
   }
-  async dashboardWithVerification(workId?: string): Promise<DashboardView> {
+  async dashboardWithContext(workId?: string): Promise<DashboardView> {
     if (workId) this.#selectedWorkId = workId;
     const context = await this.#resolveForegroundContext().catch(() => null);
     if (context?.conversationId && context.applicationTitle) {
@@ -579,10 +579,6 @@ export class AppService {
           context.conversationId,
           context.applicationTitle,
         );
-    }
-    if (this.#selectedWorkId) {
-      const selected = this.#core.getWork(this.#selectedWorkId);
-      if (selected?.artifactRefs.length) await this.#artifacts.verify(selected);
     }
     return this.dashboard();
   }

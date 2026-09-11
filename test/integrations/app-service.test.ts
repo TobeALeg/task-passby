@@ -81,7 +81,12 @@ test("刷新工作时复核已有 ArtifactRef 并记录 changed 事件", async (
   assert.equal(service.core().getWork(workId)?.artifactRefs.at(-1)?.availability, "CHANGED");
   service.completeWork(workId);
   await writeFile(artifactPath, "v3 after completed");
-  await service.dashboardWithVerification(workId);
+  for (let poll = 0; poll < 3; poll++) {
+    const dashboard = await service.dashboardWithContext(workId);
+    assert.equal(dashboard.selectedWork?.state.artifacts[0]?.file?.name, "input.txt");
+    assert.equal(service.core().getWork(workId)?.artifactRefs.length, 2);
+  }
+  await service.refreshWork(workId);
   assert.equal(service.core().getWork(workId)?.artifactRefs.length, 3);
   assert.equal(service.core().getWork(workId)?.sourceArchive.at(-1)?.environmentType, "WORKPET_LOCAL");
   service.close();

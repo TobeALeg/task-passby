@@ -115,7 +115,7 @@ test("再次识别当前 Codex 聊天时用应用总结标题纠正旧记录的�
   }] });
   assert.equal(service.dashboard(legacy.instance.id).selectedWork?.title, "Error occurred in handler for 'work:create-from-current-context'");
 
-  const corrected = await service.dashboardWithVerification(legacy.instance.id);
+  const corrected = await service.dashboardWithContext(legacy.instance.id);
   assert.equal(corrected.selectedWork?.title, "修复当前聊天识别失败");
   assert.equal(corrected.selectedWork?.state.objective[0]?.origin, "SYSTEM_INFERRED");
   service.close();
@@ -183,7 +183,7 @@ test("当前工作完成后保留打开入口，但不再把气泡标记为正�
   assert.equal(after.currentConversation?.workId, recorded.selectedWorkId);
   assert.equal(after.currentConversation?.workStatus, "COMPLETED");
   assert.equal(after.currentConversation?.isRecording, false);
-  const reopened = await service.dashboardWithVerification(recorded.selectedWorkId);
+  const reopened = await service.dashboardWithContext(recorded.selectedWorkId);
   assert.equal(reopened.selectedWork?.status, "COMPLETED");
   service.close();
 });
@@ -208,7 +208,7 @@ test("工作交给 WorkBuddy 后回看原 Codex 聊天不会把标题写进 Work
   await service.handoff(recorded.selectedWorkId, "workbuddy");
   thread.title = "交接后更新的 Codex 标题";
 
-  await service.dashboardWithVerification(recorded.selectedWorkId);
+  await service.dashboardWithContext(recorded.selectedWorkId);
 
   const work = service.core().getWork(recorded.selectedWorkId);
   assert.equal(work?.activeBinding?.adapter, "workbuddy");

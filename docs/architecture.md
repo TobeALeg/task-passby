@@ -79,7 +79,7 @@ MCP 成功读取审计使用当前 Binding、Episode 与环境，工作包读取
 
 ### ArtifactTracker 与 ArtifactResolver
 
-`ArtifactTracker` 统一负责编排 Codex 与 WorkBuddy 的资料挂接和使用前复核，避免两个 Adapter 产生不同语义；`ArtifactResolver` 隐藏具体文件存储策略。MVP 只维护原路径与元数据，并在查看、刷新或交接时校验 Hash 和可用性。发生变化时写入新的 ArtifactRef 版本与 `artifact.changed` 来源事件。Work Core 不依赖未来是否加入副本或版本存储。
+`ArtifactTracker` 统一负责编排 Codex 与 WorkBuddy 的资料挂接和使用前复核，避免两个 Adapter 产生不同语义；`ArtifactResolver` 隐藏具体文件存储策略。MVP 只维护原路径与元数据，并在主动刷新或交接时校验 Hash 和可用性。发生变化时写入新的 ArtifactRef 版本与 `artifact.changed` 来源事件。Work Core 不依赖未来是否加入副本或版本存储。
 
 ### Local Persistence
 
@@ -320,3 +320,5 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 2026-09-11 视觉复核：面板默认窗口调整为 400×660；纸纹通过低对比度内嵌 SVG 噪声平铺实现，不引入图片请求、动画或额外依赖。详情交接状态使用内联文字，移除黄色横幅和重复上传说明；错误提示仍有独立可访问反馈。
 
 文件链接由 AppService 将资料状态中的绝对路径投影为文件名、路径与 file URL，原始状态保持不变。渲染层点击通过 `work:open-artifact` 传工作 ID 与条目 ID；主进程核验面板来源、从该工作重新解析路径并检查文件存在，再用 `shell.openPath` 打开，错误在面板显示。
+
+2026-09-11 浏览读取边界：`dashboardWithContext` 只同步当前会话标题并投影本地已保存状态；打开详情、切换工作与面板轮询不再触发 ArtifactTracker 的文件校验。主动刷新、交接仍复核资料，点击文件链接仍检查文件存在。面板、历史列表及弹窗共用 6px 自定义滚动条，保留原生滚动与拖动行为。

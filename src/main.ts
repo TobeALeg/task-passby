@@ -337,7 +337,7 @@ function registerIpc(): void {
   );
   ipcMain.handle("panel:close", () => panelWindow?.hide());
   ipcMain.handle("dashboard:get", (_event, workId?: string) =>
-    requireService().dashboardWithVerification(workId),
+    requireService().dashboardWithContext(workId),
   );
   ipcMain.handle("executors:list", () => requireService().listExecutors());
   ipcMain.handle("conversations:list", (_event, executorId: string) =>

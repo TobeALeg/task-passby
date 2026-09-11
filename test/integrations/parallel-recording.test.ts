@@ -93,6 +93,6 @@ test("来源目录不可用时仍能显示已记录的工作", async () => {
   try {
     await service.createWorkFromConversation({executorId: "codex",  threadId: "0" });
     codex.listRecentThreads = async () => { throw new Error("App Server 暂时退出"); };
-    assert.equal((await service.dashboardWithVerification()).works.length, 1);
+    assert.equal((await service.dashboardWithContext()).works.length, 1);
   } finally { service.close(); }
 });

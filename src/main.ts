@@ -138,8 +138,8 @@ function createWindows(): void {
   screen.on("display-metrics-changed", recoverPosition);
 
   panelWindow = new BrowserWindow({
-    width: 448,
-    height: 760,
+    width: 400,
+    height: 660,
     minWidth: 360,
     minHeight: 480,
     show: false,
@@ -147,7 +147,7 @@ function createWindows(): void {
     transparent: false,
     resizable: true,
     alwaysOnTop: true,
-    backgroundColor: "#f5f5f7",
+    backgroundColor: "#f4eedf",
     webPreferences: {
       preload,
       contextIsolation: true,

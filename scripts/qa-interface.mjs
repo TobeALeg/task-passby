@@ -30,7 +30,7 @@ sampleStore.receive('synthetic-installation', { schemaVersion: 1, sampleId: 'ui-
 sampleStore.close();
 await new Promise(r => admin.server.listen(0, '127.0.0.1', r));
 const browser = await chromium.launch({ channel: 'chrome' });
-const page = await browser.newPage({ viewport: { width: 448, height: 760 }, deviceScaleFactor: 1 });
+const page = await browser.newPage({ viewport: { width: 400, height: 660 }, deviceScaleFactor: 1 });
 page.setDefaultTimeout(10_000);
 const errors = [], screenshots = [];
 page.on('pageerror', e => errors.push(e.message));

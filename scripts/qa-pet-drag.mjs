@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { PET_SIZE } from "../dist/desktop/pet-layout.js";
 import { mkdtemp, readFile, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -125,7 +126,7 @@ try {
   await pet.mouse.up();
   await pet.waitForFunction(() => document.querySelector("#pet-root").dataset.edge === "free");
   assert.equal((await bounds()).width, 304);
-  assert.equal((await bounds()).height, 270);
+  assert.equal((await bounds()).height, PET_SIZE.height);
   assert.equal(await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith("/panel.html")).isVisible()), false, "Detach drag must not open panel");
   await pet.screenshot({ path: join(output, "detached.png") });
   const fullDisplay = await application.evaluate(({ screen }, point) => screen.getDisplayNearestPoint(point).bounds, center);

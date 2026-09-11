@@ -1,7 +1,7 @@
 export type PetEdge = "left" | "right" | "top" | "bottom" | null;
 export type Point = { x: number; y: number };
 export type Rectangle = Point & { width: number; height: number };
-export const PET_SIZE = { width: 304, height: 270 };
+export const PET_SIZE = { width: 304, height: 271 };
 export const PET_DOCK_SIZE = { width: 68, height: 32 };
 export const PET_SNAP_DISTANCE = 24;
 // The normal character is bottom-right inside the transparent window (75% scale).

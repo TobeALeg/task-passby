@@ -41,6 +41,8 @@ MCP → Work Core work package + read audit
 
 ### Desktop Pet Interface
 
+面板将品牌与 Tab 放入同一个 sticky header。应用服务通过 `executors/project-label.ts` 生成会话的 `projectLabel` 展示字段，最近活动和历史选择共用；原始 `cwd` 保留用于记录与交接。
+
 采集状态从 OPEN 工作的活动绑定推导：真实会话为 recording，`pending:<deliveryId>` 为 waiting，无活动绑定为 stopped。复用工作还需 MCP 工作包读取证据。旧版 `waiting:` 记录保留历史状态，不再用于新会话授权。PetView 与 Dashboard 使用相同全局状态，真实记录优先于等待确认。
 
 桌宠明确解析当前会话后提供记录或打开入口；无法解析则打开执行者会话选择，不猜 WorkBuddy 最新会话。面板负责多来源发现、历史分页、工作状态、交接、完成和归档。原始窗口标题只用于匹配；来源接口提供的应用标题保存为 `conversation.title`，首条消息不冒充标题。未命名会话可显式选择。

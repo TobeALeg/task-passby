@@ -1,3 +1,4 @@
+import { conversationProjectLabel } from "../executors/project-label.js";
 import { createHash, randomUUID } from "node:crypto";
 import { ArtifactTracker } from "../artifacts/tracker.js";
 import {
@@ -159,6 +160,7 @@ export class AppService {
       ...thread,
       executorId: adapter.id,
       agentName: adapter.name,
+      projectLabel: conversationProjectLabel(adapter.id, thread.cwd),
       ...(work ? { workId: work.instance.id } : {}),
     };
   }

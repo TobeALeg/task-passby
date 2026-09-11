@@ -8,11 +8,8 @@
   </head>
   <body>
     <header class="topbar">
-      <div><span class="eyebrow">WORKPET</span><h1>我的工作</h1></div>
-      <button id="close-panel" class="icon-button" aria-label="关闭">×</button>
-    </header>
-
-    <main>
+      <div class="brand-row"><h1>Worket</h1>
+      <button id="close-panel" class="icon-button" aria-label="关闭">×</button></div>
       <section class="toolbar">
         <div class="filters" role="tablist" aria-label="工作阶段">
           <button id="tab-recent" class="filter" role="tab" aria-selected="false" aria-controls="sources-panel" tabindex="-1" data-filter="RECENT">最近活动</button>
@@ -21,6 +18,9 @@
           <button id="tab-definitions" class="filter" role="tab" aria-selected="false" aria-controls="definitions-panel" tabindex="-1" data-filter="DEFINITIONS">已沉淀</button>
         </div>
       </section>
+    </header>
+
+    <main>
       <details class="secondary-menu"><summary>更多</summary><button id="archive-records" data-filter="ARCHIVED">归档记录</button><button id="service-settings">Worket 服务</button></details>
       <section id="definitions-panel" role="tabpanel" aria-labelledby="tab-definitions" hidden></section>
       <section id="sources-panel" class="recording-sources" role="tabpanel" aria-labelledby="tab-recent" hidden>

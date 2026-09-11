@@ -112,6 +112,7 @@ export interface ConversationView {
   title: string | null;
   preview: string;
   cwd: string;
+  projectLabel?: string;
   updatedAt: string;
   status: unknown;
   workId?: string;

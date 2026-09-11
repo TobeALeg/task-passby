@@ -62,7 +62,7 @@ export function setupRecordingSources(
       meta.append(
         agent,
         document.createTextNode(
-          `${source.cwd.split("/").filter(Boolean).at(-1) || "无项目"} · ${new Date(source.updatedAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}`,
+          `${source.projectLabel ?? (source.cwd.split("/").filter(Boolean).at(-1) || "无项目")} · ${new Date(source.updatedAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}`,
         ),
       );
       text.append(title, meta);
@@ -105,7 +105,7 @@ export function setupRecordingSources(
     renderSources(
       history,
       threads.filter((thread) =>
-        `${thread.title ?? ""} ${thread.cwd}`
+        `${thread.title ?? ""} ${thread.projectLabel ?? thread.cwd}`
           .toLocaleLowerCase()
           .includes(query),
       ),

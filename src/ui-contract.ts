@@ -97,6 +97,7 @@ export interface CurrentConversationView {
 export const RECORDING_UPLOAD_NOTICE = "参与改进开启时，点击记录会上传所选聊天已有及后续的用户消息和 AI 回复，供 Worket 管理员改进产品，保存 90 天。不额外读取附件、工具输出或推理摘要；可在“Worket 服务 → 改进数据”关闭或删除。";
 
 export interface PetView {
+  edge?: "left" | "right" | "top" | null;
   recordingUploadNoticeRequired?: boolean;
   petState: PetState;
   currentConversation: CurrentConversationView | null;
@@ -155,6 +156,7 @@ export interface WorkPetApi {
   getPetView(): Promise<PetView>;
   togglePanelFromPet(): Promise<void>;
   setPetMousePassthrough(ignored: boolean): void;
+  onPetPlacement(callback: (edge: "left" | "right" | "top" | null) => void): () => void;
   dragPet(
     phase: "start" | "move" | "end",
     cursor?: { x: number; y: number },

@@ -8,6 +8,11 @@ contextBridge.exposeInMainWorld("workpet", {
   configureWorketService: (input) => ipcRenderer.invoke("distillation:configure", input),
   getWorketServiceStatus: () => ipcRenderer.invoke("distillation:connection"),
   recordCurrentContextFromPet: () => ipcRenderer.invoke("panel:record-current-context"),
+  onPetPlacement: (callback) => {
+    const listener = (_event, edge) => callback(edge);
+    ipcRenderer.on("pet:placement", listener);
+    return () => ipcRenderer.removeListener("pet:placement", listener);
+  },
   getPetView: () => ipcRenderer.invoke("pet:get-view"),
   togglePanelFromPet: () => ipcRenderer.invoke("panel:toggle"),
   setPetMousePassthrough: (ignored) => ipcRenderer.send("pet:mouse-passthrough", ignored),

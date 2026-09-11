@@ -26,16 +26,12 @@ import { AppService } from "./app/app-service.js";
 import { WorkPetHttpBridge } from "./bridge/http-bridge.js";
 import { WorkPetMcpHandler } from "./bridge/mcp-handler.js";
 import { IntegrationInstaller } from "./integrations/installer.js";
-import {
-  keepPetVisible,
-  restorePetPosition,
-  savePetPosition,
-} from "./desktop/pet-position.js";
+import { PetPosition } from "./desktop/pet-position.js";
+import { PET_SIZE } from "./desktop/pet-layout.js";
 
 let quitting = false;
 let updates: AppUpdates;
-let petDrag: { cursor: { x: number; y: number }; x: number; y: number } | null =
-  null;
+let petPosition: PetPosition | null = null;
 const petPositionPath = () =>
   join(
     process.env.WORKPET_DATA_DIR ?? app.getPath("userData"),
@@ -63,8 +59,6 @@ async function syncRecordedWorks(): Promise<void> {
       captureTimer = setTimeout(() => void syncRecordedWorks(), 5_000);
   }
 }
-const PET_WINDOW_WIDTH = 304;
-const PET_WINDOW_HEIGHT = 270;
 
 const hasExplicitUserDataDirectory = process.argv.some(
   (argument) =>
@@ -109,8 +103,7 @@ async function configureDock(): Promise<void> {
 function createWindows(): void {
   const preload = join(app.getAppPath(), "dist", "preload.cjs");
   petWindow = new BrowserWindow({
-    width: PET_WINDOW_WIDTH,
-    height: PET_WINDOW_HEIGHT,
+    ...PET_SIZE,
     transparent: true,
     frame: false,
     resizable: false,
@@ -127,17 +120,17 @@ function createWindows(): void {
   });
   petWindow.on("closed", () => {
     petWindow = null;
-    petDrag = null;
+    petPosition = null;
   });
   petWindow.setAlwaysOnTop(true, "floating");
   petWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   petWindow.setIgnoreMouseEvents(true, { forward: true });
   petWindow.loadFile(join(app.getAppPath(), "dist", "renderer", "pet.html"));
-  restorePetPosition(petWindow, petPositionPath());
+  petPosition = new PetPosition(petWindow, petPositionPath());
+  petPosition.restore();
   const recoverPosition = () => {
     if (!petWindow || petWindow.isDestroyed()) return;
-    keepPetVisible(petWindow);
-    savePetPosition(petWindow, petPositionPath());
+    petPosition?.recover();
   };
   screen.on("display-removed", recoverPosition);
   screen.on("display-metrics-changed", recoverPosition);
@@ -309,6 +302,7 @@ function registerIpc(): void {
   ipcMain.handle("pet:get-view", async () => ({
     ...await requireService().getPetView(),
     recordingUploadNoticeRequired: distillation.service.recordings.noticeRequired(),
+    edge: petPosition?.edge ?? null,
   }));
   ipcMain.handle("panel:record-current-context", async () => {
     const dashboard = await requireService().recordCurrentContext();
@@ -317,7 +311,7 @@ function registerIpc(): void {
   });
   ipcMain.on("pet:mouse-passthrough", (event, ignored: boolean) => {
     if (event.sender !== petWindow?.webContents) return;
-    petWindow.setIgnoreMouseEvents(petDrag ? false : Boolean(ignored), {
+    petWindow.setIgnoreMouseEvents(petPosition?.dragging ? false : Boolean(ignored), {
       forward: true,
     });
   });
@@ -330,21 +324,9 @@ function registerIpc(): void {
         (!cursor || !Number.isFinite(cursor.x) || !Number.isFinite(cursor.y))
       )
         return;
-      if (phase === "start" && cursor) {
-        const { x, y } = petWindow.getBounds();
-        petDrag = { cursor, x, y };
-        petWindow.setIgnoreMouseEvents(false);
-      } else if (phase === "move" && petDrag && cursor) {
-        petWindow.setPosition(
-          Math.round(petDrag.x + cursor.x - petDrag.cursor.x),
-          Math.round(petDrag.y + cursor.y - petDrag.cursor.y),
-        );
-      } else if (phase === "end" && petDrag) {
-        petDrag = null;
-        keepPetVisible(petWindow);
-        savePetPosition(petWindow, petPositionPath());
-        petWindow.setIgnoreMouseEvents(true, { forward: true });
-      }
+      if (phase === "start" && cursor) petPosition?.start(cursor);
+      else if (phase === "move" && cursor) petPosition?.move(cursor);
+      else if (phase === "end") petPosition?.end();
     },
   );
   ipcMain.handle("panel:close", () => panelWindow?.hide());

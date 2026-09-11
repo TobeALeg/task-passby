@@ -18,7 +18,14 @@ function required<T extends Element>(selector: string): T {
   return element;
 }
 
+function renderPlacement(edge: PetView["edge"]): void {
+  root.dataset.edge = edge ?? "free";
+  root.classList.toggle("docked", Boolean(edge));
+}
+window.workpet.onPetPlacement?.(renderPlacement);
+
 function render(state: PetView): void {
+  renderPlacement(state.edge);
   pet.className = `pet ${state.petState}`;
   currentConversation = state.currentConversation;
   const hasConversation = Boolean(currentConversation);

@@ -184,7 +184,7 @@ INACTIVE ──继续原工作──> ACTIVE
 
 ### 桌宠自由移动
 
-桌宠 pointer capture 区分点击与拖动，经 preload 的 pet:drag IPC 通知主进程。主进程校验发送窗口，校验事件携带的有限桌面坐标，使用按下点与当前点的坐标差移动 BrowserWindow，拖动期间禁用鼠标穿透。desktop/pet-position.ts 负责工作区边界与本地 pet-position.json 的保存恢复；该偏好不进入工作记录。显示器变更触发可见性修正。
+桌宠 pointer capture 区分点击与拖动，经 preload 的 pet:drag IPC 通知主进程。主进程校验发送窗口，校验事件携带的有限桌面坐标，使用按下点与当前点的坐标差移动 BrowserWindow，拖动期间禁用鼠标穿透。desktop/pet-layout.ts 提供吸附阈值、尺寸及纯几何计算；desktop/pet-position.ts 的 PetPosition 统一负责拖动、贴边状态、工作区边界与本地 pet-position.json 的保存恢复；该偏好不进入工作记录。显示器变更触发可见性修正。
 
 窗口 closed 事件清空引用；退出期间以及窗口已销毁时，activate / second-instance 不再调用窗口方法，避免 Object has been destroyed。
 
@@ -292,3 +292,5 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 `DistillationService.collectFeedback` 同时推进已登记记录的对话队列，并跳过这些订阅的沉淀任务查找。退出采集后不自动恢复，主动恢复记录生成新的授权样本；取消记录后后台已有样本保留至用户删除或到期。管理页增加工作记录与对话事件标签，沿用管理员鉴权、评审和删除接口。服务端须随新协议升级；本轮尚未部署、打包或发布。
 
 记录提示频率：`recording_notice` 在本机工作库保存已确认的说明版本。`RecordingCollection.noticeRequired()` 根据参与改进偏好与当前 `recordingVersion` 决定是否展示；只有主动记录成功登记后写入版本，不根据历史订阅、页面打开或启动推断。桌宠和面板通过同一应用层状态控制首次提示，后续记录及重启共享确认状态。关闭再开启参与改进不重置同版提示，版本变化会重新展示；此状态只控制提示频率，不扩大上传范围，也不恢复已停止的订阅。
+
+桌宠贴边状态为 free/left/right/top，存储中 free 沿用旧版 `{x,y}`，吸附时额外保存 `edge`，旧配置无需迁移。拖动结束按 pointer 的桌面坐标选择最近显示器与工作区边缘，原生窗口同步缩小为侧边 32×68 或顶部 68×32；拖离时在角色位置附近恢复 304×270。`pet:placement` 单向通知 renderer 即时切换双爪姿态，`pet:get-view` 同时携带当前 edge 供启动恢复。主进程校验 IPC 发送窗口和坐标，拖动期间继续关闭鼠标穿透，点击不改变吸附状态。显示器移除或尺寸变化通过同一控制器恢复边缘与位置；关闭窗口时清空控制器引用。

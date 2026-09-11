@@ -62,6 +62,12 @@ test("刷新工作时复核已有 ArtifactRef 并记录 changed 事件", async (
   assert.equal(created.selectedWork?.state.objective[0]?.text, "处理资料");
   assert.equal(created.selectedWork?.state.objective[0]?.origin, "SYSTEM_INFERRED");
   assert.match(created.selectedWork?.state.objective[0]?.sourceMessageIds[0] ?? "", /^codex-conversation-title:artifact-thread:/u);
+  const artifact = created.selectedWork!.state.artifacts[0]!;
+  assert.equal(artifact.file?.name, "input.txt");
+  assert.equal(artifact.file?.path, artifactPath);
+  assert.equal(service.artifactPath(workId, artifact.id), artifactPath);
+  assert.throws(() => service.artifactPath(workId, "unknown"), /找不到这份资料/);
+  assert.throws(() => service.artifactPath(workId, created.selectedWork!.state.objective[0]!.id), /找不到这份资料/);
   await writeFile(artifactPath, "v2 changed");
 
   await service.refreshWork(workId);

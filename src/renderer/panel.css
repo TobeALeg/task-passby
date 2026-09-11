@@ -38,7 +38,7 @@ button {
 button:hover { background: #eae0cd; }
 button:active { filter: brightness(.96); }
 button:disabled { opacity: .45; cursor: default; }
-button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 3px solid #ad86534d; outline-offset: 2px;
 }
 .primary, button.handoff { color: #fff; background: var(--accent); border-color: transparent; }
@@ -90,6 +90,9 @@ main { padding: 14px 16px; max-width: 760px; margin: auto; }
 .state-section h3 { color: var(--muted); }
 .state-item { display: grid; gap: 3px; padding: 8px 10px; background: var(--surface); border: 1px solid #e8ddc8; border-radius: 8px; }
 .state-item p { font-size: 13px; line-height: 1.6; }
+.artifact-item { padding: 2px 0; border: 0; background: transparent; }
+.artifact-link { color: var(--accent); text-decoration: none; overflow-wrap: anywhere; }
+.artifact-link:hover { color: var(--accent-hover); text-decoration: underline; text-underline-offset: 3px; }
 .origin { color: var(--muted); font-size: 12px; }
 .episode { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; font-size: 12px; }
 .episode strong { font-weight: 400; color: var(--muted); }

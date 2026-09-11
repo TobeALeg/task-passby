@@ -23,6 +23,7 @@ export const CAPTURE_WAITING_GUIDANCE =
   "目标执行者尚未确认接手，请检查对应应用中的交付状态。";
 
 export interface StateItemView {
+  file?: { name: string; path: string; url: string };
   id: string;
   text: string;
   origin: "USER_STATED" | "AGENT_PROPOSED" | "SYSTEM_INFERRED" | "USER_EDITED";
@@ -149,6 +150,7 @@ export interface CreateWorkFromMessageRequest {
 }
 
 export interface WorkPetApi {
+  openArtifact(workId: string, itemId: string): Promise<void>;
   distillation(action: string, input?: unknown): Promise<any>;
   chooseDefinitionFile(): Promise<string | null>;
   exportWorkPackage(workId: string): Promise<string | null>;

@@ -141,6 +141,12 @@ function renderDetail(work: WorkDetailView | null): void {
       .join("")}
     <section class="state-section"><h3>执行片段</h3>${work.episodes.map((episode) => `<div class="episode"><span>${escapeHtml(episode.environment)} · ${escapeHtml(episode.executor)}</span><strong>${episode.status === "ACTIVE" ? "进行中" : "已结束"}</strong></div>`).join("")}</section>`;
 
+  for (const link of detail.querySelectorAll<HTMLAnchorElement>("[data-artifact-id]")) {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      void window.workpet.openArtifact(work.id, link.dataset.artifactId!).catch(showError);
+    });
+  }
   required("#back-to-list").addEventListener("click", () => {
     detailOpen = false;
     render();
@@ -163,18 +169,13 @@ function stateSection(
 ): string {
   const items = work.state[field];
   if (!items.length) return "";
-  return `<section class="state-section"><h3>${label}</h3>${
-    items.length
-      ? items
-          .map(
-            (item) => `<div class="state-item">
-    <p>${escapeHtml(item.text)}</p>
-    <span class="origin">${item.sourceMessageIds.length} 个来源</span>
-  </div>`,
-          )
-          .join("")
-      : `<p class="empty-field">暂无</p>`
-  }</section>`;
+  return `<section class="state-section"><h3>${label}</h3>${items.map((item) => {
+    const file = field === "artifacts" ? item.file : undefined;
+    return `<div class="state-item${file ? " artifact-item" : ""}">
+      <p>${file ? `<a class="artifact-link" href="${escapeHtml(file.url)}" title="${escapeHtml(file.path)}" data-artifact-id="${escapeHtml(item.id)}">${escapeHtml(file.name)}</a>` : escapeHtml(item.text)}</p>
+      <span class="origin">${item.sourceMessageIds.length} 个来源</span>
+    </div>`;
+  }).join("")}</section>`;
 }
 
 async function renderWithRecordingNotice(): Promise<void> {

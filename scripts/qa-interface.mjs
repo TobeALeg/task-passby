@@ -38,7 +38,7 @@ await page.addInitScript(() => {
   const item = text => ({ id: text, text, origin: 'USER_STATED', sourceMessageIds: ['1'] });
   const work = (id, title, status, captureStatus = 'recording') => ({
     id, title, status, captureStatus, agentName: 'Codex', updatedAt: new Date().toISOString(), eventCount: 24, artifactCount: 2, episodeCount: 1,
-    state: { objective: [item('为新一轮产品发布准备完整的品牌与传播方案。')], successCriteria: [item('交付品牌视觉与发布文案，所有引用可追溯。')], constraints: [], facts: [], decisions: [item('使用暖色主视觉，移动端优先。')], completedActions: [], pendingActions: [item('完成最终审阅并确认交付。')], artifacts: [] },
+    state: { objective: [item('为新一轮产品发布准备完整的品牌与传播方案。')], successCriteria: [item('交付品牌视觉与发布文案，所有引用可追溯。')], constraints: [], facts: [], decisions: [item('使用暖色主视觉，移动端优先。')], completedActions: [], pendingActions: [item('完成最终审阅并确认交付。')], artifacts: [{ ...item('/tmp/交接资料/超声影像视频_2026-09-09.mp4'), file: { name: '超声影像视频_2026-09-09.mp4', path: '/tmp/交接资料/超声影像视频_2026-09-09.mp4', url: 'file:///tmp/交接资料/超声影像视频_2026-09-09.mp4' } }] },
     episodes: [{ id: 'e1', environment: 'Codex Desktop', executor: 'AGENT', status: 'ACTIVE' }],
     bindings: [{ status: 'ACTIVE', conversationId: id === 'waiting' ? 'pending:1' : 'chat-1' }],
   });
@@ -49,6 +49,10 @@ await page.addInitScript(() => {
   const thread = { id: 'chat', executorId: 'codex', agentName: 'Codex', title: '整理下周的产品发布计划', cwd: '/tmp/fixture', projectLabel: '产品发布', updatedAt: new Date().toISOString() };
   let preference = true;
   window.workpet = {
+    openArtifact: async (workId, itemId) => {
+      window.openedArtifact = { workId, itemId };
+      if (window.artifactMissing) throw new Error('文件不存在或已移动');
+    },
     getDashboard: async id => { if (id) selected = works.find(w => w.id === id); return dashboard(); },
     listRecentConversations: async () => ({ threads: [thread], errors: [] }),
     listConversationHistory: async () => ({ threads: [thread], nextCursor: null }),
@@ -100,6 +104,17 @@ try {
   assert.equal(await page.locator('[data-distill-work]').first().isChecked(), true);
   await page.locator('[data-work-id="open"]').click();
   assert.equal(await page.locator('#work-list').isVisible(), false);
+  const artifactLink = page.getByRole('link', { name: '超声影像视频_2026-09-09.mp4', exact: true });
+  assert.equal(await artifactLink.getAttribute('title'), '/tmp/交接资料/超声影像视频_2026-09-09.mp4');
+  await artifactLink.focus(); await page.keyboard.press('Enter');
+  assert.deepEqual(await page.evaluate(() => window.openedArtifact), { workId: 'open', itemId: '/tmp/交接资料/超声影像视频_2026-09-09.mp4' });
+  await page.evaluate(() => { window.artifactMissing = true; });
+  await artifactLink.click();
+  await page.getByRole('alert').filter({ hasText: '文件不存在或已移动' }).waitFor();
+  await page.evaluate(() => { window.artifactMissing = false; });
+  await artifactLink.scrollIntoViewIfNeeded();
+  await shot('02-artifact-link');
+  await page.evaluate(() => window.scrollTo(0, 0));
   await shot('02-detail');
   await page.locator('#work-detail summary[aria-label="工作操作"]').click();
   await shot('03-work-menu');

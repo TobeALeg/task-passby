@@ -2,6 +2,7 @@ import { latestRelease, downloadRelease } from "./desktop/github-release.js";
 import { AppUpdates } from "./desktop/app-updates.js";
 import { createDefaultExecutors } from "./executors/defaults.js";
 import { writeFileSync } from "node:fs";
+import { stat } from "node:fs/promises";
 import { DistillationDesktop } from "./distillation/desktop.js";
 import { WorketAIClient } from "./ai-service/client.js";
 import { ServiceCredentials } from "./ai-service/credentials.js";
@@ -367,6 +368,14 @@ function registerIpc(): void {
   ipcMain.handle("work:create-from-message", (_event, request) =>
     requireService().createWorkFromMessage(request),
   );
+  ipcMain.handle("work:open-artifact", async (event, workId: string, itemId: string) => {
+    if (event.sender !== panelWindow?.webContents) throw new Error("INVALID_SENDER");
+    const path = requireService().artifactPath(workId, itemId);
+    const info = await stat(path).catch(() => null);
+    if (!info?.isFile()) throw new Error("文件不存在或已移动");
+    const error = await shell.openPath(path);
+    if (error) throw new Error("无法打开文件，请检查文件权限或默认应用");
+  });
   ipcMain.handle("work:refresh", (_event, workId: string) =>
     requireService().refreshWork(workId),
   );

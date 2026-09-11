@@ -1,3 +1,5 @@
+import { basename, isAbsolute } from "node:path";
+import { pathToFileURL } from "node:url";
 import { conversationProjectLabel } from "../executors/project-label.js";
 import { createHash, randomUUID } from "node:crypto";
 import { ArtifactTracker } from "../artifacts/tracker.js";
@@ -40,6 +42,12 @@ import type {
   CaptureStatus,
   ExecutorView,
 } from "../ui-contract.js";
+
+function artifactFile(text: string) {
+  const path = text.trim();
+  if (!isAbsolute(path) || /[\r\n\0]/.test(path)) return undefined;
+  return { name: basename(path), path, url: pathToFileURL(path).href };
+}
 
 function captureStatus(work: WorkSnapshot): CaptureStatus {
   const binding = work.activeBinding;
@@ -527,6 +535,13 @@ export class AppService {
       }),
     );
   }
+  artifactPath(workId: string, itemId: string): string {
+    const item = this.#requireWork(workId).state.artifacts.find((item) => item.id === itemId);
+    const file = item && artifactFile(item.text);
+    if (!file) throw new Error("找不到这份资料");
+    return file.path;
+  }
+
   dashboard(workId?: string): DashboardView {
     if (workId) this.#selectedWorkId = workId;
     const works = this.#core.listWorks();
@@ -959,7 +974,13 @@ export class AppService {
           }
         : {}),
       ...this.#summary(work),
-      state: work.state,
+      state: {
+        ...work.state,
+        artifacts: work.state.artifacts.map((item) => {
+          const file = artifactFile(item.text);
+          return file ? { ...item, file } : item;
+        }),
+      },
       episodes: work.episodes.map((episode) => ({
         id: episode.id,
         executor: episode.executor.name,

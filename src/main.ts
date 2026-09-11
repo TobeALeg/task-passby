@@ -140,12 +140,14 @@ function createWindows(): void {
   panelWindow = new BrowserWindow({
     width: 448,
     height: 760,
+    minWidth: 360,
+    minHeight: 480,
     show: false,
     frame: false,
     transparent: false,
     resizable: true,
     alwaysOnTop: true,
-    backgroundColor: "#f6f2e9",
+    backgroundColor: "#f5f5f7",
     webPreferences: {
       preload,
       contextIsolation: true,
@@ -187,7 +189,7 @@ function togglePanel(): void {
   showPanel();
 }
 
-function showPanel(): void {
+function showPanel(workId?: string): void {
   if (
     quitting ||
     !petWindow ||
@@ -227,7 +229,7 @@ function showPanel(): void {
   );
   panelWindow.show();
   panelWindow.focus();
-  panelWindow.webContents.send("panel:shown");
+  panelWindow.webContents.send("panel:shown", workId);
 }
 
 function revealApp(): void {
@@ -309,7 +311,7 @@ function registerIpc(): void {
   }));
   ipcMain.handle("panel:record-current-context", async () => {
     const dashboard = await requireService().recordCurrentContext();
-    showPanel();
+    showPanel(dashboard.selectedWorkId ?? undefined);
     return dashboard;
   });
   ipcMain.on("pet:mouse-passthrough", (event, ignored: boolean) => {

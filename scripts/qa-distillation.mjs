@@ -59,7 +59,9 @@ const service = createAIService({
           usage: { total_tokens: 1 },
         };
       }
-      return { result: result(wire), usage: { total_tokens: 1 } };
+      const candidate = result(wire);
+      candidate.issues.push({ id: 'ui-review', type: 'UNCERTAIN_GENERALIZATION', field: 'methods', message: '请确认固定资料的使用范围', blocking: false });
+      return { result: candidate, usage: { total_tokens: 1 } };
     },
   },
 });
@@ -145,6 +147,34 @@ try {
     .waitFor({ timeout: 20000 });
   await panel.locator("#definition-name").fill("可复用竞品报告");
   await panel.screenshot({ path: join(output, "02-review-draft.png") });
+  const firstInput = panel.locator('[data-section="inputs"]').first();
+  await firstInput.locator('[data-type]').selectOption('CHOICE');
+  assert.equal(await firstInput.locator('[data-choices]').isVisible(), true);
+  await firstInput.locator('[data-type]').selectOption('TEXT');
+  assert.equal(await firstInput.locator('[data-choices]').isVisible(), false);
+  await panel.locator('[data-resolution]').selectOption('ACCEPT');
+  await panel.locator('[data-explanation]').fill('固定格式可复用');
+  await panel.locator('[data-add="materialRoles"]').click();
+  assert.equal(await panel.locator('[data-explanation]').inputValue(), '固定格式可复用');
+  const material = panel.locator('[data-section="materialRoles"]').last();
+  await material.locator('[data-text]').fill('报告格式');
+  const materialPath = join(directory, 'report-format.txt');
+  writeFileSync(materialPath, '合成固定格式：摘要、证据、建议。');
+  await app.evaluate(({ dialog }, path) => {
+    globalThis.__worketQAOpenDialog = dialog.showOpenDialog;
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] });
+  }, materialPath);
+  await material.locator('[data-material]').click();
+  await panel.getByText(materialPath, { exact: true }).waitFor();
+  await app.evaluate(({ dialog }) => { dialog.showOpenDialog = globalThis.__worketQAOpenDialog; delete globalThis.__worketQAOpenDialog; });
+  await panel.locator('#save-draft').click();
+  await panel.waitForFunction(() => !document.querySelector('#save-draft')?.disabled);
+  assert.equal(await panel.locator('#definition-name').inputValue(), '可复用竞品报告');
+  assert.equal(await panel.locator('[data-explanation]').inputValue(), '固定格式可复用');
+  assert.equal(await panel.getByText(materialPath, { exact: true }).count(), 1);
+  await panel.locator('[data-add="constraints"]').scrollIntoViewIfNeeded();
+  assert.equal(await panel.locator('#definition-dialog').evaluate(el => el.scrollWidth <= el.clientWidth), true, 'Long material paths must not widen the editor');
+  await panel.screenshot({ path: join(output, '02b-review-fields.png') });
   await panel.locator("#publish-definition").click();
   await panel.locator("#use-definition").waitFor();
   await panel.screenshot({ path: join(output, "03-saved-definition.png") });
@@ -177,6 +207,10 @@ try {
       window.workpet.distillation("attach", { workId, path }),
     { workId, path: delivery },
   );
+  await panel.locator('#back-to-list').click();
+  await app.evaluate(({ BrowserWindow }, id) => {
+    BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith('/panel.html')).webContents.send('panel:shown', id);
+  }, workId);
   await panel.locator('[data-action="complete"]').click();
   await panel.locator("[data-criterion]").selectOption("PASS");
   await panel.locator("[data-output]").check();
@@ -258,7 +292,7 @@ try {
     directory,
     metrics,
     restart: true,
-    screenshots: improvementQA ? 9 : 7,
+    screenshots: improvementQA ? 10 : 8,
     unpackaged,
     defaultEnabled: true,
     persistentOptOut: true,

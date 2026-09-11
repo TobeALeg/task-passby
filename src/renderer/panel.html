@@ -9,7 +9,7 @@
   <body>
     <header class="topbar">
       <div class="brand-row"><h1>Worket</h1>
-      <button id="close-panel" class="icon-button" aria-label="关闭">×</button></div>
+      <div class="brand-actions"><details class="secondary-menu" id="app-menu"><summary aria-label="更多选项">•••</summary><div class="menu-items"><button id="archive-records" data-filter="ARCHIVED">归档记录</button><button id="service-settings">Worket 服务</button></div></details><button id="close-panel" class="icon-button" aria-label="关闭">×</button></div></div>
       <section class="toolbar">
         <div class="filters" role="tablist" aria-label="工作阶段">
           <button id="tab-recent" class="filter" role="tab" aria-selected="false" aria-controls="sources-panel" tabindex="-1" data-filter="RECENT">最近活动</button>
@@ -21,16 +21,15 @@
     </header>
 
     <main>
-      <details class="secondary-menu"><summary>更多</summary><button id="archive-records" data-filter="ARCHIVED">归档记录</button><button id="service-settings">Worket 服务</button></details>
+      <div id="notice" class="notice" role="status" hidden></div>
       <section id="definitions-panel" role="tabpanel" aria-labelledby="tab-definitions" hidden></section>
       <section id="sources-panel" class="recording-sources" role="tabpanel" aria-labelledby="tab-recent" hidden>
-        <div class="source-actions"><button id="record-history" class="secondary">记录沉睡工作</button></div>
+        <div class="source-actions"><button id="record-history" class="secondary">历史聊天</button></div>
         <div id="source-error" class="notice" role="alert" hidden></div>
         <div id="recent-sources"><p class="source-empty">正在查找活动聊天…</p></div>
       </section>
       <section id="works-panel" role="tabpanel" aria-labelledby="tab-open">
-        <div id="notice" class="notice" hidden></div>
-        <button id="distill-selected">沉淀所选工作</button>
+        <div id="list-toolbar" class="list-toolbar"><h2 id="list-title">进行中</h2><button id="distill-selected" disabled>沉淀所选</button></div>
         <section id="work-list" class="work-list"></section>
         <section id="work-detail" class="work-detail" hidden></section>
       </section>
@@ -38,19 +37,19 @@
 
     <dialog id="history-dialog" aria-labelledby="history-title">
       <div class="dialog-card">
-        <div class="source-heading"><h2 id="history-title">记录沉睡工作</h2><button id="history-close" class="icon-button" aria-label="关闭历史聊天">×</button></div>
+        <div class="source-heading"><h2 id="history-title">历史聊天</h2><button id="history-close" class="icon-button" aria-label="关闭历史聊天">×</button></div>
         <label class="field">执行者<select id="history-executor"></select></label>
-        <label class="field">搜索已加载的聊天<input id="history-search" type="search" placeholder="聊天标题或项目" /></label>
+        <label class="field">搜索已加载聊天<input id="history-search" type="search" placeholder="聊天标题或项目" /></label>
         <div id="history-error" class="notice" role="alert" hidden></div>
         <div id="history-sources" class="history-sources"></div>
-        <div class="dialog-actions"><button id="history-retry" class="secondary">刷新列表</button><button id="history-more" class="secondary" hidden>加载更早的聊天</button></div>
+        <div class="dialog-actions"><button id="history-retry" class="secondary">刷新列表</button><button id="history-more" class="secondary" hidden>加载更多</button></div>
       </div>
     </dialog>
 
-    <dialog id="split-dialog">
+    <dialog id="split-dialog" aria-labelledby="split-title">
       <form method="dialog" class="dialog-card">
-        <div class="dialog-heading"><span class="eyebrow">新工作</span><h2>从哪条消息开始？</h2></div>
-        <p>原工作记录会保留；所选消息及其后的内容将成为新的 WorkInstance。</p>
+        <div class="dialog-heading"><h2 id="split-title">从消息新建</h2></div>
+        <p class="consent">所选消息起另建工作，原工作停止同步并保留记录。</p>
         <p id="split-upload-notice" class="notice" hidden></p>
         <label class="field">起始用户消息<select id="split-point"></select></label>
         <div class="dialog-actions">
@@ -60,12 +59,13 @@
       </form>
     </dialog>
 
-    <dialog id="cancel-recording-dialog">
+    <dialog id="cancel-recording-dialog" aria-labelledby="cancel-title">
       <form method="dialog" class="dialog-card danger-card">
-        <div class="dialog-heading"><span class="eyebrow">取消记录</span><h2>停止记录这项工作？</h2></div>
-        <p>取消后停止本机同步与对话上传；已上传样本可在“Worket 服务 → 改进数据”删除。并清除 Worket 保存的这份本地记录，清除后无法恢复。Codex / WorkBuddy 中的原对话与原始文件保持不变，可再次主动选择记录。已确认定义仍保留；本工具保存的来源正文、快照与证据摘录将清除，相关未保存候选失效；含历史正文的迁移备份也会移除。请输入“取消记录”继续。</p>
+        <div class="dialog-heading"><h2 id="cancel-title">取消记录这项工作？</h2></div>
+        <p>停止同步与上传，并永久清除本地记录及来源证据。原应用的对话、文件和已确认定义保留。</p>
+        <details class="policy-details"><summary>数据处理详情</summary><p>未保存候选失效，含历史正文的迁移备份会移除。已上传样本需在“Worket 服务 → 改进数据”单独删除。</p></details>
         <p id="cancel-recording-error" class="notice" role="alert" hidden></p>
-        <label class="field">确认文字<input id="cancel-recording-confirmation" autocomplete="off" /></label>
+        <label class="field">输入“取消记录”<input id="cancel-recording-confirmation" autocomplete="off" /></label>
         <div class="dialog-actions"><button value="cancel" class="secondary">取消</button><button id="confirm-cancel-recording" value="default" class="danger">取消记录</button></div>
       </form>
     </dialog>

@@ -66,8 +66,8 @@ async function session() {
     ? "登录 Worket 后台"
     : "设置你的后台";
   $("login-intro").textContent = initialized
-    ? "使用管理员密码管理模型配置和接入凭据。"
-    : "先设置管理员密码，之后只有你可以修改模型配置和生成接入凭据。";
+    ? ""
+    : "创建管理员密码。";
   $("confirm-password-label").hidden = initialized;
   $("confirm-password").required = !initialized;
   $("admin-password").autocomplete = initialized
@@ -239,7 +239,7 @@ async function activity() {
     const row = document.createElement("tr"),
       cell = document.createElement("td");
     cell.colSpan = 4;
-    cell.textContent = "暂无沉淀请求。连接测试不记为用户沉淀任务。";
+    cell.textContent = "暂无运行记录";
     cell.className = "muted";
     row.append(cell);
     tbody.append(row);
@@ -364,9 +364,11 @@ async function sampleDetail(id) {
   const panel = $("sample-detail");
   panel.hidden = false;
   panel.replaceChildren();
-  element("h2", "样本详情", panel);
+  const heading = element("div", undefined, panel);
+  heading.className = "section-heading";
+  element("h2", "样本详情", heading);
   element("p", `授权：${sample.consent.version} · ${sample.consent.at}；删除期限：${new Date(sample.expires).toLocaleString()}`, panel);
-  const close = element("button", "关闭详情", panel);
+  const close = element("button", "关闭详情", heading);
   close.onclick = () => { panel.replaceChildren(); panel.hidden = true; };
   const label = element("label", "评审备注", panel);
   const note = element("textarea", undefined, label);
@@ -378,21 +380,28 @@ async function sampleDetail(id) {
     const option = element("option", name, status); option.value = value;
   }
   status.value = sample.review.status;
-  const save = element("button", "保存评审", panel);
+  const actions = element("div", undefined, panel);
+  actions.className = "form-actions";
+  const save = element("button", "保存评审", actions);
+  save.className = "primary";
   save.onclick = async () => {
     save.disabled = true;
     try { await api(`samples/${id}`, "PUT", { status: status.value, note: note.value }); await samples(); message("评审已保存"); }
     catch (error) { message(error.message, true); }
     finally { save.disabled = false; }
   };
-  const remove = element("button", "删除此样本", panel);
+  const remove = element("button", "删除此样本", actions);
+  remove.className = "destructive";
   remove.onclick = () => {
     remove.disabled = true;
     const confirmation = element("div", undefined, panel);
+    confirmation.className = "inline-result";
     element("p", "将删除所选材料、候选、修改、验收和评审备注。原始本机工作保留。", confirmation);
     const yes = element("button", "确认删除样本", confirmation);
+    yes.className = "danger";
     const no = element("button", "保留样本", confirmation);
-    no.onclick = () => { confirmation.remove(); remove.disabled = false; };
+    no.onclick = () => { confirmation.remove(); remove.disabled = false; remove.focus(); };
+    confirmation.scrollIntoView({ block: "nearest" });
     yes.onclick = async () => {
       yes.disabled = true;
       try { await api(`samples/${id}`, "DELETE"); panel.replaceChildren(); panel.hidden = true; await samples(); message("样本已删除"); }
@@ -404,6 +413,7 @@ async function sampleDetail(id) {
     element("summary", `${eventLabels[event.kind] ?? event.kind} · ${new Date(event.at).toLocaleString()}`, detail);
     renderData(event.data, detail);
   }
+  panel.scrollIntoView({ block: "start" });
 }
 function renderData(data, parent, depth = 0) {
   if (data === null || typeof data !== "object") { element("p", String(data ?? "—"), parent); return; }

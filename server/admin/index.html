@@ -16,7 +16,6 @@
     </header>
     <main>
       <section id="login-panel" class="login" hidden>
-        <span class="eyebrow">WORKET ADMIN</span>
         <h1 id="login-title">登录后台</h1>
         <p id="login-intro"></p>
         <form id="login-form">
@@ -40,9 +39,7 @@
       <div id="workspace" hidden>
         <div class="page-heading">
           <div>
-            <span class="eyebrow">MODEL SERVICE</span>
-            <h1>连接模型，让工作继续。</h1>
-            <p>填好模型配置，保存后即可接收 Worket 的沉淀请求。</p>
+            <h1>服务管理</h1>
           </div>
           <div class="stats">
             <span><strong id="daily-calls">0</strong>近 24 小时调用</span
@@ -63,10 +60,9 @@
             <div class="config-layout">
               <article class="card">
                 <div class="section-heading">
-                  <span class="step">01</span>
                   <div>
                     <h2>模型供应商</h2>
-                    <p>当前支持 OpenAI-compatible Chat Completions 接口。</p>
+                    <p>OpenAI-compatible 接口</p>
                   </div>
                 </div>
                 <label
@@ -111,7 +107,7 @@
                     id="provider-policy"
                     type="url"
                     placeholder="https://…"
-                  /><small>用于向使用者说明数据处理与留存规则。</small></label
+                  /></label
                 >
                 <div class="form-actions">
                   <button id="test-connection" type="button" class="secondary">
@@ -121,7 +117,7 @@
                   </button>
                 </div>
                 <p class="form-note">
-                  测试只发送一段固定检测文本，会产生一次模型调用。测试通过不会自动保存配置。
+                  测试产生一次模型调用，不自动保存。
                 </p>
                 <div
                   id="test-result"
@@ -133,10 +129,9 @@
               <aside>
                 <article class="card">
                   <div class="section-heading">
-                    <span class="step">02</span>
                     <div>
                       <h2>调用额度</h2>
-                      <p>按使用者控制成本和并发。</p>
+
                     </div>
                   </div>
                   <label
@@ -201,8 +196,8 @@
                     ></label
                   >
                 </article>
-                <article class="data-note">
-                  <h3>材料如何处理</h3>
+                <details class="data-note">
+                  <summary>数据处理与留存</summary>
                   <p>
                     只处理用户主动选择的记录。另行授权的改进样本保存 90 天；未授权正文不持久保存。运行日志不记录正文。
                   </p>
@@ -210,7 +205,7 @@
                     候选结果在内存中最多暂存 10
                     分钟；客户端收取或取消后清除。无正文的运行记录保留 30 天。
                   </p>
-                </article>
+                </details>
               </aside>
             </div>
           </form>
@@ -219,7 +214,6 @@
           <div class="two-columns">
             <article class="card">
               <div class="section-heading">
-                <span class="step">01</span>
                 <div>
                   <h2>连接桌面 Worket</h2>
                   <p>
@@ -274,7 +268,7 @@
             <div class="section-heading">
               <div>
                 <h2>运行记录</h2>
-                <p>这里只显示时间、状态和调用次数，不显示工作正文。</p>
+
               </div>
               <button id="refresh-activity" class="secondary">刷新</button>
             </div>
@@ -304,7 +298,6 @@
       </div>
       <div id="message" role="status" hidden></div>
     </main>
-    <footer>Worket · 工作记录保存在本机，已授权改进样本保存在后台。</footer>
     <script src="/admin/admin.js" type="module"></script>
   </body>
 </html>

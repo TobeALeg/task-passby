@@ -29,6 +29,8 @@ let filter: PanelTab = "OPEN";
 const selectedDistillationIds = new Set<string>();
 let pendingCancelRecordingWorkId: string | null = null;
 let pendingSplitWorkId: string | null = null;
+let detailOpen = false;
+let actionPending = false;
 
 function required<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -61,15 +63,16 @@ function render(): void {
     button.classList.toggle("active", selected);
     button.setAttribute("aria-selected", String(selected));
     button.tabIndex = selected ? 0 : -1;
-    if (selected && filter !== "RECENT")
+    if (selected && filter !== "RECENT" && filter !== "DEFINITIONS")
       required("#works-panel").setAttribute("aria-labelledby", button.id);
   });
+  if (filter === "ARCHIVED") required<HTMLElement>("#tab-open").tabIndex = 0;
   required<HTMLElement>("#sources-panel").hidden = filter !== "RECENT";
   required<HTMLElement>("#works-panel").hidden =
     filter === "RECENT" || filter === "DEFINITIONS";
   required<HTMLElement>("#definitions-panel").hidden = filter !== "DEFINITIONS";
   if (filter === "DEFINITIONS") {
-    void renderDefinitions();
+    void renderDefinitions().catch(showError);
     return;
   }
   if (filter === "RECENT" || !dashboard) return;
@@ -79,20 +82,18 @@ function render(): void {
   const checkedIds = selectedDistillationIds;
   for (const id of checkedIds)
     if (!dashboard.works.some((work) => work.id === id)) checkedIds.delete(id);
-  required("#distill-selected").textContent =
-    `沉淀所选工作（${checkedIds.size}）`;
+  updateSelection();
+  required("#list-title").textContent = filter === "ARCHIVED" ? "归档记录" : filter === "COMPLETED" ? "已完成" : "进行中";
+  if (filter === "ARCHIVED") required("#works-panel").setAttribute("aria-labelledby", "list-title");
   list.innerHTML = works.length
     ? works
         .map(
           (
             work,
-          ) => `<label class="distill-choice"><input type="checkbox" data-distill-work value="${escapeHtml(work.id)}">选择沉淀：${escapeHtml(work.title)}</label><button class="work-row ${work.id === dashboard.selectedWorkId ? "selected" : ""}" data-work-id="${work.id}">
+          ) => `<div class="work-entry"><label class="work-select"><input type="checkbox" data-distill-work value="${escapeHtml(work.id)}" aria-label="选择 ${escapeHtml(work.title)}"></label><button class="work-row" data-work-id="${escapeHtml(work.id)}">
         <h3>${escapeHtml(work.title)}</h3><span class="status ${work.captureStatus === "waiting" ? "status-waiting" : ""}">${work.status === "OPEN" ? CAPTURE_STATUS_LABELS[work.captureStatus] : work.status === "COMPLETED" ? "已完成" : "已归档"}</span>
-        <span class="work-agent agent-label">${escapeHtml(work.agentName)}</span>
-        ${work.captureStatus === "waiting" ? `<span class="capture-guidance">${CAPTURE_WAITING_GUIDANCE}</span>` : ""}
-        <span class="counts">${work.eventCount} 条记录 · ${work.artifactCount} 份资料 · ${work.episodeCount} 段执行</span>
-        <time>${formatDate(work.updatedAt)}</time>
-      </button>`,
+        <span class="row-meta"><span class="agent-label">${escapeHtml(work.agentName)}</span><span>· ${work.eventCount} 条记录</span><time>· ${formatDate(work.updatedAt)}</time></span>
+      </button></div>`,
         )
         .join("")
     : `<div class="empty">${filter === "OPEN" ? "还没有正在记录的工作" : filter === "COMPLETED" ? "还没有已完成的工作" : "还没有已归档的工作"}</div>`;
@@ -104,50 +105,55 @@ function render(): void {
     input.addEventListener("change", () => {
       if (input.checked) checkedIds.add(input.value);
       else checkedIds.delete(input.value);
-      required("#distill-selected").textContent =
-        `沉淀所选工作（${checkedIds.size}）`;
+      updateSelection();
     });
   }
   for (const row of list.querySelectorAll<HTMLElement>("[data-work-id]")) {
     row.addEventListener(
       "click",
-      () => void selectWork(row.dataset.workId ?? ""),
+      () => void selectWork(row.dataset.workId ?? "").catch(showError),
     );
   }
   renderDetail(
-    dashboard.selectedWork?.status === filter ? dashboard.selectedWork : null,
+    detailOpen && dashboard.selectedWork?.status === filter ? dashboard.selectedWork : null,
   );
 }
 
 function renderDetail(work: WorkDetailView | null): void {
   detail.hidden = !work;
+  list.hidden = Boolean(work);
+  required<HTMLElement>("#list-toolbar").hidden = Boolean(work);
   if (!work) {
     detail.innerHTML = "";
     return;
   }
-  const actions =
-    work.status === "OPEN"
-      ? `<button data-action="refresh">刷新记录</button><button data-action="split">从消息新建</button><button data-action="handoff" class="handoff">交接</button><button data-action="complete">完成</button><details class="secondary-menu"><summary>更多</summary><button data-action="archive">归档</button></details>`
-      : work.status === "COMPLETED"
-        ? `<button data-action="resume">继续原工作</button><button data-action="split">从消息新建</button><details class="secondary-menu"><summary>更多</summary><button data-action="archive">归档</button></details>`
-        : `<button data-action="resume">恢复为进行中</button>`;
+  const actions = work.status === "OPEN"
+    ? '<button data-action="handoff" class="primary">交接</button><button data-action="complete">完成</button><button data-action="distill">沉淀</button>'
+    : `<button data-action="resume" class="primary">${work.status === "COMPLETED" ? "继续工作" : "恢复工作"}</button><button data-action="distill">沉淀</button>`;
+  const waiting = work.bindings.some((binding) => binding.status === "ACTIVE" && binding.conversationId.startsWith("pending:")) || (work.reusableDefinitionId && !work.bindings.some((binding) => binding.status === "ACTIVE") && ["STARTING", "WAITING"].includes(work.dispatchStatus ?? ""));
   detail.innerHTML = `
-    <div class="detail-head">${work.reusableDefinitionId ? `<p class="notice">${work.dispatchStatus === "NOT_DISPATCHED" ? "尚未交给执行者" : work.dispatchStatus === "FAILED" ? "启动失败，可重试" : work.dispatchStatus === "BOUND" && work.dispatchReadAt ? "已绑定本次对话，工作包已读取" : "等待执行端确认接手"}</p>` : ""}<span class="eyebrow">${escapeHtml(work.agentName)}</span><h2>${escapeHtml(work.title)}</h2><p class="detail-meta">${work.eventCount} 条来源记录 · ${work.episodeCount} 段执行</p>${work.captureStatus === "waiting" ? `<p class="capture-guidance">${CAPTURE_WAITING_GUIDANCE}</p>` : ""}</div>
-    <div class="detail-actions">${actions}${work.bindings.some((binding) => binding.status === "ACTIVE" && binding.conversationId.startsWith("pending:")) || (work.reusableDefinitionId && !work.bindings.some((binding) => binding.status === "ACTIVE") && ["STARTING", "WAITING"].includes(work.dispatchStatus ?? "")) ? '<button data-action="cancel-handoff">取消未确认交接</button>' : ""}<button data-action="distill">沉淀</button><button data-action="copy">复制工作包</button><button data-action="export">导出工作包</button><button data-action="cancel-recording">取消记录</button></div>
+    <button id="back-to-list" class="back-button">‹ 返回列表</button>
+    <div class="detail-head"><span class="eyebrow">${escapeHtml(work.agentName)}</span><h2>${escapeHtml(work.title)}</h2><p class="detail-meta">${work.eventCount} 条记录 · ${work.artifactCount} 份资料 · ${work.episodeCount} 段执行</p>${work.reusableDefinitionId ? `<p class="capture-guidance">${work.dispatchStatus === "NOT_DISPATCHED" ? "尚未交给执行者" : work.dispatchStatus === "FAILED" ? "启动失败，可重试" : work.dispatchStatus === "BOUND" && work.dispatchReadAt ? "已接手" : "等待接手"}</p>` : work.captureStatus === "waiting" ? `<p class="capture-guidance">${CAPTURE_WAITING_GUIDANCE}</p>` : ""}</div>
+    <div class="detail-actions">${actions}<details class="secondary-menu"><summary aria-label="工作操作">更多</summary><div class="menu-items">${work.status === "OPEN" ? '<button data-action="refresh">刷新记录</button>' : ""}${work.status !== "ARCHIVED" ? '<button data-action="split">从消息新建</button><button data-action="archive">归档</button>' : ""}${waiting ? '<button data-action="cancel-handoff">取消未确认交接</button>' : ""}<button data-action="copy">复制工作包</button><button data-action="export">导出工作包</button><div class="menu-divider"></div><button data-action="cancel-recording" class="destructive">取消记录</button></div></details></div>
     ${recordingNoticeRequired ? `<p class="notice">${RECORDING_UPLOAD_NOTICE}</p>` : ""}
     ${Object.entries(WORK_STATE_LABELS)
       .map(([field, label]) =>
         stateSection(work, field as WorkStateField, label),
       )
       .join("")}
-    <section class="state-section"><h3>执行片段</h3>${work.episodes.map((episode) => `<div class="episode"><span>${escapeHtml(episode.environment)} · ${escapeHtml(episode.executor)}</span><strong>${episode.status}</strong></div>`).join("")}</section>`;
+    <section class="state-section"><h3>执行片段</h3>${work.episodes.map((episode) => `<div class="episode"><span>${escapeHtml(episode.environment)} · ${escapeHtml(episode.executor)}</span><strong>${episode.status === "ACTIVE" ? "进行中" : "已结束"}</strong></div>`).join("")}</section>`;
 
+  required("#back-to-list").addEventListener("click", () => {
+    detailOpen = false;
+    render();
+    list.querySelector<HTMLButtonElement>(`[data-work-id="${CSS.escape(work.id)}"]`)?.focus();
+  });
   for (const button of detail.querySelectorAll<HTMLButtonElement>(
     "button[data-action]",
   )) {
     button.addEventListener(
       "click",
-      () => void runAction(work.id, button.dataset.action ?? ""),
+      () => void performAction(work.id, button.dataset.action ?? "", button),
     );
   }
 }
@@ -158,13 +164,14 @@ function stateSection(
   label: string,
 ): string {
   const items = work.state[field];
+  if (!items.length) return "";
   return `<section class="state-section"><h3>${label}</h3>${
     items.length
       ? items
           .map(
             (item) => `<div class="state-item">
     <p>${escapeHtml(item.text)}</p>
-    <span class="origin">只读提取 · ${item.sourceMessageIds.length} 个来源</span>
+    <span class="origin">${item.sourceMessageIds.length} 个来源</span>
   </div>`,
           )
           .join("")
@@ -183,8 +190,38 @@ async function renderWithRecordingNotice(): Promise<void> {
 }
 
 async function selectWork(workId: string): Promise<void> {
+  detailOpen = true;
   dashboard = await window.workpet.getDashboard(workId);
+  filter = dashboard.selectedWork?.status ?? filter;
   render();
+  window.scrollTo(0, 0);
+  required<HTMLButtonElement>("#back-to-list").focus();
+}
+
+function showError(error: unknown): void {
+  notice.hidden = false;
+  notice.setAttribute("role", "alert");
+  notice.textContent = error instanceof Error ? error.message : String(error);
+}
+
+function updateSelection(): void {
+  const button = required<HTMLButtonElement>("#distill-selected");
+  button.disabled = selectedDistillationIds.size === 0;
+  button.textContent = selectedDistillationIds.size ? `沉淀所选 (${selectedDistillationIds.size})` : "沉淀所选";
+}
+
+async function performAction(workId: string, action: string, button: HTMLButtonElement): Promise<void> {
+  if (actionPending) return;
+  actionPending = true;
+  button.disabled = true;
+  try {
+    await runAction(workId, action);
+  } catch (error) {
+    showError(error);
+  } finally {
+    button.disabled = false;
+    actionPending = false;
+  }
 }
 
 async function runAction(workId: string, action: string): Promise<void> {
@@ -269,6 +306,7 @@ setupDistillation(
   (result) => {
     if (result) {
       dashboard = result;
+      detailOpen = true;
       filter = result.selectedWork?.status ?? "OPEN";
     } else {
       filter = "DEFINITIONS";
@@ -278,6 +316,7 @@ setupDistillation(
   () => [...selectedDistillationIds],
 );
 required("#archive-records").addEventListener("click", () => {
+  detailOpen = false;
   filter = "ARCHIVED";
   render();
 });
@@ -290,14 +329,24 @@ required<HTMLButtonElement>("#confirm-split").addEventListener(
   async (event) => {
     event.preventDefault();
     if (!pendingSplitWorkId) return;
-    dashboard = await window.workpet.createWorkFromMessage({
-      sourceWorkId: pendingSplitWorkId,
-      startExternalId: splitPointSelect.value,
-    });
-    pendingSplitWorkId = null;
-    splitDialog.close();
-    filter = "OPEN";
-    await renderWithRecordingNotice();
+    const button = event.currentTarget as HTMLButtonElement;
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      dashboard = await window.workpet.createWorkFromMessage({
+        sourceWorkId: pendingSplitWorkId,
+        startExternalId: splitPointSelect.value,
+      });
+      pendingSplitWorkId = null;
+      splitDialog.close();
+      filter = "OPEN";
+      detailOpen = true;
+      await renderWithRecordingNotice();
+    } catch (error) {
+      const message = required<HTMLElement>("#split-upload-notice");
+      message.textContent = String(error);
+      message.hidden = false;
+    } finally { button.disabled = false; }
   },
 );
 required<HTMLButtonElement>("#confirm-cancel-recording").addEventListener(
@@ -305,6 +354,9 @@ required<HTMLButtonElement>("#confirm-cancel-recording").addEventListener(
   async (event) => {
     event.preventDefault();
     if (!pendingCancelRecordingWorkId) return;
+    const button = event.currentTarget as HTMLButtonElement;
+    if (button.disabled) return;
+    button.disabled = true;
     const confirmation = required<HTMLInputElement>(
       "#cancel-recording-confirmation",
     ).value;
@@ -320,11 +372,14 @@ required<HTMLButtonElement>("#confirm-cancel-recording").addEventListener(
       const message = required<HTMLElement>("#cancel-recording-error");
       message.textContent = String(error);
       message.hidden = false;
+    } finally {
+      button.disabled = false;
     }
   },
 );
 for (const button of document.querySelectorAll<HTMLButtonElement>(".filter")) {
   button.addEventListener("click", () => {
+    detailOpen = false;
     filter = button.dataset.filter as PanelTab;
     render();
   });
@@ -350,12 +405,13 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(".filter")) {
 
 const recordingSources = setupRecordingSources((result) => {
   dashboard = result;
+  detailOpen = true;
   filter = result.selectedWork?.status ?? "OPEN";
   void renderWithRecordingNotice();
 });
 let refreshing = false;
 async function refreshPanel(): Promise<void> {
-  if (refreshing) return;
+  if (refreshing || actionPending || document.querySelector("dialog[open], .secondary-menu[open]") || document.activeElement?.matches("input, textarea, select")) return;
   refreshing = true;
   try {
     const [result, disclosure] = await Promise.allSettled([
@@ -363,10 +419,12 @@ async function refreshPanel(): Promise<void> {
       window.workpet.distillation("recordingNotice"),
       recordingSources.refresh(),
     ]);
+    const previousNoticeRequired = recordingNoticeRequired;
     recordingNoticeRequired = disclosure.status === "fulfilled" ? disclosure.value.required : true;
     if (result.status === "fulfilled") {
+      const changed = JSON.stringify(dashboard) !== JSON.stringify(result.value);
       dashboard = result.value;
-      render();
+      if (changed || previousNoticeRequired !== recordingNoticeRequired || filter === "DEFINITIONS") render();
       const selection = await window.workpet.consumeSourceSelection();
       if (selection) await recordingSources.open(selection);
     } else {
@@ -378,7 +436,40 @@ async function refreshPanel(): Promise<void> {
   }
 }
 void refreshPanel();
-window.workpet.onPanelShown(() => void refreshPanel());
+window.workpet.onPanelShown((workId) => {
+  if (workId) void selectWork(workId).catch(showError);
+  else void refreshPanel();
+});
 setInterval(() => {
   if (!document.hidden) void refreshPanel();
 }, 5_000);
+
+// Menus close after selection, outside clicks, or Escape; keyboard focus stays recoverable.
+document.addEventListener("click", (event) => {
+  const target = event.target as Element;
+  document.querySelectorAll<HTMLDetailsElement>(".secondary-menu[open]").forEach((menu) => {
+    if (!menu.contains(target) || target.closest("button")) menu.open = false;
+  });
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  document.querySelectorAll<HTMLDetailsElement>(".secondary-menu[open]").forEach((menu) => {
+    menu.open = false;
+    menu.querySelector<HTMLElement>("summary")?.focus();
+  });
+});
+window.addEventListener("worket-feedback", (event) => {
+  notice.textContent = (event as CustomEvent<string>).detail;
+  notice.setAttribute("role", "status");
+  notice.hidden = false;
+});
+
+document.addEventListener("toggle", (event) => {
+  const menu = event.target;
+  if (!(menu instanceof HTMLDetailsElement) || !menu.matches(".secondary-menu") || !menu.open) return;
+  const items = menu.querySelector<HTMLElement>(".menu-items");
+  if (!items) return;
+  items.style.transform = "";
+  const rect = items.getBoundingClientRect();
+  if (rect.bottom > innerHeight - 12) items.style.transform = `translateY(${innerHeight - 12 - rect.bottom}px)`;
+}, true);

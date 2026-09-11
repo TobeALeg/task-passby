@@ -116,6 +116,21 @@ try {
   assert.equal(await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith("/panel.html")).isVisible()), false, "Detach drag must not open panel");
   await pet.screenshot({ path: join(output, "detached.png") });
   const fullDisplay = await application.evaluate(({ screen }, point) => screen.getDisplayNearestPoint(point).bounds, center);
+  // Approach the physical bottom through the empty Dock lane before releasing.
+  await dragVisiblePetTo({ x: fullDisplay.x + 80, y: fullDisplay.y + fullDisplay.height - 160 });
+  const approachBounds = await bounds();
+  const approachBody = await pet.locator("#pet").boundingBox();
+  const approachFrom = { x: approachBounds.x + approachBody.x + approachBody.width / 2, y: approachBounds.y + approachBody.y + approachBody.height / 2 };
+  const approachTarget = { x: approachFrom.x, y: fullDisplay.y + fullDisplay.height - 50 };
+  await pet.evaluate(({ from, to }) => {
+    window.workpet.dragPet("start", from); window.workpet.dragPet("move", to);
+  }, { from: approachFrom, to: approachTarget });
+  await pet.waitForTimeout(100);
+  const approaching = await bounds();
+  const approachingBody = await pet.locator("#pet").boundingBox();
+  assert.ok(Math.abs(approaching.y + approachingBody.y + approachingBody.height / 2 - approachTarget.y) <= 1,
+    "Bottom approach must follow pointer through the empty Dock lane before release");
+  await pet.evaluate(() => window.workpet.dragPet("end"));
   for (const x of [fullDisplay.x + 80, fullDisplay.x + fullDisplay.width - 80]) {
     await dragVisiblePetTo({ x, y: fullDisplay.y + fullDisplay.height - 1 });
     await pet.waitForFunction(() => document.querySelector("#pet-root").dataset.edge === "bottom");
@@ -145,7 +160,7 @@ try {
     app.emit("second-instance", {}, [], process.cwd());
   });
   const report = { destroyedWindowActivationSafe: true, passed: true, before, after, restartRestored: true, recovered,
-    edgeDocking: ["left", "right", "top", "bottom"], visibleBodyBoundaries: true, bottomRestart: true, dockCenterProtected: true, compactRestart: true, nativePointerDetach: true, dockedClick: true, dockRecovered,
+    edgeDocking: ["left", "right", "top", "bottom"], visibleBodyBoundaries: true, bottomApproachFollowsPointer: true, bottomRestart: true, dockCenterProtected: true, compactRestart: true, nativePointerDetach: true, dockedClick: true, dockRecovered,
     unpackaged, cursor: "Playwright pointer events and placement IPC; native Electron window and renderer" };
   await writeFile(join(output, "report.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));

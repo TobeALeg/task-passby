@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { nearestPetEdge, dockPet, floatingPet, constrainPet, validPetEdge, placeFloatingPet, bottomPetDock, PET_SIZE } from "../../dist/desktop/pet-layout.js";
+import { nearestPetEdge, dockPet, floatingPet, constrainPet, validPetEdge, placeFloatingPet, bottomPetDock, petMovementArea, PET_SIZE } from "../../dist/desktop/pet-layout.js";
 const area = { x: 0, y: 25, width: 1440, height: 850 };
 test("edge docking uses left, right and usable top; bottom stays free", () => {
   assert.equal(nearestPetEdge({ x: 20, y: 400 }, area), "left");
@@ -55,4 +55,18 @@ test("bottom docking accepts the blank sides, keeps the Dock center clear and su
     }
     assert.equal(bottomPetDock({ x: display.x + display.width / 2, y: display.height - 1 }, display, 1000), null);
   }
+});
+
+test("dragging through Dock side lanes follows the pointer down to the physical bottom", () => {
+  const display = { x: 0, y: 0, width: 1920, height: 1080 };
+  const workArea = { x: 0, y: 25, width: 1920, height: 981 };
+  for (const x of [80, 1840]) {
+    for (let y = 960; y <= 1040; y += 5) {
+      const center = { x, y };
+      const area = petMovementArea(center, display, workArea, 1000);
+      assert.equal(placeFloatingPet(center, area).center.y, y);
+    }
+  }
+  const center = { x: 960, y: 1040 };
+  assert.deepEqual(petMovementArea(center, display, workArea, 1000), workArea, "The central Dock remains protected");
 });

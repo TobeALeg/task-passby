@@ -1,7 +1,7 @@
 import { readDockSpace } from "./dock-space.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import { screen, type BrowserWindow } from "electron";
-import { bottomPetDock, dockPet, nearestPetEdge, PET_SIZE, PET_BODY_SIZE, PET_DOCK_SIZE, PET_BODY_CENTER, placeFloatingPet, validPetEdge, type PetPlacement, type Point, type Rectangle } from "./pet-layout.js";
+import { bottomPetDock, dockPet, nearestPetEdge, PET_SIZE, PET_BODY_SIZE, PET_DOCK_SIZE, PET_BODY_CENTER, placeFloatingPet, petMovementArea, validPetEdge, type PetPlacement, type Point, type Rectangle } from "./pet-layout.js";
 
 export class PetPosition {
   placement: PetPlacement = { edge: null };
@@ -19,11 +19,14 @@ export class PetPosition {
   get dragging(): boolean { return this.drag !== null; }
   private apply(bounds: Rectangle, placement: PetPlacement): void {
     this.placement = placement;
-    this.window.setBounds(bounds);
+    const current = this.window.getBounds();
+    if (current.x !== bounds.x || current.y !== bounds.y || current.width !== bounds.width || current.height !== bounds.height)
+      this.window.setBounds(bounds);
     this.window.webContents.send("pet:placement", placement);
   }
   private float(center: Point): void {
-    const area = screen.getDisplayNearestPoint(center).workArea;
+    const display = screen.getDisplayNearestPoint(center);
+    const area = petMovementArea(center, display.bounds, display.workArea, this.protectedDockWidth(display.bounds));
     const layout = placeFloatingPet(center, area);
     this.center = layout.center;
     this.apply(layout.bounds, { edge: null, body: layout.body });

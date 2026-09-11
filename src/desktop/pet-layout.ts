@@ -49,3 +49,11 @@ export function bottomPetDock(point: Point, display: Rectangle, protectedWidth: 
   const gap = Math.max(0, protectedWidth) / 2 + 12;
   return bounds.x + bounds.width <= middle - gap || bounds.x >= middle + gap ? bounds : null;
 }
+
+// The same empty lane must be available while dragging and after docking.
+export function petMovementArea(center: Point, display: Rectangle, workArea: Rectangle, protectedWidth: number): Rectangle {
+  const bottom = display.y + display.height;
+  const lane = bottomPetDock({ x: center.x, y: bottom }, display,
+    protectedWidth + PET_BODY_SIZE.width - PET_DOCK_SIZE.width);
+  return lane ? { ...workArea, height: bottom - workArea.y } : workArea;
+}

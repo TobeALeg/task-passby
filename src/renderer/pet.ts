@@ -100,6 +100,15 @@ let gesture: {
   moved: boolean;
 } | null = null;
 let suppressClick = false;
+let moveFrame = 0;
+let pendingMove: { x: number; y: number } | null = null;
+function flushMove(): void {
+  if (moveFrame) cancelAnimationFrame(moveFrame);
+  moveFrame = 0;
+  if (!pendingMove) return;
+  window.workpet.dragPet("move", pendingMove);
+  pendingMove = null;
+}
 petBody.addEventListener("pointerdown", (event) => {
   if (event.button !== 0 || gesture) return;
   suppressClick = false;
@@ -118,11 +127,13 @@ document.addEventListener("pointermove", (event) => {
     gesture.moved = true;
   if (gesture.moved) {
     root.classList.add("dragging");
-    window.workpet.dragPet("move", { x: event.screenX, y: event.screenY });
+    pendingMove = { x: event.screenX, y: event.screenY };
+    if (!moveFrame) moveFrame = requestAnimationFrame(flushMove);
   }
 });
 function finishDrag(): void {
   if (!gesture) return;
+  flushMove();
   suppressClick = gesture.moved;
   gesture = null;
   root.classList.remove("dragging");

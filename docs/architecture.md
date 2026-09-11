@@ -296,3 +296,5 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 桌宠贴边状态为 free/left/right/top/bottom；保存窗口坐标、可见角色中心 center 与 edge，兼容旧版坐标配置。自由状态由 placeFloatingPet 约束角色边界，并计算角色在透明窗口内的位置；pet:placement 与 pet:get-view 传递相同 placement，气泡靠近顶部时向下展开。底部吸附使用 display.bounds，其他边缘使用 workArea。dock-space.ts 只读 Dock plist 中的图标数量、尺寸和方向，估算中央避让宽度；失败时保守预留中央 80% 屏宽，不请求辅助功能权限。无边框桌宠启用 enableLargerThanScreen，避免 macOS 将底部窗口推回 Dock 上方，实际可见性仍由 PetPosition 约束。重启及显示器变化恢复角色中心和吸附状态；点击和拖动保持分离。
 
 2026-09-11 用户确认 B「双爪偷看」：四向吸附统一采用小圆头、两只眼睛和贴边爪尖，隐藏嘴巴，露出约 19 像素；保留状态点、点击打开和拖离恢复。原生点击窗口仍为 32×68 / 68×32。
+
+2026-09-11 双爪造型微调：露出轮廓改为宽圆角，眼睛向中间和边缘内侧收拢，保持约 19 像素露出高度及原点击窗口尺寸。

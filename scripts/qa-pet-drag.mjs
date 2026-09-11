@@ -96,7 +96,7 @@ try {
   for (const edge of ["left", "right", "top"]) await dock(edge);
   const topBounds = await bounds();
   // Native pointer click on the exposed face must not undock or start dragging.
-  await pet.mouse.click(34, 20);
+  await pet.mouse.click(34, 12);
   await pet.waitForTimeout(150);
   assert.deepEqual(await bounds(), topBounds);
   assert.equal(await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(w => w.webContents.getURL().endsWith("/panel.html")).isVisible()), true);
@@ -106,7 +106,7 @@ try {
   await pet.waitForFunction(() => document.querySelector("#pet-root").dataset.edge === "top");
   assert.deepEqual(await bounds(), topBounds, "Restart restores compact edge and native bounds");
   // Real renderer pointer capture detaches the pet; resizing must not break the gesture.
-  await pet.mouse.move(34, 20);
+  await pet.mouse.move(34, 12);
   await pet.mouse.down();
   await pet.mouse.move(120, 160, { steps: 5 });
   await pet.mouse.up();

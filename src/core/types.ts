@@ -214,7 +214,8 @@ export interface WorkCore {
     workInstanceId: string,
     events: SourceEventInput[],
   ): { appendedCount: number; duplicateCount: number; work: WorkSnapshot };
-  applyExtractorPatch(workInstanceId: string, patch: WorkStatePatch): WorkSnapshot;
+  extractedSequence(workInstanceId: string): number;
+  applyExtractorPatch(workInstanceId: string, patch: WorkStatePatch, throughSequence?: number): WorkSnapshot;
   completeWork(workInstanceId: string): WorkSnapshot;
   archiveWork(workInstanceId: string): WorkSnapshot;
   stopCapture(workInstanceId: string): WorkSnapshot;

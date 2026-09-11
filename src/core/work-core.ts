@@ -7,7 +7,7 @@ import { buildWorkPackage } from '../definitions/work-package.js';
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
-import { createSchema } from "./schema.js";
+import { createSchema, migrateStateProgress } from "./schema.js";
 import {
   WORK_STATE_FIELDS,
   type CaptureBinding,
@@ -80,6 +80,7 @@ export class SqliteWorkCore implements WorkCore {
     const storageVersion = Number(this.#database.prepare("PRAGMA user_version").get()?.user_version ?? 0);
     if (storageVersion === 0) createSchema(this.#database);
     migrateDefinitions(this.#database, options.databasePath);
+    migrateStateProgress(this.#database);
     this.definitions = new DefinitionRepository(this.#database, join(dirname(options.databasePath), "definition-materials"));
   }
 
@@ -394,7 +395,13 @@ export class SqliteWorkCore implements WorkCore {
     };
   }
 
-  applyExtractorPatch(workInstanceId: string, patch: WorkStatePatch): WorkSnapshot {
+  extractedSequence(workInstanceId: string): number {
+    const row = this.#database.prepare("SELECT extracted_sequence FROM work_records WHERE work_instance_id = ?").get(workInstanceId);
+    if (!row) throw new Error("WORK_NOT_FOUND");
+    return Number(row.extracted_sequence);
+  }
+
+  applyExtractorPatch(workInstanceId: string, patch: WorkStatePatch, throughSequence?: number): WorkSnapshot {
     const work = this.#requireWork(workInstanceId);
     const nextState = structuredClone(work.state);
     const tombstones = this.#loadTombstones(workInstanceId);
@@ -441,7 +448,12 @@ export class SqliteWorkCore implements WorkCore {
       }
     }
 
-    this.#saveState(workInstanceId, nextState);
+    transaction(this.#database, () => {
+      this.#saveState(workInstanceId, nextState);
+      if (throughSequence !== undefined) {
+        this.#database.prepare("UPDATE work_records SET extracted_sequence = MAX(extracted_sequence, ?) WHERE work_instance_id = ?").run(throughSequence, workInstanceId);
+      }
+    });
     return this.#requireWork(workInstanceId);
   }
 

@@ -76,6 +76,8 @@ export interface AppServiceOptions {
   onRecordingStarted?: (workId: string) => void;
   onRecordingStopped?: (workId: string) => void;
 }
+type WorkSyncResult = { work: WorkSnapshot; newEvents: NormalizedSourceEvent[] } | null;
+
 export class AppService {
   readonly #core: WorkCore;
   readonly #executors: ExecutorRegistry;
@@ -87,6 +89,7 @@ export class AppService {
   #sourceSelection: string | undefined;
   readonly #cloudExtractionWorkIds = new Set<string>();
   readonly #handoffs = new Set<string>();
+  readonly #syncingWorks = new Map<string, Promise<WorkSyncResult>>();
   constructor(readonly options: AppServiceOptions) {
     this.#core = createWorkCore({ databasePath: options.databasePath });
     this.#executors = new ExecutorRegistry(options.executors);
@@ -322,7 +325,7 @@ export class AppService {
       this.#core.getWork(work.instance.id)?.activeBinding?.id ===
       work.activeBinding?.id
     )
-      this.#core.applyExtractorPatch(work.instance.id, patch);
+      this.#core.applyExtractorPatch(work.instance.id, patch, Math.max(0, ...work.sourceArchive.map((event) => event.sequence)));
     this.options.onRecordingStarted?.(work.instance.id);
     this.#notice = `已记录 ${adapter.name} 聊天，导入 ${work.sourceArchive.length} 条可见事件。`;
     return this.dashboard(work.instance.id);
@@ -389,7 +392,7 @@ export class AppService {
         previousState: work.state,
         events: work.sourceArchive,
       });
-      this.#core.applyExtractorPatch(work.instance.id, patch);
+      this.#core.applyExtractorPatch(work.instance.id, patch, Math.max(0, ...work.sourceArchive.map((event) => event.sequence)));
       if (allowCloud) this.#cloudExtractionWorkIds.add(work.instance.id);
       this.options.onRecordingStopped?.(sourceWork.instance.id);
       this.options.onRecordingStarted?.(work.instance.id);
@@ -404,10 +407,16 @@ export class AppService {
       throw error;
     }
   }
-  async #readBoundWork(workId: string): Promise<{
-    work: WorkSnapshot;
-    newEvents: NormalizedSourceEvent[];
-  } | null> {
+  async #readBoundWork(workId: string): Promise<WorkSyncResult> {
+    const pending = this.#syncingWorks.get(workId);
+    if (pending) return pending;
+    const task = this.#syncBoundWork(workId);
+    this.#syncingWorks.set(workId, task);
+    try { return await task; }
+    finally { this.#syncingWorks.delete(workId); }
+  }
+
+  async #syncBoundWork(workId: string): Promise<WorkSyncResult> {
     const current = this.#requireWork(workId),
       binding = current.activeBinding;
     if (
@@ -429,11 +438,30 @@ export class AppService {
     if (thread.threadId !== binding.conversationId)
       throw new Error("来源会话身份不一致，已拒绝同步");
     const adapter = this.#executors.get(binding.adapter);
-    return this.#ingestDelta(
+    const result = await this.#ingestDelta(
       latest,
       adapter.reconcileHistory?.(thread, latest.sourceArchive) ?? thread,
     );
+    await this.#updateRecordedState(result.work);
+    return result;
   }
+
+  async #updateRecordedState(work: WorkSnapshot): Promise<void> {
+    const workId = work.instance.id;
+    const extracted = this.#core.extractedSequence(workId);
+    const events = work.sourceArchive.filter((event) => event.sequence > extracted);
+    if (!events.length) return;
+    const patch = await this.#extractor(this.#cloudExtractionEnabledFor(workId)).extract({
+      previousState: work.state,
+      events,
+    });
+    if (work.state.objective.length) patch.objective = [];
+    const current = this.#core.getWork(workId);
+    if (current?.instance.status === "OPEN" && current.activeBinding?.id === work.activeBinding?.id) {
+      this.#core.applyExtractorPatch(workId, patch, Math.max(...events.map((event) => event.sequence)));
+    }
+  }
+
   async refreshWork(workId: string): Promise<DashboardView> {
     await this.#artifacts.verify(this.#requireWork(workId));
     const result = await this.#readBoundWork(workId);
@@ -441,21 +469,7 @@ export class AppService {
       this.#notice = "当前没有可同步的活动来源。";
       return this.dashboard(workId);
     }
-    const { work, newEvents } = result;
-    if (newEvents.length) {
-      const patch = await this.#extractor(
-        this.#cloudExtractionEnabledFor(workId),
-      ).extract({
-        previousState: work.state,
-        events: this.#sourceInputs(newEvents),
-      });
-      const current = this.#core.getWork(workId);
-      if (
-        current?.instance.status === "OPEN" &&
-        current.activeBinding?.id === work.activeBinding?.id
-      )
-        this.#core.applyExtractorPatch(workId, patch);
-    }
+    const { newEvents } = result;
     this.#notice = newEvents.length
       ? `新增 ${newEvents.length} 条记录。`
       : "没有发现新内容。";
@@ -958,6 +972,7 @@ export class AppService {
   }
 
   #detail(work: WorkSnapshot): WorkDetailView {
+    const latestReply = work.sourceArchive.findLast((event) => event.kind === "agent.response" && event.content?.trim());
     const dispatch = this.#core.definitions.db
       .prepare("SELECT status,read_at FROM pending_dispatches WHERE work_id=?")
       .get(work.instance.id);
@@ -970,6 +985,7 @@ export class AppService {
           }
         : {}),
       ...this.#summary(work),
+      ...(latestReply?.content ? { latestActivity: { text: latestReply.content, sourceMessageId: latestReply.externalId } } : {}),
       state: {
         ...work.state,
         artifacts: work.state.artifacts.map((item) => {

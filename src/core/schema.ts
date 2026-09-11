@@ -99,3 +99,10 @@ export function createSchema(database: DatabaseSync): void {
       ON capture_bindings(adapter, source_locator);
   `);
 }
+
+export function migrateStateProgress(database: DatabaseSync): void {
+  const recordColumns = database.prepare("PRAGMA table_info(work_records)").all() as Array<{ name: string }>;
+  if (!recordColumns.some((column) => column.name === "extracted_sequence")) {
+    database.exec("ALTER TABLE work_records ADD COLUMN extracted_sequence INTEGER NOT NULL DEFAULT 0");
+  }
+}

@@ -97,6 +97,7 @@ main { padding: 14px 16px; max-width: 760px; margin: auto; }
 .state-section h3 { color: var(--muted); }
 .state-item { display: grid; gap: 3px; padding: 8px 10px; background: var(--surface); border: 1px solid #e8ddc8; border-radius: 8px; }
 .state-item p { font-size: 13px; line-height: 1.6; }
+.latest-activity { white-space: pre-line; }
 .artifact-item { padding: 2px 0; border: 0; background: transparent; }
 .artifact-link { color: var(--accent); text-decoration: none; overflow-wrap: anywhere; }
 .artifact-link:hover { color: var(--accent-hover); text-decoration: underline; text-underline-offset: 3px; }

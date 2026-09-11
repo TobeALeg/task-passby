@@ -564,7 +564,7 @@ export class DefinitionRepository {
           .prepare("INSERT INTO work_instances VALUES (?,?,'OPEN',?,?)")
           .run(id, definition.id, at, at);
         this.db
-          .prepare("INSERT INTO work_records VALUES (?,?,?,'[]')")
+          .prepare("INSERT INTO work_records (id,work_instance_id,state_json,tombstones_json) VALUES (?,?,?,'[]')")
           .run(randomUUID(), id, JSON.stringify(state));
         this.db
           .prepare("INSERT INTO instance_inputs VALUES (?,?)")

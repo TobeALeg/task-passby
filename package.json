@@ -1,7 +1,7 @@
 {
   "name": "workpet",
   "productName": "Worket",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "记录各执行者的工作，在同一项工作中交接和继续。",
   "type": "module",

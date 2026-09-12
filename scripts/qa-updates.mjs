@@ -8,7 +8,9 @@ import { _electron as electron } from "playwright";
 
 const directory = await mkdtemp(join(tmpdir(), "worket-updates-qa-"));
 const archive = Buffer.from("Worket synthetic update download QA");
-const name = "Worket-99.0.0-darwin-arm64.zip";
+const platform = process.platform === "win32" ? "win32" : "darwin";
+const arch = process.platform === "win32" ? "x64" : "arm64";
+const name = `Worket-99.0.0-${platform}-${arch}.zip`;
 const sha = createHash("sha256").update(archive).digest("hex");
 let downloads = 0;
 const server = createServer((request, response) => {
@@ -27,8 +29,15 @@ const address = server.address();
 let desktop;
 try {
   desktop = await electron.launch({
-    executablePath: process.env.WORKPET_EXECUTABLE_PATH ?? join(process.cwd(), "release/Worket-darwin-arm64/Worket.app/Contents/MacOS/Worket"),
-    args: ["--dev", `--user-data-dir=${directory}`],
+    executablePath: process.env.WORKPET_EXECUTABLE_PATH ??
+      (process.platform === "win32"
+        ? join(process.cwd(), "release/Worket-win32-x64/Worket.exe")
+        : join(process.cwd(), "release/Worket-darwin-arm64/Worket.app/Contents/MacOS/Worket")),
+    args: [
+      "--dev",
+      `--user-data-dir=${directory}`,
+      ...(process.platform === "win32" ? ["--disable-gpu", "--no-sandbox"] : []),
+    ],
     env: { ...process.env, WORKPET_SKIP_INTEGRATIONS: "1", WORKPET_DATA_DIR: directory,
       WORKPET_BRIDGE_CONFIG: join(directory, "bridge.json") },
   });
@@ -41,7 +50,8 @@ try {
     let choice = 0;
     const fetcher = (url, init) => net.fetch(base + new URL(url).pathname, init);
     const updates = new AppUpdates({ enabled: true, version: app.getVersion(),
-      latest: () => latestRelease(fetcher, app.getVersion(), "arm64"),
+      latest: () => latestRelease(fetcher, app.getVersion(), process.platform, process.arch),
+      platform: process.platform,
       download: release => downloadRelease(fetcher, release, directory),
       showDialog: async options => { messages.push(options); return { response: choice }; },
       reveal: path => revealed.push(path),
@@ -64,7 +74,7 @@ try {
   assert.ok(result.messages.some(message => message.message === "新版已下载"));
   assert.ok(result.messages.every(message => !message.buttons?.includes("重启更新")));
   console.log("PASS: packaged Electron menu, consent, HTTP download, checksum, reuse and manual replacement text");
-  console.log("Native dialog choices and Finder reveal are intercepted; no application is replaced.");
+  console.log("Native dialog choices and file reveal are intercepted; no application is replaced.");
 } finally {
   await desktop?.close();
   await new Promise(resolve => server.close(resolve));

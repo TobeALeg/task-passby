@@ -6,6 +6,7 @@ const execute = promisify(execFile);
 // macOS does not expose the Dock's icon frame without Accessibility permission.
 // Reserve a conservative span from its icon preferences; no new permission prompt.
 export async function readDockSpace(): Promise<{ width: number; bottom: boolean } | null> {
+  if (process.platform !== "darwin") return null;
   try {
     const { stdout } = await execute("/usr/bin/plutil", ["-convert", "json", "-o", "-", join(homedir(), "Library/Preferences/com.apple.dock.plist")], { timeout: 1500 });
     const prefs = JSON.parse(stdout);

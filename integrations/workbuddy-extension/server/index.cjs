@@ -1,4 +1,5 @@
 const { createServer } = require("node:net");
+const { createHash } = require("node:crypto");
 const { mkdir, chmod, unlink } = require("node:fs/promises");
 const { join } = require("node:path");
 const { homedir } = require("node:os");
@@ -30,12 +31,16 @@ process.on("message", (message) => {
   else call.resolve(message.result);
 });
 const handle = (input) => require("./handler.cjs")(input, invoke);
-const socketPath = join(homedir(), ".workpet", "workbuddy.sock");
+const socketPath = process.platform === "win32"
+  ? `\\\\.\\pipe\\workpet-workbuddy-${createHash("sha256").update(homedir()).digest("hex").slice(0, 12)}`
+  : join(homedir(), ".workpet", "workbuddy.sock");
 (async () => {
-  await mkdir(join(homedir(), ".workpet"), { recursive: true, mode: 0o700 });
-  await unlink(socketPath).catch((error) => {
-    if (error.code !== "ENOENT") throw error;
-  });
+  if (process.platform !== "win32") {
+    await mkdir(join(homedir(), ".workpet"), { recursive: true, mode: 0o700 });
+    await unlink(socketPath).catch((error) => {
+      if (error.code !== "ENOENT") throw error;
+    });
+  }
   const server = createServer((socket) => {
     socket.on("error", () => {});
     let data = "";
@@ -61,7 +66,7 @@ const socketPath = join(homedir(), ".workpet", "workbuddy.sock");
     server.once("error", reject);
     server.listen(socketPath, resolve);
   });
-  await chmod(socketPath, 0o600);
+  if (process.platform !== "win32") await chmod(socketPath, 0o600);
   process.send({ type: "wb-extension-ready" });
   process.on("disconnect", () => {
     server.close();

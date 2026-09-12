@@ -1,12 +1,22 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
+import { CODEX_BINARY_CANDIDATES, findCodexBinary } from "./app-server-client.js";
 const execFileAsync = promisify(execFile);
+const commandOptions = {
+  timeout: 30000,
+  env: {
+    ...process.env,
+    ...(process.platform === "win32" && !process.env.HOME
+      ? { HOME: process.env.USERPROFILE }
+      : {}),
+  },
+};
 
 export async function installCodexIntegration(
   appPath: string,
 ): Promise<string> {
-  const binary = "/Applications/ChatGPT.app/Contents/Resources/codex";
+  const binary = await findCodexBinary(CODEX_BINARY_CANDIDATES);
   const marketplace = join(appPath, "integrations", "codex-marketplace");
   let status = "installed";
   for (const args of [
@@ -14,7 +24,7 @@ export async function installCodexIntegration(
     ["plugin", "add", "workpet-capture@workpet-local", "--json"],
   ]) {
     try {
-      await execFileAsync(binary, args, { timeout: 30000 });
+      await execFileAsync(binary, args, commandOptions);
     } catch (error) {
       const message =
         typeof error === "object" && error && "stderr" in error
@@ -43,7 +53,7 @@ export async function installCodexIntegration(
         "mcp-proxy.mjs",
       ),
     ],
-    { timeout: 30000 },
+    commandOptions,
   );
   return status;
 }

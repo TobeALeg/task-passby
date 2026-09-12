@@ -512,6 +512,12 @@ test("A19 actual Hook binding and MCP read evidence gate reusable dispatch; laun
     app.dashboard(work.instance.id).selectedWork!.captureStatus,
     "waiting",
   );
+  assert.equal(
+    app.dashboard(work.instance.id).selectedWork!.agentName,
+    "尚未交给执行者",
+  );
+  assert.equal(app.dashboard(work.instance.id).selectedWork!.episodeCount, 0);
+  assert.deepEqual(app.dashboard(work.instance.id).selectedWork!.episodes, []);
   await app.syncHook("workbuddy", {
     hook_event_name: "UserPromptSubmit",
     session_id: "real-session",
@@ -526,6 +532,8 @@ test("A19 actual Hook binding and MCP read evidence gate reusable dispatch; laun
     app.dashboard(work.instance.id).selectedWork!.captureStatus,
     "waiting",
   );
+  assert.equal(app.dashboard(work.instance.id).selectedWork!.agentName, "WorkBuddy");
+  assert.equal(app.dashboard(work.instance.id).selectedWork!.episodeCount, 1);
   const mcp = new WorkPetMcpHandler(core);
   const response: any = mcp.handle({
     id: 1,

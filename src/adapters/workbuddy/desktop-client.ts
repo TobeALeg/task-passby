@@ -1,4 +1,5 @@
 import { connect } from "node:net";
+import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { NormalizedThread } from "../types.js";
@@ -6,7 +7,9 @@ import type { ConversationPage } from "../../executors/types.js";
 
 export class WorkBuddyDesktopClient {
   constructor(
-    readonly socketPath = join(homedir(), ".workpet", "workbuddy.sock"),
+    readonly socketPath = process.platform === "win32"
+      ? `\\\\.\\pipe\\workpet-workbuddy-${createHash("sha256").update(homedir()).digest("hex").slice(0, 12)}`
+      : join(homedir(), ".workpet", "workbuddy.sock"),
   ) {}
   async listThreadPage(
     _limit = 30,

@@ -23,7 +23,12 @@ function assetUrl(asset: Asset): string {
     throw new Error("更新附件地址不属于 Worket 发布仓库");
   return url.href;
 }
-export async function latestRelease(fetcher: FetchRelease, current: string, arch: string): Promise<Release | null> {
+export async function latestRelease(
+  fetcher: FetchRelease,
+  current: string,
+  platform: NodeJS.Platform,
+  arch: string,
+): Promise<Release | null> {
   const response = await fetcher(`https://api.github.com/repos/${UPDATE_REPOSITORY}/releases/latest`, {
     headers: { Accept: "application/vnd.github+json", "User-Agent": "Worket" },
     signal: AbortSignal.timeout(30_000),
@@ -33,7 +38,8 @@ export async function latestRelease(fetcher: FetchRelease, current: string, arch
   const data = await response.json() as { tag_name: string; draft: boolean; prerelease: boolean; assets: Asset[] };
   const version = data.tag_name.replace(/^v/, "");
   if (data.draft || data.prerelease || !isNewer(version, current)) return null;
-  const name = `Worket-${version}-darwin-${arch}.zip`;
+  if (platform !== "darwin" && platform !== "win32") return null;
+  const name = `Worket-${version}-${platform}-${arch}.zip`;
   const archive = data.assets.find(asset => asset.name === name);
   const checksum = data.assets.find(asset => asset.name === `${name}.sha256`);
   if (!archive || !checksum) throw new Error("新版缺少本机架构的安装包或校验文件，请等待发布者补齐");

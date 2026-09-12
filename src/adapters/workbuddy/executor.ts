@@ -19,7 +19,11 @@ export function createWorkBuddyExecutor(options: {
     id: "workbuddy",
     name: "WorkBuddy",
     mark: "W",
-    bundleIds: ["com.tencent.workbuddy.mac"],
+    bundleIds: [
+      "com.tencent.workbuddy.mac",
+      "WorkBuddy.exe",
+      "workbuddy.exe",
+    ],
     environment: { type: "WORKBUDDY_DESKTOP", name: "WorkBuddy Desktop" },
     source: buddy,
     reconcileHistory: reconcileLegacyEvents,

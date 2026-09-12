@@ -47,11 +47,11 @@ MCP → Work Core work package + read audit
 
 桌宠明确解析当前会话后提供记录或打开入口；无法解析则打开执行者会话选择，不猜 WorkBuddy 最新会话。面板负责多来源发现、历史分页、工作状态、交接、完成和归档。原始窗口标题只用于匹配；来源接口提供的应用标题保存为 `conversation.title`，首条消息不冒充标题。未命名会话可显式选择。
 
-保留原有桌宠拖动、位置持久化、75% 缩放、Dock 和单实例恢复。内部 workpet 标识、用户数据目录与 bundle ID 不迁移。
+保留原有桌宠拖动、位置持久化、75% 缩放、Dock / Windows 托盘和单实例恢复。内部 workpet 标识、用户数据目录与 bundle ID 不迁移。Windows 任务栏区域不作为底部吸附通道，避免桌宠覆盖系统任务栏。
 
 ### Foreground Context Detector
 
-macOS Helper 返回应用身份和可用窗口标题。只有前台 PID 为 Worket 自身时才向后寻找注册表列出的工作窗口。具体标题后缀处理和解析属于适配器：Codex 保留唯一标题匹配及无标题容器的唯一近期活动规则；WorkBuddy 无法读取准确当前会话时返回需要选择。第三方执行者不需要修改原生 Helper。
+macOS Helper 与 Windows Win32 Helper 返回应用身份和可用窗口标题。只有前台 PID 为 Worket 自身时才按窗口层级向后寻找注册表列出的工作窗口。Windows 构建时用系统 C# 编译器生成小型 Helper，并作为普通资源随包分发，不依赖运行时 PowerShell。具体标题后缀处理和解析属于适配器：Codex 保留唯一标题匹配及无标题容器的唯一近期活动规则；WorkBuddy 无法读取准确当前会话时返回需要选择。第三方执行者仍需声明对应平台的应用身份。
 
 ### Codex Adapter
 
@@ -59,7 +59,7 @@ App Server 提供列表与完整可见历史；共享连接初始化，单请求
 
 ### WorkBuddy Adapter
 
-5.5.3 内部扩展安装在 `~/.workbuddy/extensions/worket-capture`，声明 onStartup 与 resident，避免空闲回收后失去读取入口。仅授权 conversations.list/get/requestEntries/requests，通过同用户 0600 Unix socket 提供 list/read/status。历史加载等待 historyReady，分页完整读取并去重；不完整分页失败，不把部分历史当完整导入。
+5.5.3 内部扩展安装在 `~/.workbuddy/extensions/worket-capture`，声明 onStartup 与 resident，避免空闲回收后失去读取入口。仅授权 conversations.list/get/requestEntries/requests；macOS 通过同用户 0600 Unix socket，Windows 通过按用户目录哈希隔离的命名管道提供 list/read/status。历史加载等待 historyReady，分页完整读取并去重；不完整分页失败，不把部分历史当完整导入。
 
 归一化仅接受可见 text、tool 与资料引用，丢弃 reasoning/未知块；回复完成后入库，避免流式首个片段永久占用事件 ID。内部协议不是外部兼容承诺，升级不兼容时应显示接入错误。
 
@@ -180,7 +180,7 @@ INACTIVE ──继续原工作──> ACTIVE
 
 主进程在启动后持续调用 syncRecordedCodexWorks，只同步 OPEN 且当前 ACTIVE Binding 为 Codex 的工作，各来源独立失败重试；串行周期避免定时任务重叠。Hook 仍即时补采，事件 externalId 保证幂等。异步读取返回后重查 Binding，完成、删除或交接期间不得把旧来源追加到新执行片段。面板可见时每五秒分别刷新来源和已有记录；来源读取失败不阻止已有记录显示。历史加载和导入错误在原入口显示，可直接重试。
 
-来源目录的 agentName 由 Adapter 在 AppService 中声明，当前 Codex 来源固定为 Codex，不从项目目录或标题猜测。WorkSummaryView 的 agentName 来自活动 ExecutionEpisode，结束后取最后片段。waiting 领域状态保持原义，展示层统一转为“等待发送消息”，面板列表和详情共用 CAPTURE_WAITING_GUIDANCE，桌宠提示发送消息；样式与 recording 区分。
+来源目录的 agentName 由 Adapter 在 AppService 中声明，当前 Codex 来源固定为 Codex，不从项目目录或标题猜测。WorkSummaryView 只投影拥有真实会话 Binding 的 ExecutionEpisode：真实活动片段优先，否则取最后一个已确认片段；`pending:` / `waiting:` 占位片段不切换执行者、不进入展示计数和详情列表。waiting 领域状态保持原义，列表与桌宠显示“等待确认”，详情以单行“等待接手”呈现，不恢复独立说明横幅；样式与 recording 区分。
 
 面板以 PanelTab（RECENT 或 WorkStatus）控制两个互斥 tabpanel：sources-panel 只负责来源选择，works-panel 展示当前生命周期的列表、通知和详情。Tab 是 UI 状态，不引入新的工作生命周期；刷新保留 Tab，用户执行记录或生命周期操作后跟随目标工作状态。
 
@@ -271,9 +271,9 @@ work_definitions 现有一行对应一个 key/version 的形式继续作为固�
 
 ### 桌面应用更新
 
-`desktop/app-updates.ts` 管理检查并发、下载确认、提示及 Finder 定位；`desktop/github-release.ts` 读取公开 GitHub `releases/latest`，比较稳定版本，按严格文件名选择本机架构 ZIP 和 SHA256。主进程注入 Electron net.fetch，下载流式写入系统下载目录中的独立临时文件夹，大小和 SHA256 校验通过后才将 .part 改名为 ZIP。失败清理，不解压或执行附件。
+`desktop/app-updates.ts` 管理检查并发、下载确认、提示及系统文件管理器定位；`desktop/github-release.ts` 读取公开 GitHub `releases/latest`，比较稳定版本，按严格的 `darwin-arm64` / `win32-x64` 文件名选择本机 ZIP 和 SHA256。主进程注入 Electron net.fetch，下载流式写入系统下载目录中的独立临时文件夹，大小和 SHA256 校验通过后才将 .part 改名为 ZIP。失败清理，不解压或执行附件。
 
-状态流：闲置 → 检查 → 用户确认 → 下载校验 → Finder 定位；稍后、无更新或失败返回闲置。用户自行退出、替换和重开应用；不存在 autoUpdater 或原生安装调用。开发模式不检查。`scripts/release-mac.mjs` 负责免费 ad-hoc 签名、打包及解压 QA，不要求 Apple 公证，不自动发布。GitHub token 不进入客户端，数据目录和 bundle ID 保持稳定。
+状态流：闲置 → 检查 → 用户确认 → 下载校验 → 文件定位；稍后、无更新或失败返回闲置。用户自行退出、替换和重开应用；不存在 autoUpdater 或原生安装调用。开发模式不检查。`scripts/release-mac.mjs` 负责免费 ad-hoc 签名，`scripts/release-win.mjs` 负责未签名便携包；两者均执行打包 QA 并且不自动发布。GitHub token 不进入客户端，数据目录和应用身份保持稳定。
 
 ### VPS 安装身份与自动连接
 

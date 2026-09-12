@@ -25,6 +25,12 @@ export interface ForegroundApplicationDetector {
   detect(): Promise<ForegroundApplication | null>;
 }
 
+export class NullForegroundApplicationDetector implements ForegroundApplicationDetector {
+  async detect(): Promise<null> {
+    return null;
+  }
+}
+
 /**
  * 读取前台应用元数据；窗口标题仅用于在 Adapter 内解析会话身份，不会被归档。
  * 系统不提供窗口标题时仍返回应用身份，由 UI 提供明确的会话选择。
@@ -68,4 +74,57 @@ export class MacForegroundApplicationDetector implements ForegroundApplicationDe
       return null;
     }
   }
+}
+
+
+export class WindowsForegroundApplicationDetector implements ForegroundApplicationDetector {
+  readonly #helperPath: string;
+
+  constructor(
+    helperPath = fileURLToPath(
+      new URL("../../foreground-context.exe", import.meta.url),
+    ),
+    readonly applicationIds: readonly string[] = [],
+  ) {
+    this.#helperPath = helperPath;
+  }
+
+  async detect(): Promise<ForegroundApplication | null> {
+    try {
+      const { stdout } = await execFileAsync(
+        this.#helperPath,
+        [String(process.pid), ...this.applicationIds],
+        { timeout: 3_000, windowsHide: true },
+      );
+      const value: unknown = JSON.parse(stdout.trim());
+      if (!value || typeof value !== "object") return null;
+      const candidate = value as Record<string, unknown>;
+      if (
+        typeof candidate.bundleId !== "string" ||
+        typeof candidate.name !== "string"
+      )
+        return null;
+      return {
+        bundleId: candidate.bundleId,
+        name: candidate.name,
+        windowTitle:
+          typeof candidate.windowTitle === "string"
+            ? candidate.windowTitle
+            : null,
+      };
+    } catch {
+      return null;
+    }
+  }
+}
+
+export function createForegroundApplicationDetector(
+  applicationIds: readonly string[],
+  helperPath?: string,
+): ForegroundApplicationDetector {
+  if (process.platform === "darwin")
+    return new MacForegroundApplicationDetector(helperPath, applicationIds);
+  if (process.platform === "win32")
+    return new WindowsForegroundApplicationDetector(helperPath, applicationIds);
+  return new NullForegroundApplicationDetector();
 }

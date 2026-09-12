@@ -16,6 +16,7 @@ export class PetPosition {
   }
   private async refreshDockSpace(): Promise<void> { this.dockSpace = await readDockSpace(); }
   private protectedDockWidth(display: Rectangle): number {
+    if (process.platform !== "darwin") return display.width * 2;
     return this.dockSpace ? this.dockSpace.bottom ? this.dockSpace.width : 0 : display.width * 0.8;
   }
   get dragging(): boolean { return this.drag !== null; }

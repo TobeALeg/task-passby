@@ -21,12 +21,25 @@ test("stable numeric version comparison rejects downgrade and prerelease", () =>
   for (const version of ["0.1.0", "0.0.9", "0.2.0-beta.1", "bad"]) assert.equal(isNewer(version, "0.1.0"), false);
 });
 test("release selection excludes prerelease, missing/wrong architecture and foreign URL", async () => {
-  assert.equal((await latestRelease(async () => json(metadata), "0.1.0", "arm64"))?.version, "0.2.0");
-  assert.equal(await latestRelease(async () => json({ ...metadata, prerelease: true }), "0.1.0", "arm64"), null);
-  assert.equal(await latestRelease(async () => new Response(null, { status: 404 }), "0.1.0", "arm64"), null);
-  await assert.rejects(latestRelease(async () => json(metadata), "0.1.0", "x64"), /缺少/);
-  await assert.rejects(latestRelease(async () => json({ ...metadata, assets: [release.archive] }), "0.1.0", "arm64"), /缺少/);
-  await assert.rejects(latestRelease(async () => json({ ...metadata, assets: [{ ...release.archive, browser_download_url: "https://example.com/app.zip" }, release.checksum] }), "0.1.0", "arm64"), /地址/);
+  assert.equal((await latestRelease(async () => json(metadata), "0.1.0", "darwin", "arm64"))?.version, "0.2.0");
+  assert.equal(await latestRelease(async () => json({ ...metadata, prerelease: true }), "0.1.0", "darwin", "arm64"), null);
+  assert.equal(await latestRelease(async () => new Response(null, { status: 404 }), "0.1.0", "darwin", "arm64"), null);
+  await assert.rejects(latestRelease(async () => json(metadata), "0.1.0", "darwin", "x64"), /缺少/);
+  await assert.rejects(latestRelease(async () => json({ ...metadata, assets: [release.archive] }), "0.1.0", "darwin", "arm64"), /缺少/);
+  await assert.rejects(latestRelease(async () => json({ ...metadata, assets: [{ ...release.archive, browser_download_url: "https://example.com/app.zip" }, release.checksum] }), "0.1.0", "darwin", "arm64"), /地址/);
+});
+
+test("release selection supports Windows portable packages", async () => {
+  const windowsName = "Worket-0.2.0-win32-x64.zip";
+  const windows = {
+    ...metadata,
+    assets: [asset(windowsName), asset(`${windowsName}.sha256`)],
+  };
+  assert.equal(
+    (await latestRelease(async () => json(windows), "0.1.0", "win32", "x64"))?.archive.name,
+    windowsName,
+  );
+  assert.equal(await latestRelease(async () => json(windows), "0.1.0", "linux", "x64"), null);
 });
 test("streamed download verifies size and checksum and removes failed files", async () => {
   const directory = await mkdtemp(join(tmpdir(), "worket-download-test-"));

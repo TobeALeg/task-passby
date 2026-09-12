@@ -1,4 +1,6 @@
 // Only the fields rendered as user-visible conversation content cross into Worket.
+const { isAbsolute } = require("node:path");
+const { fileURLToPath } = require("node:url");
 const iso = (value) =>
   new Date(
     typeof value === "number"
@@ -99,12 +101,12 @@ function visibleThread(info, requests) {
             block.resource?.uri;
           if (typeof path === "string" && path.startsWith("file://")) {
             try {
-              path = decodeURIComponent(new URL(path).pathname);
+              path = fileURLToPath(path);
             } catch {
               path = null;
             }
           }
-          if (typeof path === "string" && path.startsWith("/"))
+          if (typeof path === "string" && isAbsolute(path))
             emit(req, `${key}:artifact`, "artifact.added", path, {
               path,
               role: role === "user" ? "INPUT" : "OUTPUT",

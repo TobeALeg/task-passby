@@ -55,13 +55,20 @@ function hookCommand(appPath: string): string {
     "bridge",
     "hook-proxy.mjs",
   );
-  return `node ${JSON.stringify(proxy)}`;
+  return process.platform === "win32"
+    ? `node "${proxy.replaceAll('"', '""')}"`
+    : `node ${JSON.stringify(proxy)}`;
 }
 
 function isWorkPetHook(value: unknown): boolean {
-  return JSON.stringify(value).includes(
-    "/plugins/workpet/bridge/hook-proxy.mjs",
-  );
+  if (typeof value === "string")
+    return value
+      .replace(/\\+/gu, "/")
+      .includes("/plugins/workpet/bridge/hook-proxy.mjs");
+  if (Array.isArray(value)) return value.some(isWorkPetHook);
+  if (value && typeof value === "object")
+    return Object.values(value).some(isWorkPetHook);
+  return false;
 }
 
 function hasHookCommand(value: unknown, command: string): boolean {

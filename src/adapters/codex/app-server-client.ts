@@ -1,6 +1,8 @@
 import { access } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 import { normalizeCodexThread, type CodexThreadPayload } from "./normalize.js";
 import type { NormalizedThread } from "../types.js";
@@ -37,11 +39,16 @@ export const CODEX_BINARY_CANDIDATES = [
   "/Applications/ChatGPT.app/Contents/Resources/codex",
   `${process.env.HOME ?? ""}/Applications/ChatGPT.app/Contents/Resources/codex`,
   `${process.env.HOME ?? ""}/.codex/plugins/.plugin-appserver/codex`,
+  join(homedir(), ".codex", "plugins", ".plugin-appserver", "codex.exe"),
+  join(process.env.LOCALAPPDATA ?? "", "Programs", "Codex", "resources", "codex.exe"),
+  join(process.env.LOCALAPPDATA ?? "", "Programs", "ChatGPT", "resources", "codex.exe"),
+  join(process.env.ProgramFiles ?? "", "Codex", "resources", "codex.exe"),
+  join(process.env.ProgramFiles ?? "", "ChatGPT", "resources", "codex.exe"),
 ];
 
-async function findCodexBinary(candidates: string[]): Promise<string> {
+export async function findCodexBinary(candidates: string[]): Promise<string> {
   for (const candidate of candidates) {
-    if (!candidate.startsWith("/")) continue;
+    if (!candidate) continue;
     try {
       await access(candidate);
       return candidate;
@@ -85,7 +92,12 @@ export class CodexAppServerClient {
     const binary = await findCodexBinary(this.#binaryCandidates);
     const child = spawn(binary, ["app-server", "--stdio"], {
       stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env },
+      env: {
+        ...process.env,
+        ...(process.platform === "win32" && !process.env.HOME
+          ? { HOME: homedir() }
+          : {}),
+      },
     });
     this.#process = child;
 

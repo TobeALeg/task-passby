@@ -4,7 +4,7 @@ import { conversationProjectLabel } from "../executors/project-label.js";
 import { createHash, randomUUID } from "node:crypto";
 import { ArtifactTracker } from "../artifacts/tracker.js";
 import {
-  MacForegroundApplicationDetector,
+  createForegroundApplicationDetector,
   type CurrentApplicationContext,
   type ForegroundApplicationDetector,
 } from "../adapters/foreground/context.js";
@@ -69,6 +69,19 @@ function captureStatus(work: WorkSnapshot): CaptureStatus {
     return "waiting";
   return "recording";
 }
+
+function isPlaceholderConversation(conversationId: string): boolean {
+  return /^(pending|waiting):/u.test(conversationId);
+}
+
+function confirmedEpisodes(work: WorkSnapshot) {
+  const confirmedEpisodeIds = new Set(
+    work.bindings
+      .filter((binding) => !isPlaceholderConversation(binding.conversationId))
+      .map((binding) => binding.episodeId),
+  );
+  return work.episodes.filter((episode) => confirmedEpisodeIds.has(episode.id));
+}
 export interface AppServiceOptions {
   databasePath: string;
   executors: ExecutorAdapter[];
@@ -95,8 +108,7 @@ export class AppService {
     this.#executors = new ExecutorRegistry(options.executors);
     this.#foreground =
       options.foreground ??
-      new MacForegroundApplicationDetector(
-        undefined,
+      createForegroundApplicationDetector(
         options.executors.flatMap((adapter) => [...adapter.bundleIds]),
       );
     this.#artifacts = new ArtifactTracker(this.#core);
@@ -956,10 +968,16 @@ export class AppService {
   }
 
   #summary(work: WorkSnapshot): WorkSummaryView {
+    const episodes = confirmedEpisodes(work);
+    const activeEpisode =
+      work.activeBinding &&
+      !isPlaceholderConversation(work.activeBinding.conversationId)
+        ? work.activeEpisode
+        : null;
     return {
       id: work.instance.id,
       agentName:
-        (work.activeEpisode ?? work.episodes.at(-1))?.executor.name ??
+        (activeEpisode ?? episodes.at(-1))?.executor.name ??
         (work.definition.kind === "REUSABLE" ? "尚未交给执行者" : "未知 Agent"),
       title: work.state.objective[0]?.text ?? "未命名工作",
       status: work.instance.status,
@@ -967,7 +985,7 @@ export class AppService {
       updatedAt: work.instance.updatedAt,
       eventCount: work.sourceArchive.length,
       artifactCount: work.artifactRefs.length,
-      episodeCount: work.episodes.length,
+      episodeCount: episodes.length,
     };
   }
 
@@ -993,7 +1011,7 @@ export class AppService {
           return file ? { ...item, file } : item;
         }),
       },
-      episodes: work.episodes.map((episode) => ({
+      episodes: confirmedEpisodes(work).map((episode) => ({
         id: episode.id,
         executor: episode.executor.name,
         environment: episode.environment.name,

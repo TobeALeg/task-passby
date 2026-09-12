@@ -5,6 +5,7 @@ import {
   resolveThreadFromRecentActivity,
   resolveThreadFromWindowTitle
 } from "../../src/executors/conversation-resolution.ts";
+import { createCodexExecutor } from "../../dist/adapters/codex/executor.js";
 
 
 test("没有窗口标题时只在最新 Codex 任务足够新且不含歧义时自动识别", () => {
@@ -27,4 +28,26 @@ test("Codex 只在窗口标题与唯一任务标题相符时识别当前聊天�
   ];
   assert.equal(resolveThreadFromWindowTitle("准备客户提案 V2", threads)?.id, "current-thread");
   assert.equal(resolveThreadFromWindowTitle("新的未命名对话", threads), null);
+});
+
+test("Windows Codex 的通用 ChatGPT 窗口标题按无标题容器处理", async () => {
+  const now = Date.now();
+  const source = {
+    async listThreadPage() {
+      return {
+        threads: [
+          { id: "active", title: "Windows 当前任务", preview: "", cwd: "C:\\work", updatedAt: new Date(now).toISOString(), status: "working" },
+          { id: "older", title: "旧任务", preview: "", cwd: "C:\\work", updatedAt: new Date(now - 60_000).toISOString(), status: "completed" },
+        ],
+        nextCursor: null,
+      };
+    },
+    async readThread() { throw new Error("not used"); },
+    close() {},
+  };
+  const adapter = createCodexExecutor({ codex: source });
+  assert.equal(
+    (await adapter.resolveCurrent({ bundleId: "ChatGPT.exe", name: "ChatGPT", windowTitle: "ChatGPT" }))?.id,
+    "active",
+  );
 });

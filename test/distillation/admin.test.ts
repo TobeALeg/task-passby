@@ -260,7 +260,10 @@ test("admin: encrypted configuration, revision control, unsaved connection test,
       "encryption.key",
       "identity-private.pem",
     ])
-      assert.equal(statSync(join(f.directory, name)).mode & 0o777, 0o600);
+      assert.equal(
+        statSync(join(f.directory, name)).mode & 0o777,
+        process.platform === "win32" ? 0o666 : 0o600,
+      );
     const client = (
       await f.send("/admin/api/clients", "POST", { name: "测试 Mac", days: 30 })
     ).body;

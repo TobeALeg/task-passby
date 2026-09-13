@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "decidedAt": "2026-09-12T23:51:00+08:00",
+  "basis": "Frozen task YAML, episode dependency metadata, task assets, and evaluator tool declarations only; no valid calibration score was inspected.",
+  "tasks": [
+    {"persona":"marketer","taskId":"marketer_task_002","difficulty":"easy","modality":"text","title":"rule","taskType":"long_term","sha256":"5a2c48251918a853de697aa23542031a35625610f6dd1fd5acded068a554a351"},
+    {"persona":"marketer","taskId":"marketer_task_011","difficulty":"medium","modality":"web","title":"Draft a Core Product Asset Brief","taskType":"long_term","sha256":"55cd5f68f56fbf51cc80131dfab3f4e27d49947a3fbf5bc1157be928f5806197"},
+    {"persona":"marketer","taskId":"marketer_task_012","difficulty":"medium","modality":"file","title":"Generate A/B Testing Headlines","taskType":"long_term","sha256":"cd36c35f08230cd56df09bc4cb69ab4ceab620d9cc973f25bc08b2962ecd2171"},
+    {"persona":"marketer","taskId":"marketer_task_010","difficulty":"medium","modality":"tool","title":"Draft a Core Product Asset Brief","taskType":"long_term","sha256":"ea6e6255b4f54b5530aac77ff660f8b39ab45d550859d1810aefe735957db289"},
+    {"persona":"Financier","taskId":"Financier_task_013","difficulty":"medium","modality":"text","title":"","taskType":"val","sha256":"90801625bba9e7413a05a028b6ce3cb40513de6675b868a05c7139e40f509f04"},
+    {"persona":"Financier","taskId":"Financier_task_007","difficulty":"medium","modality":"file","title":"","taskType":"val","sha256":"d14d0c3efb10e748dab6b558b91b79bf0b2c7c67c428db4453eed4b778856a4b"},
+    {"persona":"Financier","taskId":"Financier_task_002","difficulty":"medium","modality":"tool","title":"Weekend Camping Departure Memo Cleanup","taskType":"short_term_independent","sha256":"a05bbaf9b5191be376b1c9a5957a1e69151cbd156ae37b2920705f32e431063d"},
+    {"persona":"Financier","taskId":"Financier_task_005","difficulty":"medium","modality":"tool","title":"Pre-Event Confirmation Email for Product Demo","taskType":"short_term_independent","sha256":"84bcafb4afa328f19a3080b80d469057e0ee95451aff2a1cb01911418e7a7c1e"},
+    {"persona":"researcher","taskId":"researcher_task_002","difficulty":"easy","modality":"text","title":"Starting Lean Bulk: Cost-Effective Gym Gear Selection","taskType":"long_term","sha256":"213a5fbded0a54cf61382be3d9c55f5b7af5249a8dc9d072d61d4ac93ba57dcf"},
+    {"persona":"researcher","taskId":"researcher_task_010","difficulty":"easy","modality":"file","title":"LiteAlign Pre-Submission: Triage of Senior Labmate Review and Response-Outline Setup","taskType":"short_term_independent","sha256":"578171c9271e7194307b73f8f7a57c8d6646716351e821ef5bc6bf21a9d07713"},
+    {"persona":"researcher","taskId":"researcher_task_014","difficulty":"medium","modality":"tool","title":"Todoist Conflict Detection Task (15 Items)","taskType":"short_term_independent","sha256":"d42efa7ec79a99f47666ff3eb1f93da4cf5f7baa4124294434a2b407fc89dadf"},
+    {"persona":"researcher","taskId":"researcher_task_015","difficulty":"medium","modality":"tool","title":"gmail","taskType":"short_term_independent","sha256":"0d9b4cd601a662bef8ea68c7b3340e0de2b1911ce6b6c3b8bf771d1c6a257700"}
+  ]
+}

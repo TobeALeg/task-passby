@@ -1,0 +1,2493 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-13T04:46:25.125703+00:00",
+  "scope": "existing-results-only-user-requested-pause",
+  "plannedRuns": 72,
+  "scoredRuns": 57,
+  "missingScoredRuns": 15,
+  "caseRecords": [
+    {
+      "model": "deepseek-flash",
+      "persona": "marketer",
+      "taskId": "marketer_task_002",
+      "repeat": 1,
+      "runId": "deepseek-cal-valid-v2-r1",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 1.0,
+      "modelResponseCount": 3,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "marketer",
+      "taskId": "marketer_task_002",
+      "repeat": 1,
+      "runId": "qwen-max-cal-valid-v2-r1",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 1.0,
+      "modelResponseCount": 9,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "marketer",
+      "taskId": "marketer_task_002",
+      "repeat": 2,
+      "runId": "qwen-max-cal-valid-v2-r2",
+      "status": "ERROR",
+      "turns": 1,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.6666666666666666,
+      "modelResponseCount": 6,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "marketer",
+      "taskId": "marketer_task_002",
+      "repeat": 2,
+      "runId": "deepseek-cal-valid-v2-r2",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 1.0,
+      "modelResponseCount": 9,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "marketer",
+      "taskId": "marketer_task_002",
+      "repeat": 3,
+      "runId": "deepseek-cal-valid-v2-r3",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 1.0,
+      "modelResponseCount": 6,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "marketer",
+      "taskId": "marketer_task_002",
+      "repeat": 3,
+      "runId": "qwen-max-cal-valid-v2-r3-retry1",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.6666666666666666,
+      "modelResponseCount": 13,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "marketer",
+      "taskId": "marketer_task_011",
+      "repeat": 1,
+      "runId": "deepseek-cal-valid-v2-r1",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.6666666666666666,
+      "modelResponseCount": 8,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "marketer",
+      "taskId": "marketer_task_011",
+      "repeat": 1,
+      "runId": "qwen-max-cal-valid-v2-r1-retry1",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.6666666666666666,
+      "modelResponseCount": 19,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "marketer",
+      "taskId": "marketer_task_011",
+      "repeat": 2,
+      "runId": "qwen-max-cal-valid-v2-r2",
+      "status": "ERROR",
+      "turns": 1,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.0,
+      "modelResponseCount": 8,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "marketer",
+      "taskId": "marketer_task_011",
+      "repeat": 2,
+      "runId": "deepseek-cal-valid-v2-r2",
+      "status": "SUCCESS",
+      "turns": 3,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.3333333333333333,
+      "modelResponseCount": 11,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "marketer",
+      "taskId": "marketer_task_011",
+      "repeat": 3,
+      "runId": "deepseek-cal-valid-v2-r3",
+      "status": "SUCCESS",
+      "turns": 3,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.3333333333333333,
+      "modelResponseCount": 13,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "marketer",
+      "taskId": "marketer_task_011",
+      "repeat": 3,
+      "runId": "qwen-max-cal-valid-v2-r3",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 1.0,
+      "modelResponseCount": 12,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "marketer",
+      "taskId": "marketer_task_012",
+      "repeat": 1,
+      "runId": "deepseek-cal-valid-v2-r1",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": 1.0,
+      "compAvailable": true,
+      "proc": 0.6666666666666666,
+      "modelResponseCount": 5,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "marketer",
+      "taskId": "marketer_task_012",
+      "repeat": 1,
+      "runId": "qwen-max-cal-valid-v2-r1",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 1.0,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 5,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "marketer",
+      "taskId": "marketer_task_012",
+      "repeat": 2,
+      "runId": "qwen-max-cal-valid-v2-r2-retry1",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 1.0,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 5,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "marketer",
+      "taskId": "marketer_task_012",
+      "repeat": 2,
+      "runId": "deepseek-cal-valid-v2-r2",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 1.0,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 5,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "marketer",
+      "taskId": "marketer_task_012",
+      "repeat": 3,
+      "runId": "deepseek-cal-valid-v2-r3",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 1.0,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 4,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "marketer",
+      "taskId": "marketer_task_012",
+      "repeat": 3,
+      "runId": "qwen-max-cal-valid-v2-r3",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 1.0,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 4,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "marketer",
+      "taskId": "marketer_task_010",
+      "repeat": 1,
+      "runId": "deepseek-cal-valid-v2-r1-retry2",
+      "status": "SUCCESS",
+      "turns": 3,
+      "comp": 0.6,
+      "compAvailable": true,
+      "proc": 0.75,
+      "modelResponseCount": 39,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "marketer",
+      "taskId": "marketer_task_010",
+      "repeat": 1,
+      "runId": "qwen-max-cal-valid-v2-r1-retry2",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": 0.6,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 17,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "marketer",
+      "taskId": "marketer_task_010",
+      "repeat": 2,
+      "runId": "qwen-max-cal-valid-v2-r2-retry2",
+      "status": "ERROR",
+      "turns": 1,
+      "comp": 0.2,
+      "compAvailable": true,
+      "proc": 0.5,
+      "modelResponseCount": 12,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "marketer",
+      "taskId": "marketer_task_010",
+      "repeat": 2,
+      "runId": "deepseek-cal-valid-v2-r2-retry1",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": 0.6,
+      "compAvailable": true,
+      "proc": 0.75,
+      "modelResponseCount": 24,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "marketer",
+      "taskId": "marketer_task_010",
+      "repeat": 3,
+      "runId": "deepseek-cal-valid-v2-r3-retry2",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": 0.6,
+      "compAvailable": true,
+      "proc": 0.75,
+      "modelResponseCount": 26,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "marketer",
+      "taskId": "marketer_task_010",
+      "repeat": 3,
+      "runId": "qwen-max-cal-valid-v2-r3-retry1",
+      "status": "ERROR",
+      "turns": 1,
+      "comp": 0.2,
+      "compAvailable": true,
+      "proc": 0.5,
+      "modelResponseCount": 17,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "Financier",
+      "taskId": "Financier_task_013",
+      "repeat": 1,
+      "runId": "deepseek-cal-valid-v2-r1",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 1.0,
+      "modelResponseCount": 4,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "Financier",
+      "taskId": "Financier_task_013",
+      "repeat": 1,
+      "runId": "qwen-max-cal-valid-v2-r1-retry4",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.75,
+      "modelResponseCount": 23,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "Financier",
+      "taskId": "Financier_task_013",
+      "repeat": 2,
+      "runId": "qwen-max-cal-valid-v2-r2-retry4",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.75,
+      "modelResponseCount": 38,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "Financier",
+      "taskId": "Financier_task_013",
+      "repeat": 2,
+      "runId": "deepseek-cal-valid-v2-r2-retry1",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.75,
+      "modelResponseCount": 3,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "Financier",
+      "taskId": "Financier_task_013",
+      "repeat": 3,
+      "runId": "deepseek-cal-valid-v2-r3-retry1",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.75,
+      "modelResponseCount": 7,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "Financier",
+      "taskId": "Financier_task_013",
+      "repeat": 3,
+      "runId": "qwen-max-cal-valid-v2-r3-retry2",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.75,
+      "modelResponseCount": 33,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "Financier",
+      "taskId": "Financier_task_007",
+      "repeat": 1,
+      "runId": "deepseek-cal-valid-v2-r1",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 1.0,
+      "modelResponseCount": 8,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "Financier",
+      "taskId": "Financier_task_007",
+      "repeat": 1,
+      "runId": "qwen-max-cal-valid-v2-r1-retry4",
+      "status": "TIMEOUT",
+      "turns": 0,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.0,
+      "modelResponseCount": 5,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "Financier",
+      "taskId": "Financier_task_007",
+      "repeat": 2,
+      "runId": "deepseek-cal-valid-v2-r2",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.75,
+      "modelResponseCount": 15,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "Financier",
+      "taskId": "Financier_task_007",
+      "repeat": 3,
+      "runId": "deepseek-cal-valid-v2-r3",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 1.0,
+      "modelResponseCount": 8,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "Financier",
+      "taskId": "Financier_task_002",
+      "repeat": 1,
+      "runId": "deepseek-cal-valid-v2-r1",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 0.7222222222222222,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 14,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "Financier",
+      "taskId": "Financier_task_002",
+      "repeat": 1,
+      "runId": "qwen-max-cal-valid-v2-r1-retry2",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 0.7222222222222222,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 8,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "Financier",
+      "taskId": "Financier_task_002",
+      "repeat": 2,
+      "runId": "qwen-max-cal-valid-v2-r2-retry2",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 0.7777777777777778,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 10,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "Financier",
+      "taskId": "Financier_task_002",
+      "repeat": 2,
+      "runId": "deepseek-cal-valid-v2-r2",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 0.7222222222222222,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 7,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "Financier",
+      "taskId": "Financier_task_002",
+      "repeat": 3,
+      "runId": "deepseek-cal-valid-v2-r3",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 0.7222222222222222,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 9,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "Financier",
+      "taskId": "Financier_task_002",
+      "repeat": 3,
+      "runId": "qwen-max-cal-valid-v2-r3-retry1",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 0.7777777777777778,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 8,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "Financier",
+      "taskId": "Financier_task_005",
+      "repeat": 1,
+      "runId": "deepseek-cal-valid-v2-r1",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": 0.5263157894736842,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 10,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "Financier",
+      "taskId": "Financier_task_005",
+      "repeat": 1,
+      "runId": "qwen-max-cal-valid-v2-r1-retry1",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": 0.5263157894736842,
+      "compAvailable": true,
+      "proc": 0.6666666666666666,
+      "modelResponseCount": 15,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "Financier",
+      "taskId": "Financier_task_005",
+      "repeat": 2,
+      "runId": "qwen-max-cal-valid-v2-r2-retry1",
+      "status": "ERROR",
+      "turns": 1,
+      "comp": 0.5263157894736842,
+      "compAvailable": true,
+      "proc": 0.0,
+      "modelResponseCount": 13,
+      "modelBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "requestedModel": "qwen3.8-max-0902",
+      "modelResponseIds": [
+        "qwen3.8-max-0902"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "Financier",
+      "taskId": "Financier_task_005",
+      "repeat": 2,
+      "runId": "deepseek-cal-valid-v2-r2-retry2",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": 0.5263157894736842,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 10,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "Financier",
+      "taskId": "Financier_task_005",
+      "repeat": 3,
+      "runId": "deepseek-cal-valid-v2-r3-retry2",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": 0.5263157894736842,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 12,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "researcher",
+      "taskId": "researcher_task_002",
+      "repeat": 1,
+      "runId": "deepseek-cal-valid-v2-r1-retry2",
+      "status": "ERROR",
+      "turns": 1,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.0,
+      "modelResponseCount": 11,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "researcher",
+      "taskId": "researcher_task_002",
+      "repeat": 2,
+      "runId": "deepseek-cal-valid-v2-r2-retry2",
+      "status": "SUCCESS",
+      "turns": 2,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.6666666666666666,
+      "modelResponseCount": 15,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "researcher",
+      "taskId": "researcher_task_002",
+      "repeat": 3,
+      "runId": "deepseek-cal-valid-v2-r3-retry2",
+      "status": "SUCCESS",
+      "turns": 3,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.3333333333333333,
+      "modelResponseCount": 13,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "researcher",
+      "taskId": "researcher_task_010",
+      "repeat": 1,
+      "runId": "deepseek-cal-valid-v2-r1-retry2",
+      "status": "SUCCESS",
+      "turns": 3,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.3333333333333333,
+      "modelResponseCount": 16,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "researcher",
+      "taskId": "researcher_task_010",
+      "repeat": 2,
+      "runId": "deepseek-cal-valid-v2-r2-retry2",
+      "status": "SUCCESS",
+      "turns": 3,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.3333333333333333,
+      "modelResponseCount": 20,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "researcher",
+      "taskId": "researcher_task_010",
+      "repeat": 3,
+      "runId": "deepseek-cal-valid-v2-r3",
+      "status": "SUCCESS",
+      "turns": 4,
+      "comp": null,
+      "compAvailable": false,
+      "proc": 0.0,
+      "modelResponseCount": 25,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "researcher",
+      "taskId": "researcher_task_014",
+      "repeat": 1,
+      "runId": "deepseek-cal-valid-v2-r1",
+      "status": "SUCCESS",
+      "turns": 4,
+      "comp": 0.05,
+      "compAvailable": true,
+      "proc": 0.0,
+      "modelResponseCount": 18,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "researcher",
+      "taskId": "researcher_task_014",
+      "repeat": 2,
+      "runId": "deepseek-cal-valid-v2-r2",
+      "status": "SUCCESS",
+      "turns": 3,
+      "comp": 0.05,
+      "compAvailable": true,
+      "proc": 0.6666666666666666,
+      "modelResponseCount": 23,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "researcher",
+      "taskId": "researcher_task_014",
+      "repeat": 3,
+      "runId": "deepseek-cal-valid-v2-r3",
+      "status": "SUCCESS",
+      "turns": 4,
+      "comp": 0.05,
+      "compAvailable": true,
+      "proc": 0.0,
+      "modelResponseCount": 21,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "researcher",
+      "taskId": "researcher_task_015",
+      "repeat": 1,
+      "runId": "deepseek-cal-valid-v2-r1-retry2",
+      "status": "SUCCESS",
+      "turns": 3,
+      "comp": 0.5,
+      "compAvailable": true,
+      "proc": 0.3333333333333333,
+      "modelResponseCount": 17,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "researcher",
+      "taskId": "researcher_task_015",
+      "repeat": 2,
+      "runId": "deepseek-cal-valid-v2-r2-retry1",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 0.6666666666666666,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 16,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "model": "deepseek-flash",
+      "persona": "researcher",
+      "taskId": "researcher_task_015",
+      "repeat": 3,
+      "runId": "deepseek-cal-valid-v2-r3",
+      "status": "SUCCESS",
+      "turns": 1,
+      "comp": 0.8333333333333334,
+      "compAvailable": true,
+      "proc": 1.0,
+      "modelResponseCount": 21,
+      "modelBaseUrl": "https://api.deepseek.com",
+      "requestedModel": "deepseek-flash",
+      "modelResponseIds": [
+        "deepseek-flash"
+      ]
+    }
+  ],
+  "models": {
+    "deepseek-flash": {
+      "scoredRuns": 36,
+      "compRuns": 18,
+      "meanComp": 0.594201,
+      "procRuns": 36,
+      "meanProc": 0.699074,
+      "statusCounts": {
+        "ERROR": 1,
+        "SUCCESS": 35
+      },
+      "endpointCohorts": {
+        "https://api.deepseek.com": 36
+      },
+      "requestModelCohorts": {
+        "deepseek-flash": 36
+      },
+      "serverResponseIdCounts": {
+        "deepseek-flash": 36
+      }
+    },
+    "qwen3.8-max-0902": {
+      "scoredRuns": 21,
+      "compRuns": 11,
+      "meanComp": 0.666401,
+      "procRuns": 21,
+      "meanProc": 0.710317,
+      "statusCounts": {
+        "ERROR": 5,
+        "SUCCESS": 15,
+        "TIMEOUT": 1
+      },
+      "endpointCohorts": {
+        "https://dashscope.aliyuncs.com/compatible-mode/v1": 21
+      },
+      "requestModelCohorts": {
+        "qwen3.8-max-0902": 21
+      },
+      "serverResponseIdCounts": {
+        "qwen3.8-max-0902": 21
+      }
+    }
+  },
+  "pairedComparison": {
+    "pairedRuns": 21,
+    "pairedCompRuns": 11,
+    "sourceMeanComp": 0.729027,
+    "targetMeanComp": 0.666401,
+    "absoluteCompGapPp": 6.263,
+    "observedCompThresholdMet": false,
+    "pairedProcRuns": 21,
+    "sourceMeanProc": 0.845238,
+    "targetMeanProc": 0.710317,
+    "absoluteProcGapPp": 13.492,
+    "observedProcThresholdMet": false,
+    "personaComp": {
+      "Financier": {
+        "pairedRuns": 5,
+        "sourceMean": 0.64386,
+        "targetMean": 0.666082,
+        "absoluteGapPp": 2.222
+      },
+      "marketer": {
+        "pairedRuns": 6,
+        "sourceMean": 0.8,
+        "targetMean": 0.666667,
+        "absoluteGapPp": 13.333
+      }
+    },
+    "observedPersonaCompThresholdMet": false,
+    "completePairedTaskBlocks": 6,
+    "plannedTaskBlocks": 12,
+    "toolEnvironmentFailureGapPp": null,
+    "stableDominanceAssessment": null
+  },
+  "taskBlocks": [
+    {
+      "persona": "Financier",
+      "taskId": "Financier_task_002",
+      "sourceRuns": 3,
+      "targetRuns": 3,
+      "completePairedBlock": true,
+      "sourceMeanComp": 0.722222,
+      "targetMeanComp": 0.759259,
+      "sourceMeanProc": 1.0,
+      "targetMeanProc": 1.0
+    },
+    {
+      "persona": "Financier",
+      "taskId": "Financier_task_005",
+      "sourceRuns": 3,
+      "targetRuns": 2,
+      "completePairedBlock": false,
+      "sourceMeanComp": 0.526316,
+      "targetMeanComp": 0.526316,
+      "sourceMeanProc": 1.0,
+      "targetMeanProc": 0.333333
+    },
+    {
+      "persona": "Financier",
+      "taskId": "Financier_task_007",
+      "sourceRuns": 3,
+      "targetRuns": 1,
+      "completePairedBlock": false,
+      "sourceMeanComp": null,
+      "targetMeanComp": null,
+      "sourceMeanProc": 0.916667,
+      "targetMeanProc": 0.0
+    },
+    {
+      "persona": "Financier",
+      "taskId": "Financier_task_013",
+      "sourceRuns": 3,
+      "targetRuns": 3,
+      "completePairedBlock": true,
+      "sourceMeanComp": null,
+      "targetMeanComp": null,
+      "sourceMeanProc": 0.833333,
+      "targetMeanProc": 0.75
+    },
+    {
+      "persona": "marketer",
+      "taskId": "marketer_task_002",
+      "sourceRuns": 3,
+      "targetRuns": 3,
+      "completePairedBlock": true,
+      "sourceMeanComp": null,
+      "targetMeanComp": null,
+      "sourceMeanProc": 1.0,
+      "targetMeanProc": 0.777778
+    },
+    {
+      "persona": "marketer",
+      "taskId": "marketer_task_010",
+      "sourceRuns": 3,
+      "targetRuns": 3,
+      "completePairedBlock": true,
+      "sourceMeanComp": 0.6,
+      "targetMeanComp": 0.333333,
+      "sourceMeanProc": 0.75,
+      "targetMeanProc": 0.666667
+    },
+    {
+      "persona": "marketer",
+      "taskId": "marketer_task_011",
+      "sourceRuns": 3,
+      "targetRuns": 3,
+      "completePairedBlock": true,
+      "sourceMeanComp": null,
+      "targetMeanComp": null,
+      "sourceMeanProc": 0.444444,
+      "targetMeanProc": 0.555556
+    },
+    {
+      "persona": "marketer",
+      "taskId": "marketer_task_012",
+      "sourceRuns": 3,
+      "targetRuns": 3,
+      "completePairedBlock": true,
+      "sourceMeanComp": 1.0,
+      "targetMeanComp": 1.0,
+      "sourceMeanProc": 0.888889,
+      "targetMeanProc": 1.0
+    },
+    {
+      "persona": "researcher",
+      "taskId": "researcher_task_002",
+      "sourceRuns": 3,
+      "targetRuns": 0,
+      "completePairedBlock": false,
+      "sourceMeanComp": null,
+      "targetMeanComp": null,
+      "sourceMeanProc": 0.333333,
+      "targetMeanProc": null
+    },
+    {
+      "persona": "researcher",
+      "taskId": "researcher_task_010",
+      "sourceRuns": 3,
+      "targetRuns": 0,
+      "completePairedBlock": false,
+      "sourceMeanComp": null,
+      "targetMeanComp": null,
+      "sourceMeanProc": 0.222222,
+      "targetMeanProc": null
+    },
+    {
+      "persona": "researcher",
+      "taskId": "researcher_task_014",
+      "sourceRuns": 3,
+      "targetRuns": 0,
+      "completePairedBlock": false,
+      "sourceMeanComp": 0.05,
+      "targetMeanComp": null,
+      "sourceMeanProc": 0.222222,
+      "targetMeanProc": null
+    },
+    {
+      "persona": "researcher",
+      "taskId": "researcher_task_015",
+      "sourceRuns": 3,
+      "targetRuns": 0,
+      "completePairedBlock": false,
+      "sourceMeanComp": 0.666667,
+      "targetMeanComp": null,
+      "sourceMeanProc": 0.777778,
+      "targetMeanProc": null
+    }
+  ],
+  "unscoredNonExcludedAttempts": [
+    {
+      "model": "qwen3.8-max-0902",
+      "persona": "Financier",
+      "taskId": "Financier_task_007",
+      "repeat": 2,
+      "requestedModel": "qwen3.8-max",
+      "modelBaseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+      "taskStatus": "TIMEOUT",
+      "turns": 0,
+      "modelResponseCount": 23,
+      "serverResponseIds": [
+        "qwen3.8-max"
+      ],
+      "evaluationErrorType": "FileNotFoundError",
+      "scoreFileCount": 0
+    }
+  ],
+  "excludedRunCount": 91,
+  "excludedRuns": [
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/Financier/Financier_task_002/deepseek-direct-native-smoke-02",
+      "excludedAt": "2026-09-12T23:30:00+08:00",
+      "reason": "Engineering smoke only: DirectAgentChannel did not initialize NanoBot MCP connections and did not absorb the /new acknowledgement, so the benchmark observed a protocol-invalid first reply. The resulting score is not part of calibration or formal analysis."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/Financier/Financier_task_002/deepseek-native-calibration-r1",
+      "excludedAt": "2026-09-12T23:40:00+08:00",
+      "reason": "Engineering sample only: the source-model provider still used its upstream 16-attempt ceiling and this trajectory succeeded only on attempt 5. Protocol section 8 allows at most two retries after the initial attempt."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/Financier/Financier_task_005/deepseek-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/Financier/Financier_task_005/deepseek-cal-valid-v2-r2-retry1",
+      "excludedAt": "2026-09-13T01:51:49+08:00",
+      "reason": "Engineering concurrency run failed with an infrastructure timeout and produced no benchmark score file; a later fresh retry completed successfully. This directory must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/Financier/Financier_task_005/deepseek-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/Financier/Financier_task_005/deepseek-cal-valid-v2-r3-retry1",
+      "excludedAt": "2026-09-13T01:51:49+08:00",
+      "reason": "Engineering concurrency run failed with an infrastructure timeout and produced no benchmark score file; a later fresh retry completed successfully. This directory must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/Financier/Financier_task_013/deepseek-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T00:42:00+08:00",
+      "reason": "Engineering concurrency batch excluded: one AppWorld MCP process became unreachable without a service-log exception, while a full port audit found no duplicated API or MCP ports. This run was incomplete or failed when that six-worker batch was stopped and must not enter calibration. It will be rerun from a fresh retry directory with lower four-run concurrency and parent-assigned batch-unique ports."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/Financier/Financier_task_013/deepseek-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T00:42:00+08:00",
+      "reason": "Engineering concurrency batch excluded: one AppWorld MCP process became unreachable without a service-log exception, while a full port audit found no duplicated API or MCP ports. This run was incomplete or failed when that six-worker batch was stopped and must not enter calibration. It will be rerun from a fresh retry directory with lower four-run concurrency and parent-assigned batch-unique ports."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/marketer/marketer_task_010/deepseek-cal-valid-r1",
+      "excludedAt": "2026-09-12T23:56:00+08:00",
+      "reason": "Aborted engineering run: the native harness limited AppWorld MCP to apps named in the evaluator, while official PI-Bench leaves app_names unset and exposes the default full app set. This task needed Spotify context even though only Gmail actions were evaluator-declared."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/marketer/marketer_task_010/deepseek-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T01:51:49+08:00",
+      "reason": "Incomplete engineering run with no benchmark score file; a later fresh retry completed successfully. This directory must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/marketer/marketer_task_010/deepseek-cal-valid-v2-r1-retry1",
+      "excludedAt": "2026-09-13T00:51:00+08:00",
+      "reason": "Engineering scheduler transition only: this isolated four-worker run was interrupted when the user requested a diagnostic trial at total concurrency 10. It was incomplete at shutdown and must not enter calibration; a fresh retry directory will be used."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/marketer/marketer_task_010/deepseek-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T00:42:00+08:00",
+      "reason": "Engineering concurrency batch excluded: one AppWorld MCP process became unreachable without a service-log exception, while a full port audit found no duplicated API or MCP ports. This run was incomplete or failed when that six-worker batch was stopped and must not enter calibration. It will be rerun from a fresh retry directory with lower four-run concurrency and parent-assigned batch-unique ports."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/marketer/marketer_task_010/deepseek-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T00:42:00+08:00",
+      "reason": "Engineering concurrency batch excluded: one AppWorld MCP process became unreachable without a service-log exception, while a full port audit found no duplicated API or MCP ports. This run was incomplete or failed when that six-worker batch was stopped and must not enter calibration. It will be rerun from a fresh retry directory with lower four-run concurrency and parent-assigned batch-unique ports."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/marketer/marketer_task_010/deepseek-cal-valid-v2-r3-retry1",
+      "excludedAt": "2026-09-13T00:51:00+08:00",
+      "reason": "Engineering scheduler transition only: this isolated four-worker run was interrupted when the user requested a diagnostic trial at total concurrency 10. It was incomplete at shutdown and must not enter calibration; a fresh retry directory will be used."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_002/deepseek-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_002/deepseek-cal-valid-v2-r1-retry1",
+      "excludedAt": "2026-09-13T01:07:00+08:00",
+      "reason": "Engineering concurrency-10 diagnostic excluded: two AppWorld MCP cold starts exceeded the increased 300-second readiness wait, and this run either timed out or was incomplete when the diagnostic batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory at the stable total concurrency 4."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_002/deepseek-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_002/deepseek-cal-valid-v2-r2-retry1",
+      "excludedAt": "2026-09-13T01:07:00+08:00",
+      "reason": "Engineering concurrency-10 diagnostic excluded: two AppWorld MCP cold starts exceeded the increased 300-second readiness wait, and this run either timed out or was incomplete when the diagnostic batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory at the stable total concurrency 4."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_002/deepseek-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_002/deepseek-cal-valid-v2-r3-retry1",
+      "excludedAt": "2026-09-13T01:07:00+08:00",
+      "reason": "Engineering concurrency-10 diagnostic excluded: two AppWorld MCP cold starts exceeded the increased 300-second readiness wait, and this run either timed out or was incomplete when the diagnostic batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory at the stable total concurrency 4."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_010/deepseek-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_010/deepseek-cal-valid-v2-r1-retry1",
+      "excludedAt": "2026-09-13T01:07:00+08:00",
+      "reason": "Engineering concurrency-10 diagnostic excluded: two AppWorld MCP cold starts exceeded the increased 300-second readiness wait, and this run either timed out or was incomplete when the diagnostic batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory at the stable total concurrency 4."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_010/deepseek-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_010/deepseek-cal-valid-v2-r2-retry1",
+      "excludedAt": "2026-09-13T01:07:00+08:00",
+      "reason": "Engineering concurrency-10 diagnostic excluded: two AppWorld MCP cold starts exceeded the increased 300-second readiness wait, and this run either timed out or was incomplete when the diagnostic batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory at the stable total concurrency 4."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_015/deepseek-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T01:51:49+08:00",
+      "reason": "Run was incomplete when the four-worker transition batch was stopped for the requested ten-worker retry; no benchmark score file exists. This directory must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_015/deepseek-cal-valid-v2-r1-retry1",
+      "excludedAt": "2026-09-13T02:00:01+08:00",
+      "reason": "The workstation slept during this ten-worker engineering retry. The run is incomplete with no score file, so its timing and outcome are invalid and it must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/deepseek-flash/researcher/researcher_task_015/deepseek-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T01:51:49+08:00",
+      "reason": "Run was incomplete when the four-worker transition batch was stopped for the requested ten-worker retry; no benchmark score file exists. This directory must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_002/qwen-max-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_002/qwen-max-cal-valid-v2-r1-retry1",
+      "excludedAt": "2026-09-13T02:00:01+08:00",
+      "reason": "The workstation slept during this ten-worker engineering retry. The run never reached metadata or scoring, so it must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_002/qwen-max-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_002/qwen-max-cal-valid-v2-r2-retry1",
+      "excludedAt": "2026-09-13T02:00:01+08:00",
+      "reason": "The workstation slept during this ten-worker engineering retry. The run never reached metadata or scoring, so it must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_002/qwen-max-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T02:00:01+08:00",
+      "reason": "The workstation slept during this ten-worker engineering retry. The run never reached metadata or scoring, so it must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_002/qwen-max-native-calibration-r1",
+      "excludedAt": "2026-09-12T23:40:00+08:00",
+      "reason": "Engineering sample only: this process was launched before the native provider retry ceiling was corrected from the upstream default to the preregistered initial-attempt-plus-two-retries limit."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_005/qwen-max-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T02:00:01+08:00",
+      "reason": "The workstation slept during this ten-worker engineering retry. The run never reached metadata or scoring, so it must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_005/qwen-max-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T02:00:01+08:00",
+      "reason": "The workstation slept during this ten-worker engineering retry. The run never reached metadata or scoring, so it must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_005/qwen-max-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T02:42:11+08:00",
+      "reason": "Old-endpoint run ended without a score before the requested Token Plan switchover. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_005/qwen-max-cal-valid-v2-r3-retry1",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Incomplete infrastructure run with zero model responses and no score file. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r1-retry1",
+      "excludedAt": "2026-09-13T01:07:00+08:00",
+      "reason": "Engineering concurrency-10 diagnostic excluded: two AppWorld MCP cold starts exceeded the increased 300-second readiness wait, and this run either timed out or was incomplete when the diagnostic batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory at the stable total concurrency 4."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r1-retry2",
+      "excludedAt": "2026-09-13T01:51:49+08:00",
+      "reason": "Run was incomplete when the four-worker transition batch was stopped for the requested ten-worker retry; no benchmark score file exists. This directory must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r1-retry3",
+      "excludedAt": "2026-09-13T02:00:01+08:00",
+      "reason": "The workstation slept during this ten-worker engineering retry. The run is incomplete with no score file, so its timing and outcome are invalid and it must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r2-retry1",
+      "excludedAt": "2026-09-13T01:07:00+08:00",
+      "reason": "Engineering concurrency-10 diagnostic excluded: two AppWorld MCP cold starts exceeded the increased 300-second readiness wait, and this run either timed out or was incomplete when the diagnostic batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory at the stable total concurrency 4."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r2-retry2",
+      "excludedAt": "2026-09-13T02:00:01+08:00",
+      "reason": "The workstation slept during this ten-worker engineering retry. The run is incomplete with no score file, so its timing and outcome are invalid and it must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r2-retry3",
+      "excludedAt": "2026-09-13T02:42:11+08:00",
+      "reason": "Incomplete old-endpoint run stopped before the requested Token Plan switchover; no score file exists. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r2-retry4",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Incomplete run stopped during the requested Token Plan credential/model-alias correction; no model response or score exists. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r2-retry5",
+      "excludedAt": "2026-09-13T03:05:10+08:00",
+      "reason": "User-requested retry after the Token Plan validation run remained inactive for an extended period. The interrupted directory has no completed metadata or score and must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r3-retry1",
+      "excludedAt": "2026-09-13T01:07:00+08:00",
+      "reason": "Engineering concurrency-10 diagnostic excluded: two AppWorld MCP cold starts exceeded the increased 300-second readiness wait, and this run either timed out or was incomplete when the diagnostic batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory at the stable total concurrency 4."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r3-retry2",
+      "excludedAt": "2026-09-13T02:00:01+08:00",
+      "reason": "The workstation slept during this ten-worker engineering retry. The run is incomplete with no score file, so its timing and outcome are invalid and it must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r3-retry3",
+      "excludedAt": "2026-09-13T02:42:11+08:00",
+      "reason": "Incomplete old-endpoint run stopped before the requested Token Plan switchover; no score file exists. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_007/qwen-max-cal-valid-v2-r3-retry4",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Invalid Token Plan configuration probe: the selected credential returned HTTP 401, yielding zero model responses. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_013/qwen-max-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_013/qwen-max-cal-valid-v2-r1-retry1",
+      "excludedAt": "2026-09-13T01:07:00+08:00",
+      "reason": "Engineering concurrency-10 diagnostic excluded: two AppWorld MCP cold starts exceeded the increased 300-second readiness wait, and this run either timed out or was incomplete when the diagnostic batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory at the stable total concurrency 4."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_013/qwen-max-cal-valid-v2-r1-retry2",
+      "excludedAt": "2026-09-13T01:51:49+08:00",
+      "reason": "Engineering concurrency run failed because the AppWorld service port was not ready after 300 seconds and produced no benchmark score file. It is excluded and will be rerun from a fresh retry directory."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_013/qwen-max-cal-valid-v2-r1-retry3",
+      "excludedAt": "2026-09-13T02:00:01+08:00",
+      "reason": "The workstation slept during this ten-worker engineering retry. The run is incomplete with no score file, so its timing and outcome are invalid and it must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_013/qwen-max-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_013/qwen-max-cal-valid-v2-r2-retry1",
+      "excludedAt": "2026-09-13T01:07:00+08:00",
+      "reason": "Engineering concurrency-10 diagnostic excluded: two AppWorld MCP cold starts exceeded the increased 300-second readiness wait, and this run either timed out or was incomplete when the diagnostic batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory at the stable total concurrency 4."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_013/qwen-max-cal-valid-v2-r2-retry2",
+      "excludedAt": "2026-09-13T01:51:49+08:00",
+      "reason": "Engineering concurrency run ended before producing a benchmark score file. It is excluded and will be rerun from a fresh retry directory."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_013/qwen-max-cal-valid-v2-r2-retry3",
+      "excludedAt": "2026-09-13T02:00:01+08:00",
+      "reason": "The workstation slept during this ten-worker engineering retry. The run is incomplete with no score file, so its timing and outcome are invalid and it must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_013/qwen-max-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T00:59:00+08:00",
+      "reason": "Engineering concurrency batch excluded: with total concurrency 10, AppWorld cold starts exceeded the harness 120-second service-readiness ceiling. This run either hit that timeout or was incomplete when the batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory after raising only the pre-task service-startup wait to 300 seconds."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/Financier/Financier_task_013/qwen-max-cal-valid-v2-r3-retry1",
+      "excludedAt": "2026-09-13T01:07:00+08:00",
+      "reason": "Engineering concurrency-10 diagnostic excluded: two AppWorld MCP cold starts exceeded the increased 300-second readiness wait, and this run either timed out or was incomplete when the diagnostic batch was stopped. It must not enter calibration and will be rerun from a fresh retry directory at the stable total concurrency 4."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/marketer/marketer_task_002/qwen-max-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T00:19:42+08:00",
+      "reason": "Engineering scheduler transition only: the user requested parallel calibration after the sequential driver had started this run. The process was interrupted before benchmark completion, so this partial workspace and trace must not enter calibration. A fresh retry directory will be used."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/marketer/marketer_task_010/qwen-max-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T00:42:00+08:00",
+      "reason": "Engineering concurrency batch excluded: one AppWorld MCP process became unreachable without a service-log exception, while a full port audit found no duplicated API or MCP ports. This run was incomplete or failed when that six-worker batch was stopped and must not enter calibration. It will be rerun from a fresh retry directory with lower four-run concurrency and parent-assigned batch-unique ports."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/marketer/marketer_task_010/qwen-max-cal-valid-v2-r1-retry1",
+      "excludedAt": "2026-09-13T00:51:00+08:00",
+      "reason": "Engineering scheduler transition only: this isolated four-worker run was interrupted when the user requested a diagnostic trial at total concurrency 10. It was incomplete at shutdown and must not enter calibration; a fresh retry directory will be used."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/marketer/marketer_task_010/qwen-max-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T00:42:00+08:00",
+      "reason": "Engineering concurrency batch excluded: one AppWorld MCP process became unreachable without a service-log exception, while a full port audit found no duplicated API or MCP ports. This run was incomplete or failed when that six-worker batch was stopped and must not enter calibration. It will be rerun from a fresh retry directory with lower four-run concurrency and parent-assigned batch-unique ports."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/marketer/marketer_task_010/qwen-max-cal-valid-v2-r2-retry1",
+      "excludedAt": "2026-09-13T00:51:00+08:00",
+      "reason": "Engineering scheduler transition only: this isolated four-worker run was interrupted when the user requested a diagnostic trial at total concurrency 10. It was incomplete at shutdown and must not enter calibration; a fresh retry directory will be used."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/marketer/marketer_task_010/qwen-max-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T00:42:00+08:00",
+      "reason": "Engineering concurrency batch excluded: one AppWorld MCP process became unreachable without a service-log exception, while a full port audit found no duplicated API or MCP ports. This run was incomplete or failed when that six-worker batch was stopped and must not enter calibration. It will be rerun from a fresh retry directory with lower four-run concurrency and parent-assigned batch-unique ports."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/marketer/marketer_task_011/qwen-max-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T00:31:00+08:00",
+      "reason": "Engineering scheduler transition only: this sequential run was interrupted when the user finalized the request to use concurrent calibration. It did not complete and must not enter calibration; a fresh retry directory will be used."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/marketer/marketer_task_012/qwen-max-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T00:42:00+08:00",
+      "reason": "Engineering concurrency batch excluded: one AppWorld MCP process became unreachable without a service-log exception, while a full port audit found no duplicated API or MCP ports. This run was incomplete or failed when that six-worker batch was stopped and must not enter calibration. It will be rerun from a fresh retry directory with lower four-run concurrency and parent-assigned batch-unique ports."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_002/qwen-max-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Infrastructure/provider run produced zero model responses; its task error is not a model-capability outcome and must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_002/qwen-max-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Infrastructure/provider run produced zero model responses; its task error is not a model-capability outcome and must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_002/qwen-max-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Infrastructure/provider run produced zero model responses; its task error is not a model-capability outcome and must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_010/qwen-max-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T02:42:11+08:00",
+      "reason": "Incomplete old-endpoint run stopped before the requested Token Plan switchover; no score file exists. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_010/qwen-max-cal-valid-v2-r1-retry1",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Invalid Token Plan configuration used the wrong credential/model pairing and produced zero model responses. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_010/qwen-max-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T02:42:11+08:00",
+      "reason": "Incomplete old-endpoint run stopped before the requested Token Plan switchover; no score file exists. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_010/qwen-max-cal-valid-v2-r2-retry1",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Invalid Token Plan configuration used the wrong credential/model pairing and produced zero model responses. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_010/qwen-max-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T02:42:11+08:00",
+      "reason": "Incomplete old-endpoint run stopped before the requested Token Plan switchover; no score file exists. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_010/qwen-max-cal-valid-v2-r3-retry1",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Invalid Token Plan configuration used the wrong credential/model pairing and produced zero model responses. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_014/qwen-max-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T02:42:11+08:00",
+      "reason": "Queued old-endpoint run was cancelled before metadata or scoring so that subsequent samples use the requested Token Plan endpoint. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_014/qwen-max-cal-valid-v2-r1-retry1",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Run was cancelled before metadata/scoring while correcting the Token Plan credential and model alias. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_014/qwen-max-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T02:42:11+08:00",
+      "reason": "Queued old-endpoint run was cancelled before metadata or scoring so that subsequent samples use the requested Token Plan endpoint. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_014/qwen-max-cal-valid-v2-r2-retry1",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Run was cancelled before metadata/scoring while correcting the Token Plan credential and model alias. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_014/qwen-max-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T02:42:11+08:00",
+      "reason": "Queued old-endpoint run was cancelled before metadata or scoring so that subsequent samples use the requested Token Plan endpoint. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_014/qwen-max-cal-valid-v2-r3-retry1",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Run was cancelled before metadata/scoring while correcting the Token Plan credential and model alias. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_015/qwen-max-cal-valid-v2-r1",
+      "excludedAt": "2026-09-13T02:42:11+08:00",
+      "reason": "Queued old-endpoint run was cancelled before metadata or scoring so that subsequent samples use the requested Token Plan endpoint. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_015/qwen-max-cal-valid-v2-r1-retry1",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Run was cancelled before metadata/scoring while correcting the Token Plan credential and model alias. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_015/qwen-max-cal-valid-v2-r2",
+      "excludedAt": "2026-09-13T02:42:11+08:00",
+      "reason": "Queued old-endpoint run was cancelled before metadata or scoring so that subsequent samples use the requested Token Plan endpoint. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_015/qwen-max-cal-valid-v2-r2-retry1",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Run was cancelled before metadata/scoring while correcting the Token Plan credential and model alias. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_015/qwen-max-cal-valid-v2-r3",
+      "excludedAt": "2026-09-13T02:42:11+08:00",
+      "reason": "Queued old-endpoint run was cancelled before metadata or scoring so that subsequent samples use the requested Token Plan endpoint. It must not enter calibration aggregates."
+    },
+    {
+      "runDir": "native-runs/calibration/qwen3.8-max-0902/researcher/researcher_task_015/qwen-max-cal-valid-v2-r3-retry1",
+      "excludedAt": "2026-09-13T02:50:23+08:00",
+      "reason": "Run was cancelled before metadata/scoring while correcting the Token Plan credential and model alias. It must not enter calibration aggregates."
+    }
+  ],
+  "frozenManifest": {
+    "schemaVersion": 1,
+    "experiment": "pi-bench-cross-model-handoff-v1",
+    "protocolRevision": "v1-preflight-amendment-2",
+    "frozenAt": "2026-09-12T14:55:47.729Z",
+    "upstream": {
+      "repository": "https://github.com/Simplified-Reasoning/Pi-Bench",
+      "commit": "383910b1698758a198b86037c63a111c8edc32ad",
+      "commitDate": "2026-06-04T14:09:35+08:00",
+      "license": "Apache-2.0",
+      "executionMode": "native-python-no-docker",
+      "episodeHashes": {
+        "marketer": "4e5c64749dfec3c02d755709e864bac7d52a7977cb5f880f1f614be9e92d5bab",
+        "Financier": "66161f14f4b61c509c090ba63939be67efec01c7f4d2bcad410c9da661816873",
+        "researcher": "03ce56e5e09129359fa42932769c3877505c250659e5c24b716935711ba22cb8"
+      }
+    },
+    "worket": {
+      "commit": "621f12c2617bb9aec3722def9b21b11bce1bd237",
+      "dirty": true,
+      "packageVersion": "0.1.3",
+      "handoffImplementationHashes": {
+        "src/bridge/mcp-handler.ts": "7bd7594056daccaa98b653ccae8de44a95ae5ccf839c6da830ef4d344e3d4c9b",
+        "src/core/work-core.ts": "fb53b29718c03c6c0330fa19df0694120a3c6346f28112c33f946494f16c5049",
+        "src/executors/work-bootstrap.ts": "5b8e076b5cb9534e4ffe2af91c653e651f8d58189f28277cdeb2d74a6fb7adb4"
+      }
+    },
+    "chains": [
+      {
+        "caseId": "pi-01",
+        "persona": "marketer",
+        "prefix": [
+          "marketer_task_005"
+        ],
+        "target": "marketer_task_006",
+        "thread": "apple-issey-campaign",
+        "dependencyMatch": true,
+        "semanticReview": "KEEP_SAME_WORK_INSTANCE",
+        "tasks": {
+          "marketer_task_005": {
+            "title": "information_extraction",
+            "taskType": "long_term",
+            "difficulty": "medium",
+            "sha256": "d489a6730cc8ee16c185a55fb3aa7b0706e5221772bcf2db3ba9e1f91a0950fb"
+          },
+          "marketer_task_006": {
+            "title": "",
+            "taskType": "long_term",
+            "difficulty": "hard",
+            "sha256": "85482ce0c10697e3d453dbc9653b0b3d96106816d8ac4fdd272f39432c954ab1"
+          }
+        }
+      },
+      {
+        "caseId": "pi-02",
+        "persona": "marketer",
+        "prefix": [
+          "marketer_task_007",
+          "marketer_task_008"
+        ],
+        "target": "marketer_task_009",
+        "thread": "bootcamp-launch",
+        "dependencyMatch": true,
+        "semanticReview": "KEEP_SAME_WORK_INSTANCE",
+        "tasks": {
+          "marketer_task_007": {
+            "title": "course_strategy",
+            "taskType": "long_term",
+            "difficulty": "medium",
+            "sha256": "ffece2ea5f84c15ecd76dccb4d912f7f653a6214083315cc9023edeca9610add"
+          },
+          "marketer_task_008": {
+            "title": "rulebook",
+            "taskType": "long_term",
+            "difficulty": "medium",
+            "sha256": "6b351c97b471744f0d9e3ec11f4939ebe3a6386d1fd4778f408a5042862392ae"
+          },
+          "marketer_task_009": {
+            "title": "SOP",
+            "taskType": "long_term",
+            "difficulty": "hard",
+            "sha256": "c56796782e4453f6c3747f3106a3f0d53e40955b571b5237e51a8259a4e35b4f"
+          }
+        }
+      },
+      {
+        "caseId": "pi-03",
+        "persona": "marketer",
+        "prefix": [
+          "marketer_task_015",
+          "marketer_task_016"
+        ],
+        "target": "marketer_task_017",
+        "thread": "rog-btrt-campaign",
+        "dependencyMatch": true,
+        "semanticReview": "KEEP_SAME_WORK_INSTANCE",
+        "tasks": {
+          "marketer_task_015": {
+            "title": "brief",
+            "taskType": "long_term",
+            "difficulty": "medium",
+            "sha256": "0851df90aeb6176a5517d7dd7ba362869808243a94c222e9a2e42cb427ef03ca"
+          },
+          "marketer_task_016": {
+            "title": "ROG × medicine",
+            "taskType": "long_term",
+            "difficulty": "medium",
+            "sha256": "0e21734c8508114a7d08175d24a9b031e0ad8ed8cd3b2bdf5e5c1a118c2ce144"
+          },
+          "marketer_task_017": {
+            "title": "(Co-branding Proposal Generation)",
+            "taskType": "test",
+            "difficulty": "medium",
+            "sha256": "43c9041b57f875cd7a20ab178e8a94ac500d5babc758223bc6fdb9b9fb2c6dc0"
+          }
+        }
+      },
+      {
+        "caseId": "pi-04",
+        "persona": "marketer",
+        "prefix": [
+          "marketer_task_018"
+        ],
+        "target": "marketer_task_019",
+        "thread": "meowconnect-crisis",
+        "dependencyMatch": true,
+        "semanticReview": "KEEP_SAME_WORK_INSTANCE",
+        "tasks": {
+          "marketer_task_018": {
+            "title": "crisis pr",
+            "taskType": "long_term",
+            "difficulty": "medium",
+            "sha256": "f3e84293177b06b24f40ef8cd424e8cb01fb659dcf1b37fa80015525b4eef398"
+          },
+          "marketer_task_019": {
+            "title": "crisis pr",
+            "taskType": "long_term",
+            "difficulty": "medium",
+            "sha256": "052dcf965027246aa49038b5c7c506f8912fde0fa5e422ca231c9f1e4b10f9f6"
+          }
+        }
+      },
+      {
+        "caseId": "pi-05",
+        "persona": "Financier",
+        "prefix": [
+          "Financier_task_003"
+        ],
+        "target": "Financier_task_006",
+        "thread": "pd-model-route",
+        "dependencyMatch": true,
+        "semanticReview": "KEEP_SAME_WORK_INSTANCE",
+        "tasks": {
+          "Financier_task_003": {
+            "title": "Assess the Current Champion Route and Provide Go-Forward Recommendations Based on the Model Performance Report",
+            "taskType": "short_term_contextual",
+            "difficulty": "medium",
+            "sha256": "d98f2cd3e31c652a265eea9756d42da56d4a1eea88ba1351e40ec98ad0994a42"
+          },
+          "Financier_task_006": {
+            "title": "Identify the Core Modeling Method from the Development Report and Compare Alternative Models",
+            "taskType": "short_term_contextual",
+            "difficulty": "medium",
+            "sha256": "e70f61f7ecc166ea25b834934ed488dffe0daf87f98bca800ec590e10d71b835"
+          }
+        }
+      },
+      {
+        "caseId": "pi-06",
+        "persona": "Financier",
+        "prefix": [
+          "Financier_task_001"
+        ],
+        "target": "Financier_task_010",
+        "thread": "pd-validation",
+        "dependencyMatch": true,
+        "semanticReview": "KEEP_SAME_WORK_INSTANCE",
+        "tasks": {
+          "Financier_task_001": {
+            "title": "PD Scorecard Validation Priority Framework",
+            "taskType": "short_term_independent",
+            "difficulty": "medium",
+            "sha256": "82c8ec5732bf0b3ac4f70cedbf0a28306ac3f463775957c74a92cbf1c910a8f4"
+          },
+          "Financier_task_010": {
+            "title": "Independent Validation Conclusion for a Logistic-Regression PD Scorecard",
+            "taskType": "short_term_contextual",
+            "difficulty": "hard",
+            "sha256": "850022017b0ae8690a4b92bc1708515e56cf9b974e67361bdbb0e6387a463c6c"
+          }
+        }
+      },
+      {
+        "caseId": "pi-07",
+        "persona": "Financier",
+        "prefix": [
+          "Financier_task_004"
+        ],
+        "target": "Financier_task_014",
+        "thread": "var-validation",
+        "dependencyMatch": true,
+        "semanticReview": "KEEP_SAME_WORK_INSTANCE",
+        "tasks": {
+          "Financier_task_004": {
+            "title": "VaR Backtesting Risk-Priority Framework",
+            "taskType": "short_term_independent",
+            "difficulty": "medium",
+            "sha256": "6e4b34953ee4732382124093134b19a5f544b4fe9ed092f3d4b6e9d1fb900853"
+          },
+          "Financier_task_014": {
+            "title": "Independent Validation Conclusion for a 1-Day 99% Historical Simulation VaR",
+            "taskType": "short_term_contextual",
+            "difficulty": "hard",
+            "sha256": "711b672014c9811a2a0547fc1bba9bd291f4afd217824503bf57c0d7dc0c254c"
+          }
+        }
+      },
+      {
+        "caseId": "pi-08",
+        "persona": "researcher",
+        "prefix": [
+          "researcher_task_001",
+          "researcher_task_004"
+        ],
+        "target": "researcher_task_006",
+        "thread": "think-with-image-survey",
+        "dependencyMatch": true,
+        "semanticReview": "KEEP_SAME_WORK_INSTANCE",
+        "tasks": {
+          "researcher_task_001": {
+            "title": "Practical Follow-Up Value Assessment of Multimodal Tool-Use Papers",
+            "taskType": "long_term",
+            "difficulty": "easy",
+            "sha256": "be8ed2daf7dae4e944f40b99a968d84f5628020b89519c17c74fa303d7e68e68"
+          },
+          "researcher_task_004": {
+            "title": "Preliminary Multimodal Agent Survey: From Text-only to Think-with-Image",
+            "taskType": "long_term",
+            "difficulty": "easy",
+            "sha256": "b28548262981a69436c9b18e7139bd6781cf8f7709dac830148dba92b9b11841"
+          },
+          "researcher_task_006": {
+            "title": "ICLR 2026 Accepted Papers: Survey on Think-with-Image Related Topics",
+            "taskType": "long_term",
+            "difficulty": "hard",
+            "sha256": "d8f9fe4f59ba895207f66168448b1b8b5d5788b320adc49d002c4565870adc43"
+          }
+        }
+      },
+      {
+        "caseId": "pi-09",
+        "persona": "researcher",
+        "prefix": [
+          "researcher_task_003"
+        ],
+        "target": "researcher_task_009",
+        "thread": "internship-search",
+        "dependencyMatch": true,
+        "semanticReview": "KEEP_SAME_WORK_INSTANCE",
+        "tasks": {
+          "researcher_task_003": {
+            "title": "Forced to Leave Dorm Housing: Renting and Commute Baselines for a",
+            "taskType": "long_term",
+            "difficulty": "easy",
+            "sha256": "f42ff0d3638c0c75e310968a19674a1925572961842d89db61c6e2a2ba3a85b5"
+          },
+          "researcher_task_009": {
+            "title": "Top AI Lab Internship Search and Matching",
+            "taskType": "short_term_independent",
+            "difficulty": "easy",
+            "sha256": "d4dec10a4861822455b999c0cafc9cb910762cb2741e035549d22986d26c5a96"
+          }
+        }
+      },
+      {
+        "caseId": "pi-10",
+        "persona": "researcher",
+        "prefix": [
+          "researcher_task_005",
+          "researcher_task_007"
+        ],
+        "target": "researcher_task_011",
+        "thread": "multimodal-experiment-review",
+        "dependencyMatch": true,
+        "semanticReview": "KEEP_SAME_WORK_INSTANCE",
+        "tasks": {
+          "researcher_task_005": {
+            "title": "Tracking the Frontier: DeepEyesV2 and V-star Bench Core Metrics Survey",
+            "taskType": "short_term_independent",
+            "difficulty": "easy",
+            "sha256": "d2c008da2ef2ba7573c1191ceec2a093052a015bf60269c324e5f93ceb1c5087"
+          },
+          "researcher_task_007": {
+            "title": "Experiment Review and Paper-Writing Deliverable Format Rules",
+            "taskType": "short_term_independent",
+            "difficulty": "easy",
+            "sha256": "582b9efff4b443ace094118fdbe5f3314153547ec0014d7aa203fb12df41e0df"
+          },
+          "researcher_task_011": {
+            "title": "Multimodal Ablation Results: Synthesis and Analysis",
+            "taskType": "short_term_independent",
+            "difficulty": "easy",
+            "sha256": "3e7edff9ff516c6fed7774a119198db1e15fa2b3fe6c1de9359bac18172d5dea"
+          }
+        }
+      },
+      {
+        "caseId": "pi-11",
+        "persona": "researcher",
+        "prefix": [
+          "researcher_task_018",
+          "researcher_task_019"
+        ],
+        "target": "researcher_task_020",
+        "thread": "openclaw-tracking",
+        "dependencyMatch": true,
+        "semanticReview": "KEEP_SAME_WORK_INSTANCE",
+        "tasks": {
+          "researcher_task_018": {
+            "title": "OpenClaw Technical Q&A Preference Task",
+            "taskType": "short_term_independent",
+            "difficulty": "easy",
+            "sha256": "a7a4fae0e4f82fb2cb043e25583864a676748422daecbc3eaf704d298ff8d9f4"
+          },
+          "researcher_task_019": {
+            "title": "Paper-Organization Preference Task (paper_record)",
+            "taskType": "short_term_independent",
+            "difficulty": "easy",
+            "sha256": "ec6b9a6fc5a6f7500e081fd6ca0e14c0e161e5ea206448004f7c9e68bfe0bc45"
+          },
+          "researcher_task_020": {
+            "title": "Filter Papers the User Cares About Most from Simulated Hugging Face Daily Papers",
+            "taskType": "short_term_independent",
+            "difficulty": "easy",
+            "sha256": "5ffb2ff8c5cd8da7b306ba47e56af6a9a8d79359be2040f8e0ee05adceb3f513"
+          }
+        }
+      }
+    ],
+    "calibration": [
+      {
+        "persona": "marketer",
+        "taskId": "marketer_task_010",
+        "difficulty": "medium",
+        "modality": "file",
+        "title": "Draft a Core Product Asset Brief",
+        "taskType": "long_term",
+        "sha256": "ea6e6255b4f54b5530aac77ff660f8b39ab45d550859d1810aefe735957db289"
+      },
+      {
+        "persona": "marketer",
+        "taskId": "marketer_task_011",
+        "difficulty": "medium",
+        "modality": "file",
+        "title": "Draft a Core Product Asset Brief",
+        "taskType": "long_term",
+        "sha256": "55cd5f68f56fbf51cc80131dfab3f4e27d49947a3fbf5bc1157be928f5806197"
+      },
+      {
+        "persona": "marketer",
+        "taskId": "marketer_task_013",
+        "difficulty": "easy",
+        "modality": "web",
+        "title": "Extract Market Signals from the Web",
+        "taskType": "long_term",
+        "sha256": "068317f440033f71974fa9e1fc5ae8f42eab25d9d9656820a8a56fa138f8ee4e"
+      },
+      {
+        "persona": "marketer",
+        "taskId": "marketer_task_020",
+        "difficulty": "medium",
+        "modality": "text",
+        "title": "crisis pr",
+        "taskType": "long_term",
+        "sha256": "bc3300aeebb88089690e9ea44b235c88d05f6b5bba166831730e83bb03fb1f8e"
+      },
+      {
+        "persona": "Financier",
+        "taskId": "Financier_task_002",
+        "difficulty": "medium",
+        "modality": "file",
+        "title": "Weekend Camping Departure Memo Cleanup",
+        "taskType": "short_term_independent",
+        "sha256": "a05bbaf9b5191be376b1c9a5957a1e69151cbd156ae37b2920705f32e431063d"
+      },
+      {
+        "persona": "Financier",
+        "taskId": "Financier_task_005",
+        "difficulty": "medium",
+        "modality": "tool",
+        "title": "Pre-Event Confirmation Email for Product Demo",
+        "taskType": "short_term_independent",
+        "sha256": "84bcafb4afa328f19a3080b80d469057e0ee95451aff2a1cb01911418e7a7c1e"
+      },
+      {
+        "persona": "Financier",
+        "taskId": "Financier_task_008",
+        "difficulty": "medium",
+        "modality": "tool",
+        "title": "Temporary Rehearsal Board for Beacon Beta Share",
+        "taskType": "short_term_independent",
+        "sha256": "e4cd26992ef372833124ce50f37ba52b9a2851efc3a648e7cc6ad16e8a1918d1"
+      },
+      {
+        "persona": "Financier",
+        "taskId": "Financier_task_011",
+        "difficulty": "medium",
+        "modality": "tool",
+        "title": "Pet Boarding Handover Text",
+        "taskType": "short_term_independent",
+        "sha256": "ed16f151dcc61a060df03d43362f76bc7eaf87e7a1d5120cdb5be547202ad889"
+      },
+      {
+        "persona": "researcher",
+        "taskId": "researcher_task_010",
+        "difficulty": "easy",
+        "modality": "file",
+        "title": "LiteAlign Pre-Submission: Triage of Senior Labmate Review and Response-Outline Setup",
+        "taskType": "short_term_independent",
+        "sha256": "578171c9271e7194307b73f8f7a57c8d6646716351e821ef5bc6bf21a9d07713"
+      },
+      {
+        "persona": "researcher",
+        "taskId": "researcher_task_013",
+        "difficulty": "easy",
+        "modality": "file",
+        "title": "Rebuttal Prep: Collect and Organize Review Information",
+        "taskType": "short_term_independent",
+        "sha256": "e7e7c11974b7eff513211f19519cb649444fea1c57a0f0ccfce9ad0c3c6fe824"
+      },
+      {
+        "persona": "researcher",
+        "taskId": "researcher_task_014",
+        "difficulty": "medium",
+        "modality": "tool",
+        "title": "Todoist Conflict Detection Task (15 Items)",
+        "taskType": "short_term_independent",
+        "sha256": "d42efa7ec79a99f47666ff3eb1f93da4cf5f7baa4124294434a2b407fc89dadf"
+      },
+      {
+        "persona": "researcher",
+        "taskId": "researcher_task_015",
+        "difficulty": "medium",
+        "modality": "tool",
+        "title": "gmail",
+        "taskType": "short_term_independent",
+        "sha256": "0d9b4cd601a662bef8ea68c7b3340e0de2b1911ce6b6c3b8bf771d1c6a257700"
+      }
+    ],
+    "deviationsFrozenBeforeTaskOutputs": [
+      {
+        "id": "CALIBRATION_NO_ELIGIBLE_HARD_TASKS",
+        "finding": "After excluding all formal chains and their dependency closure, the frozen three-persona dataset contains no eligible hard tasks.",
+        "resolution": "Keep four tasks per persona and maximize text/file/tool coverage at the available easy/medium levels; do not borrow formal targets."
+      },
+      {
+        "id": "DEEPSEEK_DIRECT_CREDENTIAL_ADDED",
+        "finding": "A DeepSeek-direct credential was added before any benchmark task output; the official model list exposes deepseek-flash and deepseek-v4-pro.",
+        "resolution": "Use official deepseek-flash as the source model. Treat the earlier Bailian-hosted deepseek-v4-flash call only as an engineering preflight, never as an experimental sample."
+      },
+      {
+        "id": "USER_AND_JUDGER_MODEL_FREEZE",
+        "finding": "The v1 document did not freeze user-simulator and native-judger model IDs.",
+        "resolution": "Use qwen3.8-max-0902 for both roles with temperature 0, record this as a protocol amendment, and keep native evaluator output separate from continuity judging."
+      },
+      {
+        "id": "NATIVE_HARNESS_NO_DOCKER",
+        "finding": "The user explicitly chose a native harness; Docker is packaging/isolation rather than a benchmark-semantic requirement.",
+        "resolution": "Reuse the frozen PI-Bench UserAgent, runner, evaluator, NanoBot agent loop, AppWorld APIs/MCP, task data, and workspace assets in a local venv. Replace image digest evidence with Python/package/data hashes and per-condition state snapshots."
+      },
+      {
+        "id": "BRAVE_SEARCH_CREDENTIAL_UNAVAILABLE",
+        "finding": "No Brave Search credential is locally available.",
+        "resolution": "Use a frozen unkeyed DuckDuckGo HTML search adapter for every condition and model; retain web_fetch unchanged and report the provider deviation."
+      }
+    ],
+    "models": [
+      {
+        "role": "source",
+        "provider": "DeepSeek official API",
+        "baseUrl": "https://api.deepseek.com",
+        "requestedModel": "deepseek-flash",
+        "note": "Official model-list alias returned by the experiment account on 2026-09-12."
+      },
+      {
+        "role": "target-primary",
+        "provider": "Alibaba Cloud Model Studio (cn-beijing)",
+        "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "requestedModel": "qwen3.8-max-0902",
+        "note": "Frozen date snapshot requested by the preregistration."
+      },
+      {
+        "role": "target-fallback",
+        "provider": "Alibaba Cloud Model Studio (cn-beijing)",
+        "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "requestedModel": "qwen3.8-flash",
+        "note": "Used only if the primary target fails the frozen calibration gate."
+      }
+    ],
+    "frozenParameters": {
+      "repeats": 3,
+      "pilotRepeats": 1,
+      "modelTemperature": 0,
+      "userSimulatorModel": "qwen3.8-max-0902",
+      "userSimulatorTemperature": 0,
+      "nativeJudgerModel": "qwen3.8-max-0902",
+      "nativeJudgerTemperature": 0,
+      "targetMaxTokens": 16384,
+      "maxToolIterations": 120,
+      "conditionOrderSeed": "worket-pi-bench-2026-09-12"
+    }
+  },
+  "preflightRecords": {
+    "environment": {
+      "schemaVersion": 1,
+      "completedAt": "2026-09-12T16:03:19.380Z",
+      "upstreamPresent": true,
+      "upstreamCommit": "383910b1698758a198b86037c63a111c8edc32ad",
+      "imports": {
+        "ok": true,
+        "output": "ok"
+      },
+      "appWorldSourcePresent": true,
+      "appWorldBaseDbPresent": true,
+      "appWorldDataVersion": "0.2.0",
+      "nativeHarnessPresent": true,
+      "dockerRequired": false,
+      "worketMcpImplementationPresent": true,
+      "qwenCanReachRealWorketMcp": true,
+      "commonPrefixSnapshotValidated": true,
+      "nativePiBenchReady": true,
+      "pass": true,
+      "blockingReasons": []
+    },
+    "model": {
+      "schemaVersion": 1,
+      "completedAt": "2026-09-12T14:56:06.873Z",
+      "endpoints": {
+        "source": "https://api.deepseek.com",
+        "target-primary": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "target-fallback": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      },
+      "records": [
+        {
+          "role": "source",
+          "provider": "DeepSeek official API",
+          "baseUrl": "https://api.deepseek.com",
+          "requestedModel": "deepseek-flash",
+          "note": "Official model-list alias returned by the experiment account on 2026-09-12.",
+          "text": {
+            "requestedModel": "deepseek-flash",
+            "responseModel": "deepseek-flash",
+            "finishReason": "stop",
+            "textMatches": true,
+            "contentCharacters": 2,
+            "toolCalled": null,
+            "reasoningCharacters": 54,
+            "usage": {
+              "prompt_tokens": 35,
+              "completion_tokens": 15,
+              "total_tokens": 50,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 13
+              },
+              "prompt_cache_hit_tokens": 0,
+              "prompt_cache_miss_tokens": 35
+            },
+            "latencyMs": 1023
+          },
+          "tool": {
+            "requestedModel": "deepseek-flash",
+            "responseModel": "deepseek-flash",
+            "finishReason": "tool_calls",
+            "textMatches": null,
+            "contentCharacters": 0,
+            "toolCalled": true,
+            "reasoningCharacters": 68,
+            "usage": {
+              "prompt_tokens": 295,
+              "completion_tokens": 53,
+              "total_tokens": 348,
+              "prompt_tokens_details": {
+                "cached_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 15
+              },
+              "prompt_cache_hit_tokens": 0,
+              "prompt_cache_miss_tokens": 295
+            },
+            "latencyMs": 963
+          },
+          "pass": true
+        },
+        {
+          "role": "target-primary",
+          "provider": "Alibaba Cloud Model Studio (cn-beijing)",
+          "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+          "requestedModel": "qwen3.8-max-0902",
+          "note": "Frozen date snapshot requested by the preregistration.",
+          "text": {
+            "requestedModel": "qwen3.8-max-0902",
+            "responseModel": "qwen3.8-max-0902",
+            "finishReason": "stop",
+            "textMatches": true,
+            "contentCharacters": 2,
+            "toolCalled": null,
+            "reasoningCharacters": 89,
+            "usage": {
+              "completion_tokens": 25,
+              "completion_tokens_details": {
+                "reasoning_tokens": 21,
+                "text_tokens": 25
+              },
+              "prompt_tokens": 66,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "text_tokens": 66
+              },
+              "total_tokens": 91
+            },
+            "latencyMs": 1751
+          },
+          "tool": {
+            "requestedModel": "qwen3.8-max-0902",
+            "responseModel": "qwen3.8-max-0902",
+            "finishReason": "tool_calls",
+            "textMatches": null,
+            "contentCharacters": 0,
+            "toolCalled": true,
+            "reasoningCharacters": 70,
+            "usage": {
+              "completion_tokens": 43,
+              "completion_tokens_details": {
+                "reasoning_tokens": 16,
+                "text_tokens": 43
+              },
+              "prompt_tokens": 321,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "text_tokens": 321
+              },
+              "total_tokens": 364
+            },
+            "latencyMs": 1603
+          },
+          "pass": true
+        },
+        {
+          "role": "target-fallback",
+          "provider": "Alibaba Cloud Model Studio (cn-beijing)",
+          "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+          "requestedModel": "qwen3.8-flash",
+          "note": "Used only if the primary target fails the frozen calibration gate.",
+          "text": {
+            "requestedModel": "qwen3.8-flash",
+            "responseModel": "qwen3.8-flash",
+            "finishReason": "stop",
+            "textMatches": true,
+            "contentCharacters": 2,
+            "toolCalled": null,
+            "reasoningCharacters": 107,
+            "usage": {
+              "completion_tokens": 30,
+              "completion_tokens_details": {
+                "reasoning_tokens": 26,
+                "text_tokens": 30
+              },
+              "prompt_tokens": 66,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "text_tokens": 66
+              },
+              "total_tokens": 96
+            },
+            "latencyMs": 849
+          },
+          "tool": {
+            "requestedModel": "qwen3.8-flash",
+            "responseModel": "qwen3.8-flash",
+            "finishReason": "tool_calls",
+            "textMatches": null,
+            "contentCharacters": 0,
+            "toolCalled": true,
+            "reasoningCharacters": 122,
+            "usage": {
+              "completion_tokens": 55,
+              "completion_tokens_details": {
+                "reasoning_tokens": 28,
+                "text_tokens": 55
+              },
+              "prompt_tokens": 321,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "text_tokens": 321
+              },
+              "total_tokens": 376
+            },
+            "latencyMs": 1475
+          },
+          "pass": true
+        }
+      ],
+      "pass": true,
+      "complete": true
+    },
+    "snapshot": {
+      "schemaVersion": 1,
+      "type": "snapshot-preflight",
+      "pass": true,
+      "completedAt": "2026-09-12T15:47:28.447469+00:00",
+      "sourceWorkspaceHash": "0467ae146a5c4c380b3a87306df34346ddffa792d8b6338145021063cea5c0ab",
+      "frozenDatabaseHash": "9bdb0f5b54c6ba2d62bee38497b31d6ce40d0f57bedb958adb3968778f591964",
+      "noteId": 3084,
+      "branches": [
+        {
+          "condition": "A",
+          "workspaceHash": "0467ae146a5c4c380b3a87306df34346ddffa792d8b6338145021063cea5c0ab",
+          "preLoadDatabaseHash": "9bdb0f5b54c6ba2d62bee38497b31d6ce40d0f57bedb958adb3968778f591964",
+          "postLoadDatabaseHash": "001ae6438118bd42f461f8eb192d20d30c3fa86e74294d11ce658f7c68ec1fe9",
+          "noteId": 3084
+        },
+        {
+          "condition": "B",
+          "workspaceHash": "0467ae146a5c4c380b3a87306df34346ddffa792d8b6338145021063cea5c0ab",
+          "preLoadDatabaseHash": "9bdb0f5b54c6ba2d62bee38497b31d6ce40d0f57bedb958adb3968778f591964",
+          "postLoadDatabaseHash": "001ae6438118bd42f461f8eb192d20d30c3fa86e74294d11ce658f7c68ec1fe9",
+          "noteId": 3084
+        },
+        {
+          "condition": "C",
+          "workspaceHash": "0467ae146a5c4c380b3a87306df34346ddffa792d8b6338145021063cea5c0ab",
+          "preLoadDatabaseHash": "9bdb0f5b54c6ba2d62bee38497b31d6ce40d0f57bedb958adb3968778f591964",
+          "postLoadDatabaseHash": "001ae6438118bd42f461f8eb192d20d30c3fa86e74294d11ce658f7c68ec1fe9",
+          "noteId": 3084
+        }
+      ]
+    },
+    "worketMcp": {
+      "type": "worket-mcp-preflight",
+      "pass": true,
+      "model": "qwen3.8-max-0902",
+      "registeredTools": [
+        "mcp_worket_get_artifact_refs",
+        "mcp_worket_get_work_archive",
+        "mcp_worket_get_work_context"
+      ],
+      "toolCallCounts": {
+        "mcp_worket_get_work_context": 1,
+        "mcp_worket_get_artifact_refs": 1,
+        "mcp_worket_get_work_archive": 1
+      },
+      "auditedReads": [
+        "get_work_context",
+        "get_artifact_refs"
+      ],
+      "packageReadAt": null,
+      "handoffPackageCount": 1,
+      "discardedDeadLoopbackProxy": null
+    }
+  },
+  "entryGateDecision": "INCONCLUSIVE_PARTIAL_CALIBRATION",
+  "entryGateReasons": [
+    "Qwen has fewer than 36 scored runs, so the preregistered 72-run calibration is incomplete.",
+    "Only complete paired subsets are compared; missingness is not assumed random.",
+    "The Token Plan exposes qwen3.8-max rather than the frozen qwen3.8-max-0902 identifier.",
+    "The first correctly authenticated Token Plan task timed out without a score file.",
+    "Tool/environment failure-rate parity and stable dominance cannot be closed from the partial data."
+  ]
+}

@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "experiment": "pi-bench-cross-model-handoff-v1",
+  "amendments": [
+    {
+      "id": "NATIVE_DIRECT_CHANNEL_PROTOCOL_FIX",
+      "discoveredAt": "2026-09-12T23:20:00+08:00",
+      "finding": "The first native smoke did not initialize NanoBot MCP and allowed the /new acknowledgement to enter the task reply queue.",
+      "resolution": "Initialize MCP in DirectAgentChannel.connect, dispatch agent work asynchronously, consume the outbound bus, and absorb the reset acknowledgement.",
+      "excludedRuns": ["deepseek-direct-native-smoke-02"]
+    },
+    {
+      "id": "MODEL_RETRY_CEILING_FIX",
+      "discoveredAt": "2026-09-12T23:40:00+08:00",
+      "finding": "The upstream NanoBot provider retained a 16-attempt request ceiling, while protocol section 8 allows the initial attempt plus at most two transient retries.",
+      "resolution": "Set source/target provider attempts and user-simulator/native-judger attempts to 3 before collecting valid calibration samples.",
+      "excludedRuns": [
+        "deepseek-native-calibration-r1",
+        "qwen-max-native-calibration-r1"
+      ]
+    },
+    {
+      "id": "CALIBRATION_MODALITY_LABEL_CORRECTION",
+      "discoveredAt": "2026-09-12T23:51:00+08:00",
+      "finding": "The initial manifest assigned file/text labels to several tasks whose frozen YAML shows only AppWorld tool use, leaving the intended modality strata uncovered.",
+      "resolution": "Before inspecting any valid calibration score, retain the already-started marketer_task_010 as a tool task and replace only not-yet-run selections with source-verified text, file, web, and tool tasks. Preserve the original manifest and apply calibration-selection-amendment.json as an explicit overlay.",
+      "excludedRuns": []
+    },
+    {
+      "id": "APPWORLD_DEFAULT_TOOLSET_PARITY_FIX",
+      "discoveredAt": "2026-09-12T23:55:00+08:00",
+      "finding": "The native harness inferred an AppWorld app subset from evaluator-declared tools. Official PI-Bench passes only the MCP URL and AppWorld therefore exposes its full default app set.",
+      "resolution": "Leave app_names unset for experimental runs so context-gathering apps that are not directly scored remain available. Keep synthetic snapshot preflight app-scoped because it tests storage cloning rather than model capability.",
+      "excludedRuns": ["deepseek-cal-valid-r1"]
+    },
+    {
+      "id": "CALIBRATION_TASK_LEVEL_SCORE_EXTRACTION_FIX",
+      "discoveredAt": "2026-09-13T00:11:27+08:00",
+      "finding": "The calibration driver read user-level overall fields from each single-task PI-Bench result. Those fields are null when a task has no COMP criteria, even though its task-level PROC result remains valid.",
+      "resolution": "Read COMP and PROC from the result's nested task payload, preserve COMP as null when the frozen task has no checklist or tool evaluator, and require both a matching task payload and a real score file before marking a run complete. The two bounded P2 runs remain protocol-valid and do not need to be rerun.",
+      "excludedRuns": []
+    },
+    {
+      "id": "CALIBRATION_PARALLEL_SCHEDULING",
+      "discoveredAt": "2026-09-13T00:19:42+08:00",
+      "finding": "The sequential driver underused two independent model endpoints. After briefly withdrawing the change, the user finalized a concurrent schedule and confirmed each endpoint has a minimum 500 QPS limit.",
+      "resolution": "Use separate per-model worker pools with three isolated samples per model (six total), well below the endpoint limits. AppWorld API state is in-memory per server process; every sample keeps separate ports, workspace, traces, retry ceiling, and evaluator. Preserve both scheduler-interrupted directories as excluded and use fresh retry-suffixed directories instead of reusing partial state.",
+      "excludedRuns": [
+        "qwen-max-cal-valid-v2-r3",
+        "qwen-max-cal-valid-v2-r1 (marketer_task_011)"
+      ]
+    },
+    {
+      "id": "PARALLEL_APPWORLD_SERVICE_STABILITY_FIX",
+      "discoveredAt": "2026-09-13T00:40:09+08:00",
+      "finding": "In the first six-worker batch, one AppWorld MCP process became unreachable during a model turn without logging an application exception. A complete audit of 15 batch runs found every API and MCP port unique, ruling out the initially suspected port collision; local multi-service pressure remains an unverified inference.",
+      "resolution": "The four-run follow-up completed two samples without failure before the user requested a diagnostic trial at total concurrency 10, noting that the evidence did not establish concurrency as the cause. The next batch therefore uses five isolated samples per model. As preventive hardening, the parent scheduler allocates API and MCP ports under one lock, never reuses a claimed port during the batch, and passes both explicitly to each child. Completed error-free runs are preserved; failed or scheduler-interrupted runs are excluded and rerun in fresh retry directories.",
+      "excludedRuns": [
+        "deepseek-cal-valid-v2-r2 (Financier_task_013)",
+        "deepseek-cal-valid-v2-r3 (Financier_task_013)",
+        "deepseek-cal-valid-v2-r2 (marketer_task_010)",
+        "deepseek-cal-valid-v2-r3 (marketer_task_010)",
+        "qwen-max-cal-valid-v2-r1 (marketer_task_010)",
+        "qwen-max-cal-valid-v2-r2 (marketer_task_010)",
+        "qwen-max-cal-valid-v2-r3 (marketer_task_010)",
+        "qwen-max-cal-valid-v2-r2 (marketer_task_012)",
+        "deepseek-cal-valid-v2-r1-retry1 (marketer_task_010)",
+        "deepseek-cal-valid-v2-r3-retry1 (marketer_task_010)",
+        "qwen-max-cal-valid-v2-r1-retry1 (marketer_task_010)",
+        "qwen-max-cal-valid-v2-r2-retry1 (marketer_task_010)"
+      ]
+    },
+    {
+      "id": "PARALLEL_APPWORLD_STARTUP_TIMEOUT_FIX",
+      "discoveredAt": "2026-09-13T00:57:00+08:00",
+      "finding": "At total concurrency 10, four runs across both models and different tasks failed because an AppWorld service port was not ready within 120 seconds. This common pre-task infrastructure timeout is independent of provider QPS and no model trajectory or score was produced for those runs.",
+      "resolution": "Raise only the AppWorld pre-task service-readiness wait from 120 to 300 seconds for the user-requested concurrency-10 diagnostic. Task turn, model request, retry, and evaluation budgets remain unchanged. Exclude every failed or incomplete directory from the interrupted batch and rerun each job in a fresh retry directory.",
+      "excludedRuns": [
+        "Financier/Financier_task_005/deepseek-cal-valid-v2-r2",
+        "Financier/Financier_task_005/deepseek-cal-valid-v2-r3",
+        "researcher/researcher_task_002/deepseek-cal-valid-v2-r1",
+        "researcher/researcher_task_002/deepseek-cal-valid-v2-r2",
+        "researcher/researcher_task_002/deepseek-cal-valid-v2-r3",
+        "researcher/researcher_task_010/deepseek-cal-valid-v2-r1",
+        "researcher/researcher_task_010/deepseek-cal-valid-v2-r2",
+        "Financier/Financier_task_002/qwen-max-cal-valid-v2-r1",
+        "Financier/Financier_task_002/qwen-max-cal-valid-v2-r2",
+        "Financier/Financier_task_007/qwen-max-cal-valid-v2-r1",
+        "Financier/Financier_task_007/qwen-max-cal-valid-v2-r2",
+        "Financier/Financier_task_007/qwen-max-cal-valid-v2-r3",
+        "Financier/Financier_task_013/qwen-max-cal-valid-v2-r1",
+        "Financier/Financier_task_013/qwen-max-cal-valid-v2-r2",
+        "Financier/Financier_task_013/qwen-max-cal-valid-v2-r3"
+      ]
+    },
+    {
+      "id": "CONCURRENCY_TEN_LOCAL_STARTUP_LIMIT",
+      "discoveredAt": "2026-09-13T01:05:00+08:00",
+      "finding": "The diagnostic retry at total concurrency 10 produced two more AppWorld MCP readiness timeouts even after increasing the pre-task wait to 300 seconds. This establishes local full-toolset cold-start contention at concurrency 10; provider QPS was not the limiting factor.",
+      "resolution": "Retain the 300-second pre-task startup allowance but resume with two workers per model (four total), which had already completed samples without a startup timeout. Preserve completed runs; exclude the two timed-out and all scheduler-interrupted directories from the concurrency-10 retry batch.",
+      "excludedRuns": [
+        "researcher/researcher_task_002/deepseek-cal-valid-v2-r1-retry1",
+        "researcher/researcher_task_002/deepseek-cal-valid-v2-r2-retry1",
+        "researcher/researcher_task_002/deepseek-cal-valid-v2-r3-retry1",
+        "researcher/researcher_task_010/deepseek-cal-valid-v2-r1-retry1",
+        "researcher/researcher_task_010/deepseek-cal-valid-v2-r2-retry1",
+        "Financier/Financier_task_007/qwen-max-cal-valid-v2-r1-retry1",
+        "Financier/Financier_task_007/qwen-max-cal-valid-v2-r2-retry1",
+        "Financier/Financier_task_007/qwen-max-cal-valid-v2-r3-retry1",
+        "Financier/Financier_task_013/qwen-max-cal-valid-v2-r1-retry1",
+        "Financier/Financier_task_013/qwen-max-cal-valid-v2-r2-retry1",
+        "Financier/Financier_task_013/qwen-max-cal-valid-v2-r3-retry1"
+      ]
+    },
+    {
+      "id": "CONCURRENCY_POWER_STATE_FOLLOWUP",
+      "discoveredAt": "2026-09-13T02:00:01+08:00",
+      "finding": "The workstation slept during one requested concurrency retry, invalidating that batch as evidence about startup limits. After wake, the configured five-workers-per-model retry could peak at only six total instances because DeepSeek had one job left; Qwen then sustained five active workers and produced valid results without repeating an AppWorld readiness timeout.",
+      "resolution": "Exclude only the sleep-affected incomplete directories. Hold Windows system-awake state for the lifetime of future calibration driver invocations without changing the user's power plan. Do not claim that power caused the earlier full-ten timeouts, and do not claim a successful full-ten retest because the remaining per-model job distribution made that impossible without rerunning completed samples.",
+      "excludedRuns": [
+        "Financier/Financier_task_013/qwen-max-cal-valid-v2-r1-retry3",
+        "Financier/Financier_task_013/qwen-max-cal-valid-v2-r2-retry3",
+        "Financier/Financier_task_007/qwen-max-cal-valid-v2-r1-retry3",
+        "Financier/Financier_task_007/qwen-max-cal-valid-v2-r2-retry2",
+        "Financier/Financier_task_007/qwen-max-cal-valid-v2-r3-retry2",
+        "Financier/Financier_task_002/qwen-max-cal-valid-v2-r1-retry1",
+        "Financier/Financier_task_002/qwen-max-cal-valid-v2-r2-retry1",
+        "Financier/Financier_task_002/qwen-max-cal-valid-v2-r3",
+        "Financier/Financier_task_005/qwen-max-cal-valid-v2-r1",
+        "Financier/Financier_task_005/qwen-max-cal-valid-v2-r2",
+        "researcher/researcher_task_015/deepseek-cal-valid-v2-r1-retry1"
+      ]
+    },
+    {
+      "id": "TOKEN_PLAN_ENDPOINT_AND_MODEL_ALIAS_SWITCH",
+      "discoveredAt": "2026-09-13T02:39:24+08:00",
+      "finding": "The user replaced the desktop Qwen connection document with a Token Plan configuration and requested that future calls use it while retaining the old DashScope configuration as backup. Status-only probes found credential slot 0 returned HTTP 401 at the Token Plan URL, while slot 1 authenticated; the endpoint model list exposes qwen3.8-max rather than the frozen qwen3.8-max-0902 identifier.",
+      "resolution": "Use Token Plan credential slot 1 with request model qwen3.8-max for future calls. Record the logical experiment label, requested model, base URL, and server-returned model ID separately. Retain DashScope, credential slot 0, and qwen3.8-max-0902 as an explicit fallback, and never mix the two response-ID cohorts silently. No credential content is recorded.",
+      "excludedRuns": [
+        "Financier/Financier_task_007/qwen-max-cal-valid-v2-r3-retry4",
+        "all incomplete old-endpoint directories stopped at the 2026-09-13T02:42+08:00 switchover; each has its own exclusion.json"
+      ]
+    },
+    {
+      "id": "ZERO_MODEL_RESPONSE_VALIDITY_GUARD",
+      "discoveredAt": "2026-09-13T02:48:00+08:00",
+      "finding": "A completed PI-Bench wrapper can still contain a task-level provider/authentication error, an evaluator output, and zero target-model responses. Counting that as a scored model run would conflate endpoint misconfiguration with model capability.",
+      "resolution": "Require at least one recorded target-model response in addition to completed metadata, a matching task score, and a real score file. Preserve task-level ERROR or TIMEOUT runs that contain real model responses, because protocol section 8 forbids retrying content-quality failures or model early termination.",
+      "excludedRuns": [
+        "researcher/researcher_task_002/qwen-max-cal-valid-v2-r1",
+        "researcher/researcher_task_002/qwen-max-cal-valid-v2-r2",
+        "researcher/researcher_task_002/qwen-max-cal-valid-v2-r3",
+        "Financier/Financier_task_007/qwen-max-cal-valid-v2-r3-retry4"
+      ]
+    },
+    {
+      "id": "USER_REQUESTED_PARTIAL_CALIBRATION_STOP",
+      "discoveredAt": "2026-09-13T03:23:00+08:00",
+      "finding": "The user requested that no additional Qwen samples start after the current response and that calibration be completed from existing model data. The final Token Plan task returned 23 qwen3.8-max responses but timed out before a completed turn and produced no score file.",
+      "resolution": "Pause new runs. Summarize 36 scored DeepSeek runs, 21 scored frozen-ID Qwen runs, and the one unscored Token Plan timeout separately. Use only paired scored subsets for observed metric gaps and mark the preregistered entry gate INCONCLUSIVE_PARTIAL_CALIBRATION; do not start Qwen Flash or P4/P5 automatically.",
+      "excludedRuns": []
+    }
+  ]
+}

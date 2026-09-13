@@ -4,6 +4,8 @@ release/
 research/
 output/
 *.log
+__pycache__/
+*.py[cod]
 .DS_Store
 *.db
 *.db-shm
@@ -11,6 +13,7 @@ output/
 .env
 .env.*
 !.env.example
+experiments/pi-bench-handoff/experiment.config.local.json
 
 *.sqlite
 *.sqlite-*

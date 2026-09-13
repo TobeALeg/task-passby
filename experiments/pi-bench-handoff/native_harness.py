@@ -27,12 +27,12 @@ from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 
 import httpx
 
+from experiment_config import credential_path, load_config, model_bundle, runtime_path
+
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_UPSTREAM = ROOT / "output" / "pi-bench-upstream"
 DEFAULT_OUTPUT = ROOT / "output" / "pi-bench-handoff"
-DEFAULT_KEY_FILE = Path(r"C:\Users\Dandi\Desktop\aliapikey.txt")
-DEFAULT_DEEPSEEK_KEY_FILE = Path(r"C:\Users\Dandi\Desktop\dskey.txt")
 BAILIAN_BASE_URL = "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
 BAILIAN_FALLBACK_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 BAILIAN_MODEL = "qwen3.8-max"
@@ -549,29 +549,35 @@ async def run_task(args: argparse.Namespace) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("run-task",))
+    parser.add_argument("--config", type=Path, default=None)
+    parser.add_argument(
+        "--qwen-endpoint",
+        choices=("token-plan", "dashscope-fallback"),
+        default="token-plan",
+    )
     parser.add_argument("--persona", required=True)
     parser.add_argument("--task-id", required=True)
     parser.add_argument("--model", required=True)
     parser.add_argument("--phase", default="calibration")
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--request-model", default=None)
-    parser.add_argument("--user-model", default=BAILIAN_MODEL)
-    parser.add_argument("--judge-model", default=BAILIAN_MODEL)
-    parser.add_argument("--model-base-url", default=DEEPSEEK_BASE_URL)
-    parser.add_argument("--model-key-file", type=Path, default=DEFAULT_DEEPSEEK_KEY_FILE)
-    parser.add_argument("--model-key-index", type=int, default=0)
-    parser.add_argument("--user-base-url", default=BAILIAN_BASE_URL)
-    parser.add_argument("--user-key-file", type=Path, default=DEFAULT_KEY_FILE)
-    parser.add_argument("--user-key-index", type=int, default=1)
-    parser.add_argument("--judge-base-url", default=BAILIAN_BASE_URL)
-    parser.add_argument("--judge-key-file", type=Path, default=DEFAULT_KEY_FILE)
-    parser.add_argument("--judge-key-index", type=int, default=1)
-    parser.add_argument("--upstream", type=Path, default=DEFAULT_UPSTREAM)
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--user-model", default=None)
+    parser.add_argument("--judge-model", default=None)
+    parser.add_argument("--model-base-url", default=None)
+    parser.add_argument("--model-key-file", type=Path, default=None)
+    parser.add_argument("--model-key-index", type=int, default=None)
+    parser.add_argument("--user-base-url", default=None)
+    parser.add_argument("--user-key-file", type=Path, default=None)
+    parser.add_argument("--user-key-index", type=int, default=None)
+    parser.add_argument("--judge-base-url", default=None)
+    parser.add_argument("--judge-key-file", type=Path, default=None)
+    parser.add_argument("--judge-key-index", type=int, default=None)
+    parser.add_argument("--upstream", type=Path, default=None)
+    parser.add_argument("--output", type=Path, default=None)
     parser.add_argument(
         "--python",
         type=Path,
-        default=ROOT / "output" / "pi-bench-native" / ".venv" / "Scripts" / "python.exe",
+        default=None,
     )
     parser.add_argument("--max-tokens", type=int, default=16384)
     parser.add_argument("--max-tool-iterations", type=int, default=120)
@@ -584,8 +590,42 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def apply_experiment_config(args: argparse.Namespace) -> argparse.Namespace:
+    config = load_config(args.config)
+    deepseek = model_bundle(config, "deepseek")
+    qwen = model_bundle(config, "qwen", args.qwen_endpoint)
+    if args.model == deepseek["logical_model"]:
+        target = deepseek
+        provider = "deepseek"
+    elif args.model == qwen["logical_model"]:
+        target = qwen
+        provider = "qwen"
+    else:
+        raise ValueError(f"MODEL_NOT_CONFIGURED_{args.model}")
+
+    args.request_model = args.request_model or target["request_model"]
+    args.model_base_url = args.model_base_url or target["base_url"]
+    args.model_key_file = args.model_key_file or credential_path(config, provider)
+    args.model_key_index = target["key_index"] if args.model_key_index is None else args.model_key_index
+
+    qwen_key_file = args.user_key_file or args.judge_key_file or credential_path(config, "qwen")
+    args.user_model = args.user_model or qwen["request_model"]
+    args.judge_model = args.judge_model or qwen["request_model"]
+    args.user_base_url = args.user_base_url or qwen["base_url"]
+    args.judge_base_url = args.judge_base_url or qwen["base_url"]
+    args.user_key_file = args.user_key_file or qwen_key_file
+    args.judge_key_file = args.judge_key_file or qwen_key_file
+    args.user_key_index = qwen["key_index"] if args.user_key_index is None else args.user_key_index
+    args.judge_key_index = qwen["key_index"] if args.judge_key_index is None else args.judge_key_index
+
+    args.upstream = args.upstream or runtime_path(config, "upstream")
+    args.output = args.output or runtime_path(config, "output")
+    args.python = args.python or runtime_path(config, "python")
+    return args
+
+
 def main() -> int:
-    args = parse_args()
+    args = apply_experiment_config(parse_args())
     if not args.python.is_file():
         raise FileNotFoundError(args.python)
     asyncio.run(run_task(args))

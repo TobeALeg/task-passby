@@ -32,13 +32,15 @@
 - AppWorld 全部包测试结果：1,651 passed，1 skipped。
 - 原生运行器：`experiments/pi-bench-handoff/native_harness.py`
 - JavaScript 编排与环境预检：`experiments/pi-bench-handoff/run.mjs`
+- 干净 Windows 设备入口：`experiments/pi-bench-handoff/bootstrap.ps1`；固定 CPython 3.14.3、Node 24.14.1、npm 11.11.0、上游 commit、Python 包版本和 AppWorld 数据版本，并在安装后执行离线校验。
+- Python 依赖锁：`experiments/pi-bench-handoff/requirements-win-py314.lock.txt`；机器/上游/锁文件 Hash：`experiments/pi-bench-handoff/reproducibility-manifest.json`。
 - 当前 `environment-preflight` 已通过，结果位于 `output/pi-bench-handoff/environment-preflight.json`。
 
 ### 2.3 模型与 API 预检及运行中端点切换
 
 - 来源模型：DeepSeek 官方 `deepseek-flash`。
 - 冻结目标候选：阿里云百炼 `qwen3.8-max-0902`；预注册回退模型：`qwen3.8-flash`，仅在完整 Max 校准不匹配时启用。
-- DeepSeek key 文件：桌面 `dskey.txt`；Qwen key 文件：桌面 `aliapikey.txt`。只保存文件路径，不保存 key。
+- 凭据通过 Git-ignored 的 `experiment.config.local.json` 或 path-only 环境变量配置；仓库只提供 `experiment.config.example.json`。配置只允许外部 key 文件路径和行号，不允许内联 key 值。
 - DeepSeek 官方 `/models` 返回包含 `deepseek-flash`、`deepseek-v4-pro`。
 - 三个模型的文本与 function-call 最小调用均通过，服务端返回模型 ID 已记录在 `output/pi-bench-handoff/model-preflight.json`。
 - 用户随后订阅 Token Plan 并更新同一桌面 Qwen 配置文件。状态码级探测确认新端点为 `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`，第二个凭据槽可鉴权；`/models` 仅提供 `qwen3.8-max` 而非冻结 ID `qwen3.8-max-0902`。运行器现把实验候选标签与实际请求模型分开记录，旧端点、旧模型 ID 和第一个凭据槽保留为显式备用。
@@ -76,6 +78,15 @@
 7. `TOKEN_PLAN_ENDPOINT_AND_MODEL_ALIAS_SWITCH`：新 Token Plan 使用凭据槽 1 和请求模型 `qwen3.8-max`；旧 DashScope 使用凭据槽 0 和 `qwen3.8-max-0902`，保留为备用。任何凭据内容均未进入日志或仓库。
 8. `ZERO_MODEL_RESPONSE_VALIDITY_GUARD`：有真实评分文件但模型响应数为 0 的鉴权/中断型运行不得计作可评分模型结果；已有真实模型响应但任务 `ERROR/TIMEOUT` 的轨迹仍按协议保留，不因低质量选择性重跑。
 9. `USER_REQUESTED_PARTIAL_CALIBRATION_STOP`：当前 Qwen 返回后停止新增样本，仅以现有结果完成描述性校准，正式 gate 标记为不确定。
+
+### 2.7 跨设备复现实装
+
+- `bootstrap.ps1` 可从零克隆冻结的 π-Bench commit、执行 `npm ci`/Worket build、创建 venv、安装精确 Python 版本集、安装/下载 AppWorld，并在全过程中不打开 key 文件、不调用模型。
+- `verify_reproducibility.py` 离线核对 OS/工具链版本、三个锁定文件 Hash、上游 commit、12 个校准 YAML Hash、AppWorld 数据版本、Python distributions 与真实 Worket MCP 构建产物；可选凭据检查也只检查路径存在性。
+- `reproduce.ps1` 统一提供 `verify`、`preflight`、`calibration`、`summary` 四种模式；凡会调用模型的模式必须显式传 `-AllowModelCalls`，因此 checkout、bootstrap、verify 或 summary 都不会意外恢复已暂停的 Qwen 运行。
+- `experiment_config.py` 同时供单任务 harness、批量校准和 Worket MCP 预检使用；Token Plan 为主、DashScope 为显式备用，逻辑模型、实际 request model、base URL 与服务端返回 ID 分开记录。
+- `export_private_runs.py` 可将 Git-ignored 原始运行目录打包到仓库外并附逐文件 SHA-256；不包含外部凭据文件。该包可能包含 provider response、workspace 和 AppWorld 衍生状态，只能私下保管/加密传输，不能进入 Git 或公开分发。
+- Git 中的 `calibration-existing-data-2026-09-13.json` 足以审计现有指标，但不含原始轨迹；重新评分旧轨迹必须另外携带 private bundle，重新从零跑实验则不需要旧轨迹。
 
 ## 3. 被排除的工程试跑
 
@@ -117,7 +128,7 @@
 依次运行：
 
 ```powershell
-E:\Worket\output\pi-bench-native\.venv\Scripts\python.exe -m py_compile experiments\pi-bench-handoff\native_harness.py experiments\pi-bench-handoff\run_calibration.py
+output\pi-bench-native\.venv\Scripts\python.exe -m py_compile experiments\pi-bench-handoff\native_harness.py experiments\pi-bench-handoff\run_calibration.py
 node --check experiments\pi-bench-handoff\run.mjs
 node experiments\pi-bench-handoff\run.mjs environment-preflight
 ```
@@ -130,7 +141,7 @@ node experiments\pi-bench-handoff\run.mjs environment-preflight
 
 ```powershell
 $env:PYTHONUTF8='1'
-E:\Worket\output\pi-bench-native\.venv\Scripts\python.exe experiments\pi-bench-handoff\run_calibration.py --limit 2
+output\pi-bench-native\.venv\Scripts\python.exe experiments\pi-bench-handoff\run_calibration.py --allow-model-calls --limit 2
 ```
 
 检查每个 run 的：MCP 工具可见性、真实 tool calls、最多 3 次 provider 请求、无 proxy 污染、COMP/PROC 文件、server-returned model IDs、workspace 和 trace 完整性。若全量 AppWorld schema 对 DeepSeek 构成上下文/API 限制，应如实登记为模型/环境能力结果，不能再次私自缩工具集。
@@ -169,6 +180,8 @@ E:\Worket\output\pi-bench-native\.venv\Scripts\python.exe experiments\pi-bench-h
 7. `experiments/pi-bench-handoff/summarize_calibration.py`
 8. `docs/design/pi-bench-calibration-existing-results-2026-09-13.md`
 9. `experiments/pi-bench-handoff/README.md`
+10. `experiments/pi-bench-handoff/reproducibility-manifest.json`
+11. `experiments/pi-bench-handoff/experiment.config.example.json`
 
 建议新窗口的第一条指令：
 

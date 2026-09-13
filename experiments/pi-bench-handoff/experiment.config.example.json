@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "credentials": {
+    "deepseekKeyFile": null,
+    "deepseekKeyIndex": 0,
+    "qwenKeyFile": null,
+    "qwenTokenPlanKeyIndex": 0,
+    "qwenDashscopeKeyIndex": 0
+  },
+  "models": {
+    "deepseek": {
+      "logicalModel": "deepseek-flash",
+      "requestModel": "deepseek-flash",
+      "baseUrl": "https://api.deepseek.com"
+    },
+    "qwenTokenPlan": {
+      "logicalModel": "qwen3.8-max-0902",
+      "requestModel": "qwen3.8-max",
+      "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+    },
+    "qwenDashscopeFallback": {
+      "logicalModel": "qwen3.8-max-0902",
+      "requestModel": "qwen3.8-max-0902",
+      "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    }
+  },
+  "runtime": {
+    "python": "output/pi-bench-native/.venv/Scripts/python.exe",
+    "upstream": "output/pi-bench-upstream",
+    "output": "output/pi-bench-handoff",
+    "workersPerModel": 2
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-09-13T00:00:00+08:00",
+  "platform": {
+    "os": "Windows",
+    "architecture": "x64",
+    "python": "3.14.3",
+    "node": "24.14.1",
+    "npm": "11.11.0"
+  },
+  "upstream": {
+    "repository": "https://github.com/Simplified-Reasoning/Pi-Bench",
+    "commit": "383910b1698758a198b86037c63a111c8edc32ad",
+    "appWorldDataVersion": "0.2.0"
+  },
+  "files": {
+    "package-lock.json": "8b8c1161f1ab646f5a57c66150aba0f5b220b5aeb98ae5775a8c958e04e0a907",
+    "experiments/pi-bench-handoff/requirements-win-py314.lock.txt": "2d00e56d4f8bbe3b482d981684677e6ac6cb8480b9f3c0f70472df96bf881e9c",
+    "experiments/pi-bench-handoff/calibration-selection-amendment.json": "3a8ed3c11139f29acbf88fbd32684298b9b8b3c286f640dccd4d3efd2b80aa61"
+  },
+  "localEditablePackages": {
+    "pibench": "0.1.0",
+    "nanobot-ai": "0.1.4.post3",
+    "appworld": "0.2.0.dev0"
+  },
+  "notes": [
+    "AppWorld protected assets are downloaded from the frozen upstream setup flow and are not committed to Worket.",
+    "Provider credentials remain in external local files; only their paths and line indexes belong in the ignored local config.",
+    "A provider model alias does not guarantee an immutable hosted weight snapshot; every run records requested and returned model identifiers."
+  ]
+}

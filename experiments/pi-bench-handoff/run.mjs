@@ -13,10 +13,7 @@ import { spawnSync } from "node:child_process";
 const ROOT = resolve(import.meta.dirname, "../..");
 const DEFAULT_UPSTREAM = join(ROOT, "output", "pi-bench-upstream");
 const DEFAULT_OUTPUT = join(ROOT, "output", "pi-bench-handoff");
-const DEFAULT_KEY_FILE = "C:\\Users\\Dandi\\Desktop\\aliapikey.txt";
-const DEFAULT_DEEPSEEK_KEY_FILE = "C:\\Users\\Dandi\\Desktop\\dskey.txt";
-const BAILIAN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
-const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+const DEFAULT_CONFIG = join(import.meta.dirname, "experiment.config.local.json");
 
 const CHAINS = [
   ["marketer", ["marketer_task_005"], "marketer_task_006", "apple-issey-campaign"],
@@ -57,37 +54,119 @@ const CALIBRATION = {
   ],
 };
 
-const MODEL_CANDIDATES = [
-  {
-    role: "source",
-    provider: "DeepSeek official API",
-    baseUrl: DEEPSEEK_BASE_URL,
-    requestedModel: "deepseek-flash",
-    note: "Official model-list alias returned by the experiment account on 2026-09-12.",
+const DEFAULT_DOCUMENT = {
+  schemaVersion: 1,
+  credentials: {
+    deepseekKeyFile: null,
+    deepseekKeyIndex: 0,
+    qwenKeyFile: null,
+    qwenTokenPlanKeyIndex: 1,
+    qwenDashscopeKeyIndex: 0,
   },
-  {
-    role: "target-primary",
-    provider: "Alibaba Cloud Model Studio (cn-beijing)",
-    baseUrl: BAILIAN_BASE_URL,
-    requestedModel: "qwen3.8-max-0902",
-    note: "Frozen date snapshot requested by the preregistration.",
+  models: {
+    deepseek: {
+      logicalModel: "deepseek-flash",
+      requestModel: "deepseek-flash",
+      baseUrl: "https://api.deepseek.com",
+    },
+    qwenTokenPlan: {
+      logicalModel: "qwen3.8-max-0902",
+      requestModel: "qwen3.8-max",
+      baseUrl: "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+    },
+    qwenDashscopeFallback: {
+      logicalModel: "qwen3.8-max-0902",
+      requestModel: "qwen3.8-max-0902",
+      baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    },
   },
-  {
-    role: "target-fallback",
-    provider: "Alibaba Cloud Model Studio (cn-beijing)",
-    baseUrl: BAILIAN_BASE_URL,
-    requestedModel: "qwen3.8-flash",
-    note: "Used only if the primary target fails the frozen calibration gate.",
+  runtime: {
+    upstream: "output/pi-bench-upstream",
+    output: "output/pi-bench-handoff",
   },
-];
+};
+
+function merge(base, overlay) {
+  for (const [key, value] of Object.entries(overlay ?? {})) {
+    if (value && typeof value === "object" && !Array.isArray(value) && base[key] && typeof base[key] === "object") {
+      merge(base[key], value);
+    } else {
+      base[key] = value;
+    }
+  }
+  return base;
+}
+
+function rejectInlineSecrets(value, location = "config") {
+  if (!value || typeof value !== "object") return;
+  for (const [key, child] of Object.entries(value)) {
+    const normalized = key.toLowerCase().replace(/[_-]/gu, "");
+    if (["apikey", "token", "secret", "password"].includes(normalized)) {
+      throw new Error(`INLINE_SECRET_FIELD_FORBIDDEN_${location}.${key}`);
+    }
+    if (typeof child === "string" && child.trim().startsWith("sk-")) {
+      throw new Error(`INLINE_SECRET_VALUE_FORBIDDEN_${location}.${key}`);
+    }
+    rejectInlineSecrets(child, `${location}.${key}`);
+  }
+}
+
+function configuredPath(value) {
+  if (!value) return null;
+  return resolve(ROOT, value);
+}
+
+function modelCandidates(document) {
+  const deepseek = document.models.deepseek;
+  const tokenPlan = document.models.qwenTokenPlan;
+  const fallback = document.models.qwenDashscopeFallback;
+  return [
+    {
+      role: "source",
+      provider: "DeepSeek official API",
+      keyProvider: "deepseek",
+      keyIndex: Number(document.credentials.deepseekKeyIndex),
+      logicalModel: deepseek.logicalModel,
+      baseUrl: deepseek.baseUrl,
+      requestedModel: deepseek.requestModel,
+      note: "Frozen PI-Bench source-model alias.",
+    },
+    {
+      role: "target-primary",
+      provider: "Alibaba Cloud Model Studio Token Plan (cn-beijing)",
+      keyProvider: "qwen",
+      keyIndex: Number(document.credentials.qwenTokenPlanKeyIndex),
+      logicalModel: tokenPlan.logicalModel,
+      baseUrl: tokenPlan.baseUrl,
+      requestedModel: tokenPlan.requestModel,
+      note: "Primary runtime bundle after the recorded Token Plan amendment.",
+    },
+    {
+      role: "target-backup",
+      provider: "Alibaba Cloud Model Studio DashScope (cn-beijing)",
+      keyProvider: "qwen",
+      keyIndex: Number(document.credentials.qwenDashscopeKeyIndex),
+      logicalModel: fallback.logicalModel,
+      baseUrl: fallback.baseUrl,
+      requestedModel: fallback.requestModel,
+      note: "Explicit old-endpoint backup; response cohorts must remain separate.",
+    },
+  ];
+}
+
+function publicModelCandidate(candidate) {
+  const { keyProvider: _keyProvider, keyIndex: _keyIndex, ...publicFields } = candidate;
+  return publicFields;
+}
 
 function parseArgs(argv) {
   const options = {
     command: argv[2] ?? "all",
-    upstream: DEFAULT_UPSTREAM,
-    output: DEFAULT_OUTPUT,
-    keyFile: DEFAULT_KEY_FILE,
-    deepseekKeyFile: DEFAULT_DEEPSEEK_KEY_FILE,
+    upstream: null,
+    output: null,
+    config: process.env.PI_BENCH_CONFIG ?? DEFAULT_CONFIG,
+    keyFile: process.env.PI_BENCH_QWEN_KEY_FILE ?? null,
+    deepseekKeyFile: process.env.PI_BENCH_DEEPSEEK_KEY_FILE ?? null,
   };
   for (let index = 3; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -98,8 +177,22 @@ function parseArgs(argv) {
     if (value === undefined) throw new Error(`MISSING_VALUE_${raw}`);
     options[key] = value;
   }
-  options.upstream = resolve(options.upstream);
-  options.output = resolve(options.output);
+  options.config = resolve(options.config);
+  const document = structuredClone(DEFAULT_DOCUMENT);
+  if (existsSync(options.config)) {
+    const overlay = JSON.parse(readFileSync(options.config, "utf8"));
+    rejectInlineSecrets(overlay);
+    merge(document, overlay);
+  } else if (process.env.PI_BENCH_CONFIG || argv.some((item) => item === "--config" || item.startsWith("--config="))) {
+    throw new Error(`EXPERIMENT_CONFIG_NOT_FOUND_${options.config}`);
+  }
+  if (document.schemaVersion !== 1) throw new Error("UNSUPPORTED_EXPERIMENT_CONFIG_SCHEMA");
+  options.upstream = configuredPath(options.upstream ?? document.runtime?.upstream) ?? DEFAULT_UPSTREAM;
+  options.output = configuredPath(options.output ?? document.runtime?.output) ?? DEFAULT_OUTPUT;
+  options.python = configuredPath(document.runtime?.python ?? "output/pi-bench-native/.venv/Scripts/python.exe");
+  options.keyFile = configuredPath(options.keyFile ?? document.credentials.qwenKeyFile);
+  options.deepseekKeyFile = configuredPath(options.deepseekKeyFile ?? document.credentials.deepseekKeyFile);
+  options.modelCandidates = modelCandidates(document);
   return options;
 }
 
@@ -240,7 +333,7 @@ function preregister(config) {
         resolution: "Use a frozen unkeyed DuckDuckGo HTML search adapter for every condition and model; retain web_fetch unchanged and report the provider deviation.",
       },
     ],
-    models: MODEL_CANDIDATES,
+    models: config.modelCandidates.map(publicModelCandidate),
     frozenParameters: {
       repeats: 3,
       pilotRepeats: 1,
@@ -259,10 +352,14 @@ function preregister(config) {
   return manifest;
 }
 
-function readKey(path) {
-  const key = readFileSync(path, "utf8").trim();
-  if (!key.startsWith("sk-") || key.length < 20 || /\s/u.test(key)) throw new Error("INVALID_MODEL_KEY_FILE");
-  return key;
+function readKey(path, index) {
+  if (!path) throw new Error("MODEL_KEY_FILE_PATH_NOT_CONFIGURED");
+  const keys = readFileSync(path, "utf8")
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("sk-") && line.length >= 20 && !/\s/u.test(line));
+  if (!Number.isInteger(index) || index < 0 || index >= keys.length) throw new Error("INVALID_MODEL_KEY_FILE");
+  return keys[index];
 }
 
 async function modelCall(apiKey, baseUrl, model, withTool) {
@@ -308,11 +405,10 @@ async function modelCall(apiKey, baseUrl, model, withTool) {
 }
 
 async function modelPreflight(config) {
-  const qwenKey = readKey(config.keyFile);
-  const deepseekKey = readKey(config.deepseekKeyFile);
   const records = [];
-  for (const candidate of MODEL_CANDIDATES) {
-    const apiKey = candidate.role === "source" ? deepseekKey : qwenKey;
+  for (const candidate of config.modelCandidates) {
+    const keyFile = candidate.keyProvider === "deepseek" ? config.deepseekKeyFile : config.keyFile;
+    const apiKey = readKey(keyFile, candidate.keyIndex);
     let text;
     let tool;
     try { text = await modelCall(apiKey, candidate.baseUrl, candidate.requestedModel, false); }
@@ -320,11 +416,11 @@ async function modelPreflight(config) {
     try { tool = await modelCall(apiKey, candidate.baseUrl, candidate.requestedModel, true); }
     catch (error) { tool = { error: error instanceof Error ? error.message : String(error) }; }
     const pass = text.textMatches === true && tool.toolCalled === true;
-    records.push({ ...candidate, text, tool, pass });
+    records.push({ ...publicModelCandidate(candidate), text, tool, pass });
     atomicJson(join(config.output, "model-preflight.json"), {
       schemaVersion: 1,
       updatedAt: new Date().toISOString(),
-      endpoints: Object.fromEntries(MODEL_CANDIDATES.map((item) => [item.role, item.baseUrl])),
+      endpoints: Object.fromEntries(config.modelCandidates.map((item) => [item.role, item.baseUrl])),
       records,
       complete: false,
     });
@@ -333,7 +429,7 @@ async function modelPreflight(config) {
   const result = {
     schemaVersion: 1,
     completedAt: new Date().toISOString(),
-    endpoints: Object.fromEntries(MODEL_CANDIDATES.map((item) => [item.role, item.baseUrl])),
+    endpoints: Object.fromEntries(config.modelCandidates.map((item) => [item.role, item.baseUrl])),
     records,
     pass: records.every((item) => item.pass),
     complete: true,
@@ -343,7 +439,7 @@ async function modelPreflight(config) {
 }
 
 function environmentPreflight(config) {
-  const nativePythonPath = join(ROOT, "output", "pi-bench-native", ".venv", "Scripts", "python.exe");
+  const nativePythonPath = config.python;
   const python = existsSync(nativePythonPath)
     ? run(nativePythonPath, ["--version"])
     : { ok: false, stdout: "", stderr: "native venv missing" };

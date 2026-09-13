@@ -17,12 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from experiment_config import credential_path, load_config, model_bundle, runtime_path
 from native_harness import (
-    BAILIAN_BASE_URL,
-    BAILIAN_FALLBACK_BASE_URL,
-    BAILIAN_FALLBACK_MODEL,
-    BAILIAN_MODEL,
-    DEEPSEEK_BASE_URL,
     ROOT,
     atomic_json,
 )
@@ -31,24 +27,17 @@ from native_harness import (
 MANIFEST = ROOT / "output" / "pi-bench-handoff" / "manifest.json"
 SELECTION_AMENDMENT = ROOT / "experiments" / "pi-bench-handoff" / "calibration-selection-amendment.json"
 OUTPUT = ROOT / "output" / "pi-bench-handoff"
+UPSTREAM = ROOT / "output" / "pi-bench-upstream"
 HARNESS = ROOT / "experiments" / "pi-bench-handoff" / "native_harness.py"
 MODELS = {
     "deepseek-flash": {
         "slug": "deepseek",
-        "base_url": DEEPSEEK_BASE_URL,
-        "key_file": Path(r"C:\Users\Dandi\Desktop\dskey.txt"),
     },
     "qwen3.8-max-0902": {
         "slug": "qwen-max",
-        "base_url": BAILIAN_BASE_URL,
-        "key_file": Path(r"C:\Users\Dandi\Desktop\aliapikey.txt"),
-        "key_index": 1,
-        "request_model": BAILIAN_MODEL,
-        "fallback_base_url": BAILIAN_FALLBACK_BASE_URL,
-        "fallback_key_index": 0,
-        "fallback_request_model": BAILIAN_FALLBACK_MODEL,
     },
 }
+RUN_CONTEXT: dict[str, Any] = {}
 _PORT_LOCK = threading.Lock()
 _CLAIMED_PORTS: set[int] = set()
 
@@ -160,7 +149,7 @@ def planned_jobs(selected_models: set[str]) -> list[dict[str, Any]]:
         calibration = json.loads(SELECTION_AMENDMENT.read_text(encoding="utf-8"))["tasks"]
     jobs = []
     for task in calibration:
-        task_path = ROOT / "output" / "pi-bench-upstream" / "data" / task["persona"] / "tasks" / task["taskId"] / "task.yaml"
+        task_path = UPSTREAM / "data" / task["persona"] / "tasks" / task["taskId"] / "task.yaml"
         actual_hash = hashlib.sha256(task_path.read_bytes()).hexdigest()
         if task.get("sha256") != actual_hash:
             raise RuntimeError(f"CALIBRATION_HASH_MISMATCH_{task['taskId']}")
@@ -208,6 +197,17 @@ def execute_job(job: dict[str, Any]) -> dict[str, Any] | None:
         "--model-base-url", model["base_url"],
         "--model-key-file", str(model["key_file"]),
         "--model-key-index", str(model.get("key_index", 0)),
+        "--user-model", RUN_CONTEXT["qwen"]["request_model"],
+        "--user-base-url", RUN_CONTEXT["qwen"]["base_url"],
+        "--user-key-file", str(RUN_CONTEXT["qwen_key_file"]),
+        "--user-key-index", str(RUN_CONTEXT["qwen"]["key_index"]),
+        "--judge-model", RUN_CONTEXT["qwen"]["request_model"],
+        "--judge-base-url", RUN_CONTEXT["qwen"]["base_url"],
+        "--judge-key-file", str(RUN_CONTEXT["qwen_key_file"]),
+        "--judge-key-index", str(RUN_CONTEXT["qwen"]["key_index"]),
+        "--upstream", str(UPSTREAM),
+        "--output", str(OUTPUT),
+        "--python", sys.executable,
         "--phase", "calibration",
         "--run-id", destination.name,
         "--appworld-api-port", str(api_port),
@@ -228,6 +228,9 @@ def execute_job(job: dict[str, Any]) -> dict[str, Any] | None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, default=None)
+    parser.add_argument("--dry-run", action="store_true", help="Validate selection and report pending jobs without model calls.")
+    parser.add_argument("--allow-model-calls", action="store_true", help="Required safety gate before launching provider requests.")
     parser.add_argument("--limit", type=int, default=0, help="Maximum new runs; 0 means all remaining.")
     parser.add_argument("--model", action="append", choices=sorted(MODELS), dest="models")
     parser.add_argument(
@@ -239,29 +242,64 @@ def main() -> int:
     parser.add_argument(
         "--workers-per-model",
         type=int,
-        default=1,
-        help="Concurrent isolated runs per model (1-8). Separate model pools run in parallel.",
+        default=0,
+        help="Concurrent isolated runs per model (1-5); 0 uses the local config. Separate model pools run in parallel.",
     )
     args = parser.parse_args()
-    if not 1 <= args.workers_per_model <= 8:
-        parser.error("--workers-per-model must be between 1 and 8")
-    if args.qwen_endpoint == "dashscope-fallback":
-        qwen = MODELS["qwen3.8-max-0902"]
-        qwen["base_url"] = qwen["fallback_base_url"]
-        qwen["key_index"] = qwen["fallback_key_index"]
-        qwen["request_model"] = qwen["fallback_request_model"]
+    config = load_config(args.config)
+    workers_per_model = args.workers_per_model or int(config["runtime"]["workersPerModel"])
+    if not 1 <= workers_per_model <= 5:
+        parser.error("--workers-per-model must be between 1 and 5")
+
+    global OUTPUT, UPSTREAM, MANIFEST
+    OUTPUT = runtime_path(config, "output")
+    UPSTREAM = runtime_path(config, "upstream")
+    MANIFEST = OUTPUT / "manifest.json"
+    deepseek = model_bundle(config, "deepseek")
+    qwen = model_bundle(config, "qwen", args.qwen_endpoint)
+    for logical_name, bundle, provider in (
+        ("deepseek-flash", deepseek, "deepseek"),
+        ("qwen3.8-max-0902", qwen, "qwen"),
+    ):
+        if bundle["logical_model"] != logical_name:
+            parser.error(f"Configured logical model must remain {logical_name}")
+        MODELS[logical_name].update({
+            "base_url": bundle["base_url"],
+            "request_model": bundle["request_model"],
+            "key_index": bundle["key_index"],
+            "key_file": credential_path(config, provider, required=not args.dry_run),
+        })
+    RUN_CONTEXT.update({
+        "qwen": qwen,
+        "qwen_key_file": credential_path(config, "qwen", required=not args.dry_run),
+    })
+
+    selected_models = set(args.models or MODELS)
+    jobs = planned_jobs(selected_models)
+    pending = [job for job in jobs if result_for_job(job) is None]
+    if args.limit:
+        pending = pending[:args.limit]
+    if args.dry_run:
+        print(json.dumps({
+            "type": "calibration-plan",
+            "modelCallsMade": False,
+            "planned": len(jobs),
+            "complete": len(jobs) - len([job for job in jobs if result_for_job(job) is None]),
+            "wouldLaunch": len(pending),
+            "workersPerModel": workers_per_model,
+            "qwenEndpoint": args.qwen_endpoint,
+        }, ensure_ascii=False))
+        return 0
+    if not args.allow_model_calls:
+        parser.error("--allow-model-calls is required to launch calibration")
+
     with prevent_system_sleep():
-        selected_models = set(args.models or MODELS)
-        jobs = planned_jobs(selected_models)
         failures: list[dict[str, Any]] = []
         write_progress(jobs, failures)
 
-        pending = [job for job in jobs if result_for_job(job) is None]
-        if args.limit:
-            pending = pending[:args.limit]
         launched = len(pending)
         executors = {
-            model: ThreadPoolExecutor(max_workers=args.workers_per_model, thread_name_prefix=MODELS[model]["slug"])
+            model: ThreadPoolExecutor(max_workers=workers_per_model, thread_name_prefix=MODELS[model]["slug"])
             for model in selected_models
         }
         try:
@@ -289,7 +327,7 @@ def main() -> int:
             "planned": progress["planned"],
             "complete": progress["complete"],
             "failures": len(failures),
-            "workersPerModel": args.workers_per_model,
+            "workersPerModel": workers_per_model,
             "progress": str(OUTPUT / "calibration-progress.json"),
         }, ensure_ascii=False))
         return 1 if failures else 0

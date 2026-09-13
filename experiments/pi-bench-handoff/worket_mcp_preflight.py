@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import hashlib
 import json
@@ -13,10 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from experiment_config import credential_path, load_config, model_bundle, runtime_path
 from native_harness import (
-    BAILIAN_BASE_URL,
-    DEFAULT_KEY_FILE,
-    DEFAULT_UPSTREAM,
     ROOT,
     atomic_json,
     discard_dead_loopback_proxy,
@@ -24,9 +23,7 @@ from native_harness import (
 )
 
 
-OUTPUT = ROOT / "output" / "pi-bench-handoff" / "worket-mcp-preflight"
 SERVER = ROOT / "experiments" / "pi-bench-handoff" / "worket_mcp_server.mjs"
-MODEL = "qwen3.8-max-0902"
 REQUIRED_TOOLS = (
     "mcp_worket_get_work_context",
     "mcp_worket_get_artifact_refs",
@@ -47,16 +44,21 @@ def run_node(*arguments: str) -> None:
     )
 
 
-async def preflight() -> dict[str, Any]:
+async def preflight(args: argparse.Namespace) -> dict[str, Any]:
+    config = load_config(args.config)
+    qwen = model_bundle(config, "qwen", args.qwen_endpoint)
+    qwen_key_file = credential_path(config, "qwen")
+    upstream = runtime_path(config, "upstream")
+    output = runtime_path(config, "output") / "worket-mcp-preflight"
     discarded_proxy = discard_dead_loopback_proxy()
-    OUTPUT.mkdir(parents=True, exist_ok=True)
-    database = OUTPUT / "worket.sqlite"
-    artifact = OUTPUT / "handoff-source.txt"
-    seed_input = OUTPUT / "seed-input.json"
-    seed_output = OUTPUT / "seed-output.json"
-    inspection = OUTPUT / "inspection.json"
-    traces = OUTPUT / "traces"
-    workspace = OUTPUT / "workspace"
+    output.mkdir(parents=True, exist_ok=True)
+    database = output / "worket.sqlite"
+    artifact = output / "handoff-source.txt"
+    seed_input = output / "seed-input.json"
+    seed_output = output / "seed-output.json"
+    inspection = output / "inspection.json"
+    traces = output / "traces"
+    workspace = output / "workspace"
     artifact.write_text(
         "Approved campaign: Qingyuan Reservoir. Budget ceiling: CNY 8,000.\n",
         encoding="utf-8",
@@ -133,7 +135,7 @@ async def preflight() -> dict[str, Any]:
     seeded = json.loads(seed_output.read_text(encoding="utf-8"))
     work_id = seeded["workInstanceId"]
 
-    sys.path.insert(0, str(DEFAULT_UPSTREAM))
+    sys.path.insert(0, str(upstream))
     from nanobot.agent.hooks import JsonStorageHook
     from nanobot.agent.loop import AgentLoop
     from nanobot.bus.queue import MessageBus
@@ -143,15 +145,15 @@ async def preflight() -> dict[str, Any]:
 
     sync_workspace_templates(workspace)
     provider = CustomProvider(
-        api_key=read_key(DEFAULT_KEY_FILE),
-        api_base=BAILIAN_BASE_URL,
-        default_model=MODEL,
+        api_key=read_key(qwen_key_file, qwen["key_index"]),
+        api_base=qwen["base_url"],
+        default_model=qwen["request_model"],
     )
     agent = AgentLoop(
         bus=MessageBus(),
         provider=provider,
         workspace=workspace,
-        model=MODEL,
+        model=qwen["request_model"],
         temperature=0.0,
         max_tokens=2048,
         max_iterations=12,
@@ -217,7 +219,10 @@ async def preflight() -> dict[str, Any]:
     result = {
         "type": "worket-mcp-preflight",
         "pass": passed,
-        "model": MODEL,
+        "model": qwen["logical_model"],
+        "logicalModel": qwen["logical_model"],
+        "requestedModel": qwen["request_model"],
+        "baseUrl": qwen["base_url"],
         "workInstanceId": work_id,
         "registeredTools": registered,
         "toolCallCounts": counts,
@@ -228,11 +233,22 @@ async def preflight() -> dict[str, Any]:
         "discardedDeadLoopbackProxy": discarded_proxy,
         "trace": str(trace_files[-1]),
     }
-    atomic_json(OUTPUT / "result.json", result)
+    atomic_json(output / "result.json", result)
     print(json.dumps(result, ensure_ascii=False))
     return result
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, default=None)
+    parser.add_argument(
+        "--qwen-endpoint",
+        choices=("token-plan", "dashscope-fallback"),
+        default="token-plan",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    outcome = asyncio.run(preflight())
+    outcome = asyncio.run(preflight(parse_args()))
     raise SystemExit(0 if outcome["pass"] else 1)
